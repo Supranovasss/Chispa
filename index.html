@@ -897,7 +897,7 @@ function camStop(speakIt,full){
 }
 function camOff(){
   if(camMode&&camMode!=='follow') return camStop(true);
-  CFG.follow=false; saveCfg(); camStop(true,true);
+  CFG.follow=false; camStop(true,true);
 }
 function stopWatch(speakIt){camStop(speakIt)}
 function startMode(m,needRecog){
@@ -1076,12 +1076,17 @@ function startWatch(){
     logWatch('Vigilancia activada',false); reply('Listo, estoy vigilando. Te aviso si veo movimiento.');
   }).catch(camFail);
 }
+var followTry=0;
 function startFollow(quiet){
-  CFG.follow=true; saveCfg();
+  CFG.follow=true; followTry=Date.now();
   if(camMode==='follow'){if(!quiet) reply('Ya te estoy siguiendo con la mirada.'); return}
   endGame();
   return startMode('follow',false).then(function(){if(!quiet) reply('Te miro. Muévete y te sigo con la mirada.')}).catch(function(e){
-    if(quiet){note('No pude abrir la cámara para seguirte con los ojos. Revisa Voz y permisos.'); return}
+    if(quiet){
+      note('No pude abrir la cámara para seguirte con los ojos. Revisa Voz y permisos.');
+      try{navigator.permissions.query({name:'camera'}).then(function(p){if(p.state==='denied') note('La cámara está bloqueada. Permítela en el candado del navegador (Permisos > Cámara) o en Ajustes de Android > Apps > Chispa > Permisos.')}).catch(function(){})}catch(e2){}
+      return;
+    }
     camFail(e);
   });
 }
@@ -2161,7 +2166,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-azul', pendingUpdate=false;
+var APP_VERSION='2026-10-15-sigueme', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
@@ -2177,7 +2182,7 @@ setInterval(function(){
 $('#verTag').textContent=' · v'+APP_VERSION;
 tick(); setInterval(tick,1000);
 autoWake();
-if(CFG.follow){setTimeout(function(){startFollow(true)},1500); addEventListener('pointerdown',function(){if(CFG.follow&&!stream&&!camMode) startFollow(true)},{once:true,passive:true})}
+CFG.follow=true; setTimeout(function(){startFollow(true)},1500); addEventListener('pointerdown',function(){if(CFG.follow&&!stream&&!camMode&&Date.now()-followTry>5000) startFollow(true)},{passive:true});
 spCallback(); if(spOn()) setTimeout(spInit,2500);
 loadWeather(); setInterval(loadWeather,20*60*1000);
 requestAnimationFrame(frame);
