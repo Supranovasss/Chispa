@@ -1176,6 +1176,9 @@ function camMenu(){
 $('#camBtn').addEventListener('click',function(){if(camMode==='gestures'||camMode==='rps') camStop(true); else startGestures()});
 
 /* ---------- Voz de entrada ---------- */
+var DLOG=[], dT0=Date.now();
+function dlog(m){try{DLOG.push(((Date.now()-dT0)/1000).toFixed(1)+'s '+m); if(DLOG.length>40) DLOG.shift(); var b=document.getElementById('dlogBox'); if(b){b.textContent='REGISTRO v'+APP_VERSION+' (toca para cerrar)\n'+DLOG.slice(-28).join('\n'); b.scrollTop=b.scrollHeight}}catch(e){}}
+function dlogToggle(){var b=document.getElementById('dlogBox'); if(b){b.remove(); return} b=document.createElement('div'); b.id='dlogBox'; b.style.cssText='position:fixed;left:3%;right:3%;top:4%;bottom:4%;z-index:99999;background:#0d1722f5;color:#cfe4ff;border:2px solid #2b7fff;border-radius:14px;padding:14px;font:15px/1.45 ui-monospace,monospace;overflow:auto;white-space:pre-wrap'; b.onclick=function(){b.remove()}; document.body.appendChild(b); dlog('registro abierto')}
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, armedUntil=0, LANGS=['es-CO','es-US','es-MX','es-419','es-ES'], langI=0;
 var startedAt=0, wfails=0, gestureSeen=false, autoBlocked=false, recCont=false, resumeMedia=null;
 function mediaOn(){return vidPlaying||spPlaying}
@@ -1206,9 +1209,10 @@ function startListen(continuous){
     for(var i=e.resultIndex;i<e.results.length;i++){
       var res=e.results[i], txt=res[0].transcript, alts=[];
       for(var j=0;j<res.length;j++) alts.push(res[j].transcript);
+      dlog((res.isFinal?'FINAL ':'parcial ')+(continuous?'[cont] ':'[uno] ')+'«'+txt+'» armado='+(Date.now()<armedUntil)+' hablando='+talking+' pend='+(typeof pendHead!=='undefined'&&!!pendHead));
       if(res.isFinal){lastMicErr=''; if(continuous) note('Oí: '+txt)}
       if(continuous){
-        if(talking||Date.now()-lastSaidEnd<1800) continue;
+        if(talking||Date.now()-lastSaidEnd<1800){dlog('  ignorado: Chispa hablando o recién habló'); continue}
         var n=norm(txt).trim(), wm=wakeMatch(alts);
         if(!res.isFinal){
           if(wm&&!wakeEarly){wakeEarly=true; act(); wakeBlue(12000); setMood('listening',8000); armedUntil=Math.max(armedUntil,Date.now()+25000)}
@@ -1298,6 +1302,7 @@ function syncWake(){el.wake.setAttribute('aria-pressed',wakeOn); if(!wakeOn) mic
 var wbT=0;
 function wakeBlue(ms){document.body.classList.add('wakeblue'); clearTimeout(wbT); wbT=setTimeout(function(){document.body.classList.remove('wakeblue')},ms)}
 function arm(){
+  dlog('arm (ventana abierta)');
   armedUntil=Date.now()+25000; lastInterim=null; beep([880,1320]); setMood('listening',8000);
   el.bubble.textContent='Te escucho…'; note('Dime qué necesitas.');
 }
@@ -2251,7 +2256,7 @@ var INTENTS=[
    function(){reply(pickLine('hola',saludo()+(CFG.name?', '+CFG.name:'')+'. ¿En qué te ayudo?'))}]
 ];
 function handle(raw){
-  raw=String(raw||'').trim(); if(!raw) return;
+  raw=String(raw||'').trim(); if(!raw) return; dlog('HANDLE «'+raw+'»');
   note('Tú: '+raw);
   var q=norm(raw);
   if(HEADONLY.test(q)&&!headPending()){pendHead={t:q,exp:Date.now()+15000}; note('Te escucho… dime qué más'); wakeBlue(15000); setMood('listening',8000); if(wakeOn){armedUntil=Date.now()+25000; lastInterim=null} else startListen(false); return}
@@ -3066,7 +3071,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-ventana2', pendingUpdate=false;
+var APP_VERSION='2026-10-16-registro', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
@@ -3079,7 +3084,7 @@ setInterval(function(){
 
 /* ---------- Arranque ---------- */
 (function(){var dk=document.getElementById('dock'); function f(){document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px')} f(); if(window.ResizeObserver) new ResizeObserver(f).observe(dk); addEventListener('resize',f)})();
-$('#verTag').textContent=' · v'+APP_VERSION;
+$('#verTag').textContent=' · v'+APP_VERSION; $('#verTag').style.cssText='cursor:pointer;text-decoration:underline'; $('#verTag').onclick=dlogToggle;
 tick(); setInterval(tick,1000);
 autoWake();
 CFG.follow=true; setTimeout(function(){startFollow(true)},1500); addEventListener('pointerdown',function(){if(CFG.follow&&!stream&&!camMode&&Date.now()-followTry>5000) startFollow(true)},{passive:true});
