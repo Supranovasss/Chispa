@@ -2171,12 +2171,13 @@ var INTENTS=[
   [function(q){return spOn()&&(/(sube|subir|aumenta|mas alto|mas fuerte)\b.*\b(volumen|musica)\b/.test(q)||/\bvolumen (mas )?(alto|arriba)\b/.test(q))}, function(){spCtl('volup')}],
   [function(q){return spOn()&&(/(baja|bajar|disminuye|mas bajo|menos)\b.*\b(volumen|musica)\b/.test(q)||/\bvolumen (mas )?(bajo|abajo)\b/.test(q))}, function(){spCtl('voldown')}],
   [function(q){return spOn()&&/(que (cancion|musica|tema) (es|suena|es esta)|como se llama (esta|la) cancion|quien canta)/.test(q)}, function(){reply(spTrack?'Suena '+spTrack+'.':'No sé qué suena ahora.')}],
-  [function(q){return spOn()&&!/\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)&&((/\b(pon|ponme|pone|reproduce|toca|tocame)\b/.test(q)&&/\b(cancion|canciones|musica|tema|disco|album|spotify)\b/.test(q))||/\bquiero (escuchar|oir)\b/.test(q))}, function(q,raw){spPlayQuery(musicQuery(raw))}],
+  [function(q){return spOn()&&!/\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)&&isSongReq(q)}, function(q,raw){spPlayQuery(musicQuery(raw))}],
   [function(q){return /\b(cierra|quita|apaga|oculta|termina|deten|detener|para)\b.*\bvideo/.test(q)||/(saca|quita) (el )?video/.test(q)}, function(){closeVideo(); setMood('happy',1000); reply('Listo, quité el video.')}],
   [function(q){return !!vidPlayer&&/(pausa|pausar|pon pausa)/.test(q)}, function(){if(resumeMedia) resumeMedia.t=true; try{vidPlayer.pauseVideo()}catch(e){}}],
   [function(q){return !!vidPlayer&&/(reanuda|continua|dale play|sigue el video|sigue con el video)/.test(q)}, function(){try{vidPlayer.playVideo()}catch(e){}}],
   [function(q){return vidQ.length>1&&/(otro video|siguiente video|el siguiente|otro mas|cambia (de )?video)/.test(q)}, function(){vidI=(vidI+1)%vidQ.length; showVideo()}],
-  [function(q){return /\b(pon|ponme|ponga|muestrame|ensename|reproduce|busca|buscame|quiero ver|ver)\b.*\b(video|videos|cancion|canciones|musica|clip|clips|trailer|tutorial)\b/.test(q)}, function(q,raw){var vq=videoQuery(raw); if(vq&&/\b(cancion|canciones|musica|tema)\b/.test(q)&&!/\bvideo/.test(q)) vq+=' audio oficial'; playVideo(vq)}],
+  [function(q){return isSongReq(q)||/\b(pon|ponme|ponga|muestrame|ensename|reproduce|busca|buscame|quiero ver|ver)\b.*\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)}, function(q,raw){
+     if(isSongReq(q)&&!/\bvideo/.test(q)){var sq=musicQuery(raw); playVideo(sq?sq+' audio oficial':'')} else playVideo(videoQuery(raw))}],
   [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
   [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
   [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
@@ -2286,11 +2287,12 @@ function aiError(e){
   if(st===400||st===401||st===403) return 'La IA rechazó la llave. Revísala en Voz y permisos.';
   if(st===429) return 'Se acabó el cupo de la IA por ahora. Prueba en un rato.';
   if(st===404) return 'No encontré el modelo de IA. Hay que actualizarme.';
+  if(st===500||st===502||st===503||st===504||st===529) return 'La IA está saturada ahora mismo. Pídemelo otra vez en un momento.';
   if(st) return 'La IA respondió con un error ('+st+').';
   return 'No pude conectar con la IA. Revisa el internet.';
 }
 function geminiCall(sys,msgs,maxTok){
-  var list=[CFG.aiModel||'gemini-3.5-flash-lite','gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.1-flash-lite'].filter(function(m,k,a){return a.indexOf(m)===k}), i=0;
+  var list=[CFG.aiModel||'gemini-3.5-flash-lite','gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.1-flash-lite'].filter(function(m,k,a){return a.indexOf(m)===k}), i=0, rounds=0, moved=false;
   function go(){
     var model=list[i];
     return fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
@@ -2304,19 +2306,31 @@ function geminiCall(sys,msgs,maxTok){
     }).then(function(j){
       var c=j.candidates&&j.candidates[0], t=c&&c.content&&c.content.parts?c.content.parts.map(function(x){return x.text||''}).join(''):'';
       if(!t.trim()) throw new Error('empty');
-      if(CFG.aiModel!==model){CFG.aiModel=model; saveCfg()}
+      if(moved&&CFG.aiModel!==model){CFG.aiModel=model; saveCfg()}
       return t.trim();
-    }).catch(function(e){if(e&&e.status===404&&++i<list.length) return go(); throw e});
+    }).catch(function(e){
+      var st=e&&e.status;
+      if(st===404&&++i<list.length){moved=true; return go()}
+      if(st===503||st===500||st===502||st===504||(e&&e.message==='empty')){
+        if(++i<list.length) return go();
+        if(++rounds<2){i=0; return new Promise(function(res){setTimeout(res,1200)}).then(go)}
+      }
+      throw e;
+    });
   }
   return go();
 }
-function claudeCall(sys,msgs,maxTok){
+function claudeCall(sys,msgs,maxTok,n){
+  n=n||0;
   return fetch('https://api.anthropic.com/v1/messages',{method:'POST',
     headers:{'x-api-key':CFG.aiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
     body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:maxTok,system:sys,messages:msgs})
   }).then(function(r){
     if(!r.ok){var e=new Error('http'+r.status); e.status=r.status; throw e}
     return r.json();
+  }).catch(function(e){
+    var st=e&&e.status; if((st===503||st===500||st===529||st===502)&&n<2) return new Promise(function(res){setTimeout(res,1200)}).then(function(){return claudeCall(sys,msgs,maxTok,n+1)});
+    throw e;
   }).then(function(j){
     var t=(j.content||[]).map(function(b){return b.text||''}).join('').trim();
     if(!t) throw new Error('empty'); return t;
@@ -2339,13 +2353,14 @@ var NOAI='Para eso necesito mi cerebro de IA. Pon la llave en Voz y permisos.';
 function askClaude(raw){
   var fallback='No te entendí bien. Prueba con: la agenda, mis recetas, mis notas, la lista de compras, una alarma, un temporizador, el clima, un chiste o un juego. Di ayuda para ver todo.';
   if(!aiReady()){
-    misses++; if(misses<=2){reAsk('No te entendí. ¿Me lo repites?'); return}
+    misses++; if(misses===1){reAsk('No te entendí. ¿Me lo repites?'); return}
+    if(misses===2){reply('Sigo sin entender. Di ayuda para ver lo que sé hacer.'); return}
     misses=0; reply(fallback+' Para conversar de cualquier cosa, pon la llave de IA en Voz y permisos.'); return}
   setMood('thinking'); el.bubble.textContent='Pensando…';
   aiAsk(raw,{kind:'chat'}).then(function(t){
     misses=0; t=cleanAi(t); hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6);
     reply(t);
-  }).catch(function(e){setMood(baseline()); if(e&&e.message==='noai'){misses++; if(misses<=2){reAsk('No te entendí. ¿Me lo repites?'); return} misses=0; reply(fallback); return} reply(aiError(e))});
+  }).catch(function(e){setMood(baseline()); if(e&&e.message==='noai'){misses++; if(misses===1){reAsk('No te entendí. ¿Me lo repites?'); return} misses=0; reply('Sigo sin entender. Di ayuda para ver lo que sé hacer.'); return} reply(aiError(e))});
 }
 function curioso(){
   if(!aiReady()){reply(nextOf(FACTS,'f')); return}
@@ -2472,19 +2487,24 @@ function spDevice(){
     });
   });
 }
+var SONG_V=/\b(pon|ponme|pone|pones|poner|ponerme|pongo|ponla|ponle|ponga|pongas|reproduce|reproduceme|reproducir|toca|tocame|tocar|coloca|colocame|escuchar|oir|busca|buscame|buscar|quiero escuchar|quiero oir|quisiera escuchar|quisiera oir|me gustaria escuchar|me gustaria oir|puedes poner|puedes tocar|puedes reproducir|dame)\b/;
+var SONG_N=/\b(cancion|canciones|cancioncita|musica|tema|temas|rola|rolas|disco|album|playlist|spotify)\b/;
+function isSongReq(q){return (SONG_V.test(q)&&SONG_N.test(q))||/\bquiero (escuchar|oir)\b/.test(q)||/\b(ponme|pon)\s+(algo de|algo)\s+musica\b/.test(q)}
 function musicQuery(raw){
   var t=raw.replace(/chispa[,\s]*/ig,' ').replace(/\b(en|por|desde|con)\s+spotify\b/ig,' ').replace(/\bspotify\b/ig,' ');
-  var m=t.match(/\b(pon(?:me)?|pone|reproduce|toca(?:me)?|quiero (?:escuchar|o[ií]r)|escuchar|o[ií]r)\b\s*(.*)$/i);
+  var m=t.match(/\b(pon(?:me)?|pone|pones|poner(?:me)?|pongo|reproduc(?:e|ir)(?:me)?|toca(?:r|me)?|coloca(?:me)?|busca(?:me|r)?|dame|quiero (?:escuchar|o[ií]r)|escuchar|o[ií]r)\b\s*(.*)$/i);
   var r=(m?m[2]:t).replace(/\bpor favor\b/ig,'');
-  r=r.replace(/^(?:un|una|el|la|los|las|unos|unas|algo|alguna|algun|otra)\s+/i,'')
+  r=r.replace(/^(?:me|nos|te)\s+/i,'').replace(/^(?:un|una|el|la|los|las|unos|unas|algo|alguna|algun|otra)\s+/i,'')
      .replace(/^(?:canci[oó]n(?:es)?|tema|disco|[aá]lbum|lista)\b\s*(?:(?:de|del)\b\s*)?/i,'')
      .replace(/^m[uú]sica\s+(?:de|del)\s+/i,'')
      .replace(/\b(de|del)\b/ig,' ').replace(/\s+/g,' ').trim();
   return /^(m[uú]sica|canci[oó]n|canciones|algo)$/i.test(r)?'':r;
 }
+var askN=0;
 function spPlayQuery(q){
   if(resumeMedia) resumeMedia.t=true;
-  if(!q){askMusicNext=Date.now()+20000; return reply('¿Qué quieres escuchar?').then(function(){if(askMusicNext) listenNext()})}
+  if(q) askN=0;
+  if(!q){if(++askN>2){askN=0; askMusicNext=false; return reply('Cuando quieras, dime pon y el nombre de la canción.')} askMusicNext=Date.now()+20000; return reply('¿Qué quieres escuchar?').then(function(){if(askMusicNext) listenNext()})}
   setMood('thinking'); el.bubble.textContent='Buscando “'+q+'”…';
   return spApi('/search?type=track&limit=10&market=from_token&q='+encodeURIComponent(q)).then(function(j){
     var items=(j.tracks&&j.tracks.items)||[];
@@ -2608,7 +2628,8 @@ function ytLinkFallback(q){
   return reply(w?'Te lo abrí en YouTube.':'Toca el botón rojo para abrirlo en YouTube.');
 }
 function playVideo(q){
-  if(!q){askVideoNext=Date.now()+20000; return reply('¿Qué video quieres ver?').then(function(){if(askVideoNext) listenNext()})}
+  if(q) askN=0;
+  if(!q){if(++askN>2){askN=0; askVideoNext=false; return reply('Cuando quieras, dime pon y el nombre del video.')} askVideoNext=Date.now()+20000; return reply('¿Qué video quieres ver?').then(function(){if(askVideoNext) listenNext()})}
   setMood('thinking'); el.bubble.textContent='Buscando “'+q+'”…';
   var src=CFG.ytKey?ytSearch(q).catch(function(e){return ytKeyless(q).catch(function(){throw e})}):ytKeyless(q);
   return src.then(function(list){
@@ -2910,7 +2931,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-repite', pendingUpdate=false;
+var APP_VERSION='2026-10-16-estable', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
