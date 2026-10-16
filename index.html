@@ -1176,6 +1176,7 @@ function camMenu(){
 $('#camBtn').addEventListener('click',function(){if(camMode==='gestures'||camMode==='rps') camStop(true); else startGestures()});
 
 /* ---------- Voz de entrada ---------- */
+var SILENCE_MS=4000; /* silencio que se espera antes de dar por terminada la frase */
 var DLOG=[], dT0=Date.now();
 function dlog(m){try{DLOG.push(((Date.now()-dT0)/1000).toFixed(1)+'s '+m); if(DLOG.length>40) DLOG.shift(); var b=document.getElementById('dlogBox'); if(b){b.textContent='REGISTRO v'+APP_VERSION+' (toca para cerrar)\n'+DLOG.slice(-28).join('\n'); b.scrollTop=b.scrollHeight}}catch(e){}}
 function dlogToggle(){var b=document.getElementById('dlogBox'); if(b){b.remove(); return} b=document.createElement('div'); b.id='dlogBox'; b.style.cssText='position:fixed;left:3%;right:3%;top:4%;bottom:4%;z-index:99999;background:#0d1722f5;color:#cfe4ff;border:2px solid #2b7fff;border-radius:14px;padding:14px;font:15px/1.45 ui-monospace,monospace;overflow:auto;white-space:pre-wrap'; b.onclick=function(){b.remove()}; document.body.appendChild(b); dlog('registro abierto')}
@@ -1216,7 +1217,7 @@ function startListen(continuous){
         var n=norm(txt).trim(), wm=wakeMatch(alts);
         if(!res.isFinal){
           if(wm&&!wakeEarly){wakeEarly=true; act(); wakeBlue(12000); setMood('listening',8000); armedUntil=Math.max(armedUntil,Date.now()+25000)}
-          else if(!wm&&Date.now()<armedUntil&&n.length>1){lastInterim={t:n,at:Date.now()}; armedUntil=Math.max(armedUntil,Date.now()+9000)}
+          else if(!wm&&Date.now()<armedUntil&&n.length>1){lastInterim={t:n,at:Date.now()}; armedUntil=Math.max(armedUntil,Date.now()+SILENCE_MS+8000)}
           continue;
         }
         wakeEarly=false;
@@ -1224,11 +1225,11 @@ function startListen(continuous){
         if(wm){
           var rest=wm.m[1].trim();
           act(); lastInterim=null;
-          if(rest){armedUntil=Date.now()+25000; wakeBlue(25000); lastInterim={t:rest,at:Date.now()}; dlog('  espero a que termine de hablar: «'+rest+'»')}
+          if(rest){armedUntil=Date.now()+25000; wakeBlue(25000); lastInterim={t:rest,at:Date.now()}; note('Escuchando: «'+rest+'»'); dlog('  espero a que termine de hablar: «'+rest+'»')}
           else {armedUntil=0; wakeBlue(25000); arm()}
         }else if(Date.now()<armedUntil){
           if(n.length<2) continue;
-          lastInterim={t:n,at:Date.now()}; armedUntil=Math.max(armedUntil,Date.now()+9000); dlog('  espero a que termine de hablar: «'+n+'»'); continue
+          lastInterim={t:n,at:Date.now()}; armedUntil=Math.max(armedUntil,Date.now()+SILENCE_MS+8000); note('Escuchando: «'+n+'»'); dlog('  espero a que termine de hablar: «'+n+'»'); continue
         }
         else if(recipe&&RCMD.test(n.trim())){handle(n)}
         else if(lastIntH&&Date.now()-lastIntH.at<12000&&n.indexOf(lastIntH.t)===0&&n.length>lastIntH.t.length+2){lastIntH=null; stopSpeaking(); handle(n)}
@@ -1284,10 +1285,10 @@ function oneShot(){
   })();
 }
 setInterval(function(){
-  var li=lastInterim, nw=li?String(li.t).trim().split(/\s+/).length:0, need=nw<2?2200:nw<3?2000:1700;
+  var li=lastInterim, nw=li?String(li.t).trim().split(/\s+/).length:0, need=SILENCE_MS;
   if(li&&Date.now()-li.at>need){
     if(li.one&&rec&&!recCont){if(!HEADONLY.test(norm(li.t).trim())){lastInterim=null; lastIntH={t:norm(li.t).trim(),at:Date.now()}; stopListen(); handle(li.t)} else if(Date.now()-li.at>8000) lastInterim=null}
-    else if(!li.one&&Date.now()<armedUntil&&!talking){if(HEADONLY.test(li.t)){if(Date.now()-li.at>8000) lastInterim=null} else {lastInterim=null; armedUntil=0; lastIntH={t:norm(li.t).trim(),at:Date.now()}; handle(headMerge(li.t))}}
+    else if(!li.one&&Date.now()<armedUntil&&!talking){if(HEADONLY.test(li.t)){if(Date.now()-li.at>SILENCE_MS+6000) lastInterim=null} else {lastInterim=null; armedUntil=0; lastIntH={t:norm(li.t).trim(),at:Date.now()}; handle(headMerge(li.t))}}
     else if(Date.now()-li.at>6000) lastInterim=null;
   }
 },400);
@@ -3070,7 +3071,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-termina', pendingUpdate=false;
+var APP_VERSION='2026-10-16-silencio4', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
