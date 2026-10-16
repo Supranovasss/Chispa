@@ -1427,6 +1427,7 @@ function secretTrick(){
 function closeAll(){
   var any=!$('#vid').hidden||!$('#imgv').hidden||!$('#kcard').hidden||!$('#xcard').hidden||!$('#lcard').hidden||!$('#acard').hidden||!!recipe;
   closeRecipe(); stopRing();
+  if(game){any=true; endGame()}
   if(!$('#vid').hidden) closeVideo();
   if(!$('#imgv').hidden) closeImg();
   ['kcard','xcard','lcard','acard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true});
@@ -1729,7 +1730,7 @@ function closeRecipe(){
 }
 $('#rside').addEventListener('click',function(e){if(e.target.closest('.mx')) closeRecipe()});
 $('#rcard').addEventListener('click',function(e){if(e.target.closest('.mx')){closeRecipe(); return} recipeNext()});
-var RCMD=/^(?:siguiente|sigue|continua|continuemos|adelante|listo|ya (?:termine|esta|lo hice|acabe|quedo)|el siguiente|siguiente paso|vamos|atras|anterior|paso anterior|regresa|repite|repiteme|repetir|otra vez|de nuevo|ingredientes|cierra la receta|terminar receta|(?:si )?(?:lee|leeme|leela|leemela) (?:la )?(?:receta )?(?:completa|entera|toda)|(?:si )?(?:completa|entera))$/;
+var RCMD=/^(?:siguiente|sigue|continua|continuemos|adelante|listo|ya (?:termine|esta|lo hice|acabe|quedo)|el siguiente|siguiente paso|vamos|atras|anterior|paso anterior|regresa|repite|repiteme|repetir|otra vez|de nuevo|ingredientes|cierra la receta|terminar receta|(?:si )?(?:lee|leeme|leela|leemela) (?:la )?(?:receta )?(?:completa|entera|toda)|(?:si )?(?:completa|entera)|(?:por favor )?(?:cierra|cierrala|cierralo|quitala|quitalo|ocultala)(?: la| el| esta| esa| ese| este| todo)?(?: ventana| menu| tabla| receta| tarjeta| panel| chat| todo| texto)?(?: de recetas| de la receta| de la derecha)?(?: por favor)?)$/;
 
 var rgC={};
 function recipeGesture(){
@@ -1754,7 +1755,57 @@ function dishFrom(raw){
   return d.replace(/^(?:un|una|unos|unas|el|la|los|las)\s+/i,'');
 }
 
+
+/* ---------- Cerrar por voz: entiende qué quieres cerrar ---------- */
+var CLV='cierra|cierrala|cierralo|cierrame|cerrar|quita|quitala|quitalo|quitame|oculta|ocultala|ocultalo|esconde|escondela|escondelo|elimina|eliminala|eliminalo|saca|sacala|sacalo|apaga|apagala|apagalo|cancela|cancelala|cancelalo|termina|terminala|terminalo|salte|sal de|minimiza';
+var CLRE=new RegExp('^(?:'+CLV+')\\b(.*)$');
+function cleanClose(q){
+  return q.replace(/\b(oye|hey|ey)?\s*chispa\b/g,' ').replace(/\b(por favor|porfa|porfis|gracias|me haces el favor|si eres tan amable|ahora|ya|mismo|rapido|de una|un momento)\b/g,' ').replace(/[¿?¡!,.]/g,' ').replace(/\s+/g,' ').trim();
+}
+function openThings(){
+  return {recipe:!!recipe, video:!$('#vid').hidden, img:!$('#imgv').hidden, timers:timers.length>0||!$('#tcard').hidden, lista:!$('#lcard').hidden, alarm:!$('#acard').hidden, clock:!$('#kcard').hidden, wx:!$('#xcard').hidden, game:!!game, ring:!!ringing};
+}
+function anyOpen(){var o=openThings(); for(var k in o) if(o[k]) return true; return false}
+function closeWhat(q){
+  q=cleanClose(q);
+  if(/^(vuelve|vuelvete|regresa|volve|volver|ven) (a|al) (la cara|tu cara|el inicio|inicio|la pantalla principal|pantalla principal|el centro|centro)|^(solo )?(muestra|ensename|dejame ver|quiero ver|ver) (la |tu )?cara( sola)?$|^(solo )?(la )?cara$/.test(q)) return 'all';
+  var m=q.match(CLRE); if(!m) return null;
+  var rest=m[1].trim(), words=rest?rest.split(' ').length:0;
+  if(words>9) return null;
+  if(/\bde la lista\b|\bde mi lista\b|\bde las compras\b|\bde compras\b.*\bde\b/.test(rest)&&!/^(la |el )?lista/.test(rest)) return null;
+  if(/\b(receta|recetas|ingrediente|ingredientes|cocina|menu de receta|menu de recetas|pasos)\b/.test(rest)) return 'recipe';
+  if(/\b(video|videos|youtube|reproductor|pelicula)\b/.test(rest)) return 'video';
+  if(/\b(imagen|imagenes|foto|fotos|dibujo|dibujos|ilustracion|figura|picture|grafico)\b/.test(rest)) return 'img';
+  if(/\b(temporizador|temporizadores|cronometro|timer|cuenta regresiva)\b/.test(rest)) return 'timers';
+  if(/\b(juego|juegos|jugar|partida)\b/.test(rest)) return 'game';
+  if(/\b(lista|compras)\b/.test(rest)&&/^(cierra|cierrala|cierralo|oculta|ocultala|esconde|escondela|quita|quitala|quitalo|saca|sacala|apaga|minimiza|salte|sal de|deja)/.test(q)) return 'lista';
+  if(/\b(alarma|alarmas|recordatorio|recordatorios|pendientes)\b/.test(rest)&&/^(cierra|cierrala|cierralo|oculta|ocultala|esconde|escondela|quita|quitala|quitalo|saca|sacala|minimiza|salte)/.test(q)) return 'alarm';
+  if(/\b(reloj|clima|tiempo|hora|fecha)\b/.test(rest)&&/^(cierra|cierrala|cierralo|oculta|ocultala|esconde|quita|quitala|quitalo|saca|apaga|minimiza)/.test(q)) return 'clock';
+  if(/\b(camara)\b/.test(rest)) return null;
+  if(/\b(musica|cancion|canciones|spotify|volumen|sonido|alarma sonando)\b/.test(rest)) return null;
+  if(!rest||/^(todo|toda|todos|eso|esto|esa|ese|esta|este|aquello|lo|la|el|los|las|un|una)?\s*(todo|eso|esto|esa|ese|esta|este|lo|la|el)?$/.test(rest)) return 'all';
+  if(/\b(todo|ventana|ventanas|pantalla|tabla|tablas|cuadro|cuadros|tarjeta|tarjetas|panel|paneles|menu|menus|abierto|abierta|abiertos|abiertas|tienes|tengas|muestras|mostrando|ves|aparece|aparecio|esta ahi|esta en pantalla|en pantalla|lo que|cosa|cosas|texto|chat|ahi|aqui|eso de la derecha|derecha)\b/.test(rest)) return 'all';
+  return null;
+}
+function doClose(w){
+  var o=openThings(), done=false;
+  if(w==='recipe'&&o.recipe){closeRecipe(); done=true}
+  else if(w==='video'&&o.video){closeVideo(); done=true}
+  else if(w==='img'&&o.img){closeImg(); done=true}
+  else if(w==='timers'&&o.timers){timers.length=0; renderTimers(); $('#tcard').hidden=true; done=true}
+  else if(w==='game'&&o.game){endGame(); done=true}
+  else if(w==='lista'&&o.lista){clearTimeout(popT.lcard); $('#lcard').hidden=true; done=true}
+  else if(w==='alarm'&&o.alarm){clearTimeout(popT.acard); $('#acard').hidden=true; done=true}
+  else if(w==='clock'&&(o.clock||o.wx)){['kcard','xcard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); done=true}
+  if(!done&&anyOpen()){closeAll(); $('#tcard').hidden=true; done=true}
+  if(!done){reply('No tengo nada abierto.'); return}
+  if(w==='all'||w==='recipe'||o.recipe){}
+  if(w==='all'){closeAll(); $('#tcard').hidden=true}
+  if(!anyOpen()) document.body.classList.remove('imgon','rsideon');
+  setMood('happy',900); reply('Listo.');
+}
 var INTENTS=[
+  [function(q){return closeWhat(q)!==null}, function(q){doClose(closeWhat(q))}],
   [function(q){return !!ringing&&/(pospon|posponer|aplaza|cinco minutos mas|5 minutos mas|snooze)/.test(q)}, function(){snoozeRing()}],
   [function(q){return !!ringing}, function(){stopRing(); reply('Listo.')}],
   [function(q){return !!askRem&&askRem.exp>Date.now()}, function(q,raw){if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){askRem=null; reply('Listo, lo dejo.'); return} remFollow(raw)}],
@@ -2510,7 +2561,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-calla', pendingUpdate=false;
+var APP_VERSION='2026-10-16-cierra', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
