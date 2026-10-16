@@ -73,6 +73,7 @@ ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px
   --eye:var(--glow);--eyeglow:rgba(255,199,143,.45);--mouth:var(--glow2)}
 #face[data-mood=alert]{--eye:var(--alert);--eyeglow:rgba(255,107,107,.5);--mouth:var(--alert)}
 #face[data-mood=listening]{--eye:#bfe9ff;--eyeglow:rgba(150,220,255,.5);--mouth:#bfe9ff}
+#face[data-mood=angry]{--eye:#ff4d3d;--eyeglow:rgba(255,60,40,.65);--mouth:#ff4d3d}
 #face[data-mood=sleepy]{--eye:#c9b79c;--eyeglow:rgba(200,180,150,.15);--mouth:#c9b79c}
 .eye{fill:var(--eye);transition:fill .3s}
 .eyeg{filter:drop-shadow(0 0 16px var(--eyeglow))}
@@ -498,7 +499,8 @@ var MOODS={
   sleepy:{curve:4,open:0,lid:.6,smile:0,blush:0,sc:1,mw:30},
   alert:{curve:-14,open:14,lid:0,smile:0,blush:0,sc:1.12,mw:34},
   surprised:{curve:-8,open:36,lid:0,smile:0,blush:.1,sc:1.15,mw:20},
-  thinking:{curve:-4,open:0,lid:.22,smile:0,blush:0,sc:1,mw:26}
+  thinking:{curve:-4,open:0,lid:.22,smile:0,blush:0,sc:1,mw:26},
+  angry:{curve:-26,open:4,lid:.34,smile:0,blush:0,sc:1.06,mw:46}
 };
 var GAZE={listening:{x:0,y:0},thinking:{x:14,y:-10},sleepy:{x:0,y:10},alert:{x:0,y:0},surprised:{x:0,y:-4}};
 var S={curve:20,open:0,lid:0,smile:0,blush:0,sc:1,mw:38,gx:0,gy:0};
@@ -509,12 +511,12 @@ var blinkEnd=0, nextBlink=2000, winkUntil=0, fwrap=null;
 function baseline(){return asleep?'sleepy':((listening&&!wakeOn)?'listening':'idle')}
 function setMood(m,ms){
   clearTimeout(moodTimer);
-  mood=m; el.face.setAttribute('data-mood',m);
+  mood=m; el.face.setAttribute('data-mood',(Date.now()<angryUntil&&(m==='talking'||m==='happy'||m==='angry'))?'angry':m);
   if(GAZE[m]) gaze=GAZE[m];
   if(ms) moodTimer=setTimeout(function(){setMood(baseline())},ms);
 }
 function frame(t){
-  var M=MOODS[mood], k=reduce?0.3:0.14, op=M.open;
+  var M=MOODS[(Date.now()<angryUntil&&(mood==='talking'||mood==='happy'))?'angry':mood], k=reduce?0.3:0.14, op=M.open;
   if(mood==='talking') op=6+(Math.sin(t/85)*.5+Math.sin(t/41)*.3+.8)*12;
   S.curve+=(M.curve-S.curve)*k; S.open+=(op-S.open)*.35; S.lid+=(M.lid-S.lid)*k;
   S.smile+=(M.smile-S.smile)*k; S.blush+=(M.blush-S.blush)*k; S.sc+=(M.sc-S.sc)*k; S.mw+=(M.mw-S.mw)*k;
@@ -1189,7 +1191,7 @@ function stopListen(){
   listening=false; el.mic.classList.remove('on'); setLbl(el.mic,'Hablar');
   if(mood==='listening') setMood(baseline());
 }
-var HEADONLY=/^(pon|ponme|pone|ponga|ponle|reproduce|coloca|colocame|abre|abreme|muestra|muestrame|ensename|busca|buscame|dibuja|dibujame|anota|apunta|agrega|agregame|anade|crea|programa|dime|cuentame|quiero ver|quiero escuchar|quiero|necesito|hazme|dame|traeme)(\s+(un|una|unos|unas|el|la|los|las|de|del|algo|por favor|me|mi|mis))*$/;
+var HEADONLY=/^(pon|ponme|pone|poneme|ponga|pongame|ponle|mostrame|muestreme|abrime|abrame|decime|digame|contame|cuenteme|regalame|regaleme|colaborame|colaboreme|poner|mostrar|abrir|buscar|reproduce|coloca|colocame|abre|abreme|muestra|muestrame|ensename|busca|buscame|dibuja|dibujame|anota|apunta|agrega|agregame|anade|crea|programa|dime|cuentame|quiero ver|quiero escuchar|quiero|necesito|hazme|dame|traeme)(\s+(un|una|unos|unas|el|la|los|las|de|del|algo|por favor|me|mi|mis))*$/;
 var pendHead=null, lastHead=null;
 function headPending(){return !!(pendHead&&pendHead.exp>Date.now())}
 function headMerge(t){var h=pendHead; pendHead=null; if(/\b(que hora|la hora|hora es|clima|temperatura|pronostico|chiste|dato curioso|ayuda|llueve|cierra|quita|apaga|para|detente|cancela|olvida)\b/.test(norm(t))) return t; return (h&&h.exp>Date.now())?h.t+' '+t:t}
@@ -1320,13 +1322,35 @@ el.wake.addEventListener('click',function(){
 /* ---------- Comandos ---------- */
 var JOKES=[
   '¿Qué hace una abeja en el gimnasio? ¡Zum-ba!',
-  '¿Por qué los pájaros vuelan hacia el sur en invierno? Porque caminando tardarían muchísimo.',
   '¿Qué le dice un techo a otro techo? Techo de menos.',
-  '¿Por qué el libro de matemáticas estaba triste? Porque tenía muchos problemas.',
-  '¿Cuál es el colmo de un electricista? Que su esposa se llame Luz y sus hijos le sigan la corriente.',
+  '¿Cuál es el café más peligroso del mundo? El ex-preso.',
+  '¿Por qué las focas del circo miran siempre hacia arriba? Porque ahí están los focos.',
+  '¿Cómo se despiden los químicos? Ácido un placer.',
+  '¿Qué le dice un semáforo a otro? No me mires, que me pongo rojo.',
+  '¿Qué le dice el número tres al número treinta? Para ser como yo, tienes que ser sincero.',
+  '¿Cuál es el animal más antiguo? La cebra, porque está en blanco y negro.',
+  '¿Qué le dice un jaguar a otro jaguar? Jaguar yu.',
   '¿Qué le dice una iguana a su hermana gemela? Somos iguanitas.',
-  'Un café le dice a otro: me siento molido.'
+  'Pepito le dice a la profesora: ¿usted me castigaría por algo que yo no hice? No, Pepito. ¡Qué bueno, porque no hice la tarea!',
+  'Dicen que el tinto de la oficina es tan fuerte que ya se ganó un puesto en la nómina.',
+  'Mi plan de dieta es empezar el lunes. Ya llevo siete lunes empezando.',
+  'El trancón de las seis de la tarde: ese lugar donde uno aprende a hacer amigos de carro a carro.',
+  'Una mamá latina nunca pierde una discusión. Si hace falta, saca la chancleta de la nada.',
+  'Mi mamá siempre dice: en esta casa no se desperdicia nada. Y por eso en la nevera hay tres tapers con arroz de hace un mes.',
+  'Hora colombiana: te dicen a las ocho, uno llega a las nueve y media, y todavía es el primero.',
+  'Entra un señor a la tienda de la esquina: me regala un huevo. ¿Uno solo? Sí, es que estoy a dieta.',
+  'Mi vecino dice que su perro es muy inteligente. Pero cuando lo llaman para bañarse, se hace el sordo.',
+  '¿Qué le dice una arepa a otra? Qué buena pareja hacemos: tú con queso y yo con mantequilla.',
+  'Un paisa entra a un restaurante y pregunta: ¿el menú trae chicharrón? Le dicen que no. Entonces tráigame el menú y un chicharrón.',
+  'Le dije a mi mamá que iba a cocinar. Y ella me respondió: ¿y ya tienes el extintor a la mano?',
+  'Mi esposa me dijo: o el fútbol o yo. Y yo le dije: te voy a extrañar mucho, mi amor, pero el clásico empieza a las cuatro.',
+  'Un venezolano en una fiesta: ¡pana, se acabaron las arepas! Y el otro: ¡qué va, mi hermano, tengo harina para todo el edificio!',
+  'Dicen que el dinero no hace la felicidad. Pero yo prefiero llorar en una camioneta que en una moto, ¿no?',
+  'Dicen que el que madruga Dios le ayuda. Yo madrugué hoy y no vi a nadie ayudando. Creo que Dios también estaba en el trancón.',
+  'Un mexicano le dice a su amigo: ¡qué padre tu casa, wey! Y el amigo: gracias, pero todavía le falta el sofá. Es que lo estoy pagando a meses sin intereses… desde 2019.',
+  'Un argentino le pregunta a un colombiano: ¿che, y ustedes cómo le dicen a esto? Y el colombiano: pues, parce, eso se llama tinto. Y el argentino: ¡pero si es café! Y el colombiano: ¡ay, mijo, es que usted no entiende!'
 ];
+
 var FACTS=[
   'Los pulpos tienen tres corazones.',
   'Un día en Venus dura más que un año en Venus.',
@@ -1367,9 +1391,14 @@ function confetti(ms){
     if(el2<dur) requestAnimationFrame(step); else c.remove();
   })(t0);
 }
+var angryUntil=0, SUSI_REGANOS=[
+  '¡Susana! ¡Ya me contaron! ¿Otra vez haciendo enojar a Juan Pablo? ¡Ya está bueno, mija! Él es tu hermano y no se merece eso. Pórtate bien, ¿oíste?',
+  '¡Ay no, Susana! ¿Tú otra vez? Deja de molestar a Juan Pablo, que lo tienes mamado. Si me entero de otra, me voy a poner muy brava. ¡Pórtate bien!',
+  '¡Susana, por Dios! ¿Qué le hiciste a Juan Pablo ahora? Un poquito de respeto con tu hermano, mija. No me hagas regañarte otra vez.'
+];
 function hiSusana(){
-  act(); confetti(5500); setMood('happy',6000);
-  reply('¡Ah, Susana! Tú eres la que molesta tanto a tu hermano, a Juan Pablo. Hola, ¿en qué puedo ayudarte?').then(function(){setMood('happy',2500)});
+  act(); angryUntil=Date.now()+40000; setMood('angry',40000);
+  reply(nextOf(SUSI_REGANOS,'su')).then(function(){angryUntil=0; setMood(baseline())});
 }
 /* ---------- Fondo vivo: estrellas, chispas, burbujas y ondas ---------- */
 (function(){
@@ -2385,26 +2414,55 @@ var INTENTS=[
      var m=/siesta/.test(q)?'Que tengas una linda siesta. Di Oye Chispa cuando me necesites.':/(pantalla|atenua|oscurece|luz|brillo)/.test(q)?'Listo, atenúo la pantalla. Di Oye Chispa y despierto.':'Buenas noches, que descanses. Di Oye Chispa cuando me necesites.';
      if(!$('#vid').hidden) closeVideo();
      reply(m).then(goSleep)}],
-  [function(q){return /(que hora|la hora|hora es)/.test(q)},
+  [function(q){return /(que h?oras?\b|la h?ora|h?ora es|horas son|hora (tenemos|tiene|marca|actual))/.test(q)},
    function(){popCard('kcard',15000); reply(horaHablada()+'.')}],
   [function(q){return /(que dia|fecha|a cuanto estamos)/.test(q)},
    function(){popCard('kcard',15000); reply('Hoy es '+new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date())+'.')}],
-  [function(q){return /(clima|tiempo (hace|va|esta|tenemos)|llover|llueve|lluvia|lloviendo|temperatura|paraguas|hace (calor|frio|sol)|pronostico|grados|nublado|como (esta|amanecio|anda) (el dia|la tarde|la noche|afuera|la manana)|que tal (esta )?(el dia|afuera)|va a (hacer|estar) (calor|frio|lindo))/.test(q)},
+  [function(q){return /(solazo|aguacero|chubasco|garua|chaparron|bochorno|calorcito|friecito|helada|esta haciendo (frio|calor)|esta lloviznando|esta cayendo agua|cae agua|va a caer agua|va a echar agua|clima|tiempo (hace|va|esta|tenemos)|llover|llueve|lluvia|lloviendo|temperatura|paraguas|hace (calor|frio|sol)|pronostico|grados|nublado|como (esta|amanecio|anda) (el dia|la tarde|la noche|afuera|la manana)|que tal (esta )?(el dia|afuera)|va a (hacer|estar) (calor|frio|lindo))/.test(q)},
    function(){askWeather()}],
-  [function(q){return /(chiste|hazme reir|algo gracioso|algo divertido)/.test(q)},
+  [function(q){return /(chiste|chistecito|chascarrillo|broma|hazme reir|algo (gracioso|divertido|chistoso|de risa|para reir)|carcajada|hazme una gracia)/.test(q)},
    function(){reply(nextOf(JOKES,'j'))}],
-  [function(q){return /(dato|curiosidad|cuentame algo|sabias que)/.test(q)},
+  [function(q){return /(dato|curiosidad|cuentame algo|sabias que|algo interesante|algo raro|algo nuevo)/.test(q)},
    function(){curioso()}],
   [function(q){return calc(q)!==null},
    function(q){reply(calc(q))}],
-  [function(q){return /gracias/.test(q)}, function(){reply('¡Con gusto!')}],
-  [function(q){return /(como estas|como te va|que tal)/.test(q)}, function(){reply('¡Muy bien! Con ganas de ayudarte. ¿Y tú?')}],
+  [function(q){return /(gracias|dios (le|te) pague|te agradezco|muy amable|bendiciones)/.test(q)}, function(){reply(nextOf(['¡Con gusto, mijo!','¡Siempre a la orden!','¡Para eso estoy! Cuando quiera.','¡Con todo el gusto del mundo!','¡Dios le pague a usted por la buena compañía!'],'gr'))}],
+  [function(q){return /(como estas|como te va|que tal|como andas|como amaneciste|como vas|como te fue|que mas|que hubo|quiubo|quihubo|todo bien|que cuentas|que hay de nuevo|como te sientes)/.test(q)}, function(){reply(nextOf(['¡Muy bien! Con ganas de ayudarte. ¿Y tú?','¡Todo chévere por acá! ¿Y tú cómo vas?','¡Ahí vamos, bien contenta! ¿Y tú qué cuentas?','¡Bacano, aquí dándole! ¿Y tú?'],'ee'))}],
   [function(q){return /(como te llamas|quien eres|tu nombre)/.test(q)}, function(){reply('Soy Chispa, tu compañero de mesón.')}],
-  [function(q){return q.length<24&&/^(hola|buenas|buenos dias|buenas tardes|hey|ey|oye)/.test(q)},
+  [function(q){return q.length<24&&/^(hola|buenas|buenos dias|buenas tardes|hey|ey|oye|epa|habla|que onda|que pasa|aloha|ola|saludos)/.test(q)},
    function(){reply(pickLine('hola',saludo()+(CFG.name?', '+CFG.name:'')+'. ¿En qué te ayudo?'))}]
 ];
+/* ---------- Español latino: modismos, voseo y usted ---------- */
+function wbre(src){return new RegExp('(?<![\\p{L}\\d])(?:'+src+')(?![\\p{L}\\d])','giu')}
+var VOCS='parce|parcero|parcera|mijo|mija|mijito|mijita|manito|manita|socio|socia|bro|broder|brother|compa|compadre|che|wey|guey|güey|pana|panita|chamo|chama|chamito|pibe|cuate|carnal|mae|maje|papi|mami|papito|mamita|veci|vecino|vecina|hermano|hermana|amigo|amiga';
+var LAT=[
+  [wbre('m[oó]str[aá]me|mu[eé]streme'),'muéstrame'],[wbre('m[oó]str[aá]|mostr[aá]'),'muestra'],
+  [wbre('ens[eé][ñn]ame|ens[eé][ñn]eme'),'enséñame'],
+  [wbre('pon[eé]me|p[oó]ngame|p[oó]nganos|ponganme'),'ponme'],[wbre('pon[eé]|ponga|p[oó]ngale|pongale'),'pon'],
+  [wbre('abr[ií]me|[aá]brame'),'ábreme'],[wbre('abr[ií]'),'abre'],
+  [wbre('cerr[aá]|cierre|ci[eé]rrelo'),'cierra'],
+  [wbre('dec[ií]me|d[ií]game'),'dime'],[wbre('dec[ií]|dig[aá]'),'di'],
+  [wbre('cont[aá]me|cu[eé]nteme'),'cuéntame'],
+  [wbre('b[uú]squeme|busc[aá]me'),'búscame'],
+  [wbre('tr[aá]igame|tra[eé]me'),'tráeme'],
+  [wbre('reg[aá]lame|reg[aá]leme|me regalas?|me regala|colab[oó]rame|colaboreme|me colabora(?:s)? con|me haces? el favor de|me hace el favor de|h[aá]game el favor de|hac[eé]me el favor de'),'dame'],
+  [wbre('(?:me )?(?:puedes|puede|podr[ií]as|podr[ií]a|pod[eé]s|ser[ií]as tan amable de|ser[ií]a tan amable de)(?: por favor)?'),''],
+  [wbre('poner(?:me)?'),'pon'],[wbre('mostrar(?:me)?'),'muestra'],[wbre('abrir(?:me)?'),'abre'],[wbre('cerrar(?:lo|la)?'),'cierra'],[wbre('buscar(?:me)?'),'busca'],
+  [wbre('reproducir(?:lo|la|me)?'),'reproduce'],[wbre('anotar(?:me)?'),'anota'],[wbre('agregar(?:le)?'),'agrega'],[wbre('apagar(?:lo|la)?'),'apaga'],[wbre('cambiar(?:lo|la)?'),'cambia'],
+  [wbre('h[aá]gale|d[eé]le'),'dale'],
+  [wbre("pa'"),'para'],[wbre('pa'),'para'],[wbre('pal'),'para el'],
+  [wbre('porfa|porfis|plis|pliss|please'),'por favor']
+];
+function latinFix(raw){
+  var r=String(raw||'');
+  r=r.replace(new RegExp('^(?:(?:'+VOCS+')[\\s,]+)+','iu'),'').replace(new RegExp('(?:[\\s,]+(?:'+VOCS+'))+[\\s.!?¡¿]*$','iu'),'').replace(new RegExp(',\\s*(?:'+VOCS+')\\s*,','giu'),',');
+  r=r.replace(/^(?:pues|bueno|entonces|oiga|oye|o sea|a ver|veamos|ay|eh|este|disculpa|disculpe|perd[oó]n|permiso|vea|mire|f[ií]jate|sabes|sabe)[\s,]+(?=\S)/iu,'');
+  LAT.forEach(function(p){r=r.replace(p[0],p[1])});
+  r=r.replace(/[,\s]+(?:pues|pe|po|nom[aá]s|ahorita)(?=[\s.!?,]|$)/giu,'').replace(/\s+/g,' ').trim();
+  return r;
+}
 function handle(raw){
-  raw=String(raw||'').trim(); if(!raw) return; dlog('HANDLE «'+raw+'»');
+  raw=String(raw||'').trim(); if(!raw) return; var raw0=raw; try{raw=latinFix(raw)||raw}catch(e){} if(raw!==raw0) dlog('  español latino: «'+raw0+'» → «'+raw+'»'); dlog('HANDLE «'+raw+'»');
   note('Tú: '+raw);
   var q=norm(raw);
   if(HEADONLY.test(q)&&!headPending()){pendHead={t:q,exp:Date.now()+15000}; note('Te escucho… dime qué más'); wakeBlue(15000); setMood('listening',8000); if(wakeOn){armedUntil=Date.now()+25000; lastInterim=null} else startListen(false); return}
@@ -2446,7 +2504,7 @@ function pickLine(kind,fallback){
 }
 setTimeout(function(){linesAsk('tap'); setTimeout(function(){linesAsk('hola')},2500)},5000);
 function persona(kind){
-  var base='Eres Chispa, un compañero amable, cálido y juguetón que vive en una tablet sobre el mesón de la cocina'+(CFG.name?'. Hablas con '+CFG.name:'')+'. Hablas español latinoamericano natural, como en Colombia. Lo que escribas se lee en voz alta, así que no uses markdown, listas, viñetas, asteriscos ni emojis.';
+  var base='Eres Chispa, un compañero amable, cálido y juguetón que vive en una tablet sobre el mesón de la cocina'+(CFG.name?'. Hablas con '+CFG.name:'')+'. Hablas español latinoamericano cálido y natural, con alma latina: usas con naturalidad, sin exagerar, expresiones de varios países (parce, chévere, bacano y qué chimba de Colombia; órale, qué padre y qué onda de México; dale, bárbaro y re bueno de Argentina; pana y qué fino de Venezuela; ya po de Chile) y entiendes los modismos y el voseo de toda Latinoamérica. Tus chistes y comentarios tienen humor latino cotidiano: la familia, el tinto, la arepa, el trancón, la tienda de la esquina, el fútbol, las mamás; nunca ofensivos ni burlándote de nadie. Lo que escribas se lee en voz alta, así que no uses markdown, listas, viñetas, asteriscos ni emojis.';
   if(kind==='story') return base+' Cuentas historias largas y entretenidas, bien narradas, con inicio, desarrollo y final, de unas 800 a 1000 palabras. No hagas preguntas ni comentarios al final, solo la historia.';
   if(kind==='anec') return base+' Cuentas anécdotas con gracia y detalle, de unas 200 a 300 palabras. No hagas preguntas al final.';
   if(kind==='fact') return base+' Responde solo con el dato, en una o dos frases.';
@@ -3219,7 +3277,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-comandos', pendingUpdate=false;
+var APP_VERSION='2026-10-16-latina', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
