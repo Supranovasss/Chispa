@@ -95,7 +95,8 @@ ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px
 .vid{position:fixed;z-index:20;top:12px;right:12px;width:min(46vw,720px);aspect-ratio:16/9;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .vid[hidden]{display:none}
 .vid iframe,.vid #vidBox{width:100%;height:100%;border:0;display:block}
-body.vidon .facewrap{visibility:hidden}
+body.vidon .facewrap{position:fixed;left:12px;bottom:calc(var(--dockh,110px) + 16px);width:min(30vw,340px);height:calc(min(30vw,340px)*.725);flex:none;min-height:0;z-index:5}
+body.vidon .stage{justify-content:flex-end}
 @media (orientation:portrait){.vid{width:calc(100vw - 24px)}}
 .card.ghost{position:fixed;right:0;bottom:0;width:80px;opacity:.01;pointer-events:none;z-index:-1}
 .tip{margin:0;text-align:center;color:var(--muted);font-size:14px;line-height:1.35}
@@ -229,7 +230,7 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
       <button class="btn" id="fs" type="button">Pantalla completa</button>
       <button class="btn" id="cfg" type="button">Voz y permisos</button>
     </div>
-    <p class="tip" id="tip">Di “Chispa” y pide: la hora · el clima · un chiste · un dato curioso · una historia · un video de… · un temporizador · jugar · bailar · vigila · reconoce mis gestos · ayuda</p>
+    <p class="tip" id="tip">Di “Chispa” y pide: la hora · el clima · un chiste · un dato curioso · una historia · un video de… · una canción · un temporizador · jugar · bailar · vigila · reconoce mis gestos · ayuda</p>
   </section>
 </div>
 
@@ -281,6 +282,16 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
       <button class="btn" id="ytClear" type="button">Quitar llave</button>
     </div>
     <p class="help" id="ytUse"></p>
+  </section>
+  <section>
+    <h3 class="lbl">Música (Spotify)</h3>
+    <label>Client ID de tu app de Spotify<input id="spId" type="text" placeholder="pega aquí el Client ID" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+    <label>Dirección de regreso (cópiala tal cual en tu app de Spotify)<input id="spUri" type="text" readonly></label>
+    <div class="row">
+      <button class="btn" id="spConnect" type="button">Conectar Spotify</button>
+      <button class="btn" id="spClear" type="button">Desconectar</button>
+    </div>
+    <p class="help" id="spUse"></p>
   </section>
   <section>
     <h3 class="lbl">Micrófono y cámara</h3>
@@ -344,7 +355,8 @@ function frame(t){
   if(mood==='talking') op=6+(Math.sin(t/85)*.5+Math.sin(t/41)*.3+.8)*12;
   S.curve+=(M.curve-S.curve)*k; S.open+=(op-S.open)*.35; S.lid+=(M.lid-S.lid)*k;
   S.smile+=(M.smile-S.smile)*k; S.blush+=(M.blush-S.blush)*k; S.sc+=(M.sc-S.sc)*k; S.mw+=(M.mw-S.mw)*k;
-  S.gx+=(gaze.x-S.gx)*.12; S.gy+=(gaze.y-S.gy)*.12;
+  var gz=document.body.classList.contains('vidon')?{x:18,y:-10}:gaze;
+  S.gx+=(gz.x-S.gx)*.12; S.gy+=(gz.y-S.gy)*.12;
   var by=1;
   if(t<blinkEnd){var p=1-(blinkEnd-t)/150; by=1-Math.sin(Math.PI*p)*.92}
   else if(t>nextBlink){blinkEnd=t+150; nextBlink=t+2500+Math.random()*3500}
@@ -388,7 +400,7 @@ setInterval(function(){
 },5000);
 
 /* ---------- Voz de salida ---------- */
-var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true};
+var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null};
 try{var sv=JSON.parse(localStorage.getItem('chispa.cfg')||'{}'); for(var kk in sv) if(kk in CFG) CFG[kk]=sv[kk]}catch(e){}
 function saveCfg(){try{localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}catch(e){}}
 var speakId=0, lastSaid='', lastSaidEnd=0, storyId=0, storyOn=false;
@@ -449,10 +461,10 @@ function speak(text){
     if(curAudio){try{curAudio.pause()}catch(e0){} curAudio=null}
     function done(){
       if(id!==speakId||!talking) return;
-      talking=false; lastSaidEnd=Date.now(); setMood('happy',1200); res();
+      talking=false; lastSaidEnd=Date.now(); setMood('happy',1200); if(!storyOn) spDuck(false); res();
       if(wakeOn&&!storyOn) setTimeout(function(){if(wakeOn&&!listening&&!talking&&!storyOn) startListen(true)},600);
     }
-    talking=true; setMood('talking');
+    talking=true; setMood('talking'); spDuck(true);
     if(wakeOn&&rec){rec.onend=null; rec.onerror=null; rec.onresult=null; try{rec.abort()}catch(e0){} rec=null; listening=false; el.mic.classList.remove('on'); el.mic.textContent='Hablar'}
     var ms=Math.max(1200,text.length*62);
     function system(){
@@ -505,7 +517,7 @@ function speakLong(text){
   return new Promise(function(res){
     (function next(){
       if(id!==storyId) {res(); return}
-      if(i>=parts.length){storyOn=false; res(); resumeWake(); return}
+      if(i>=parts.length){storyOn=false; spDuck(false); res(); resumeWake(); return}
       var part=parts[i++];
       if(voiceOn&&azReady()&&i<parts.length) azureFetch(parts[i]).catch(function(){});
       el.bubble.textContent=part;
@@ -517,7 +529,7 @@ function stopSpeaking(){
   storyId++; storyOn=false; speakId++;
   if('speechSynthesis' in window) speechSynthesis.cancel();
   if(curAudio){try{curAudio.pause()}catch(e){} curAudio=null}
-  talking=false; setMood(baseline()); resumeWake();
+  talking=false; spDuck(false); setMood(baseline()); resumeWake();
 }
 function reply(text){if(text.length>420) return speakLong(text); el.bubble.textContent=text; return speak(text)}
 
@@ -1028,6 +1040,15 @@ var INTENTS=[
   [function(q){return /(sigueme|mirame|sigue mi|seguirme|siguenos)/.test(q)}, function(){startFollow()}],
   [function(q){return /(reconoce.*(gesto|mano)|(que|cual) gesto|mira mi mano|gestos)/.test(q)}, function(){startGestures()}],
   [function(q){return /(apaga|cierra|desactiva|quita|deja de usar).*camara/.test(q)}, function(){camOff()}],
+  [function(q){return spOn()&&/(pausa|pausar|para|deten|detener|apaga|quita)\b.*\b(musica|cancion|spotify)\b/.test(q)}, function(){spCtl('pause')}],
+  [function(q){return spOn()&&!vidPlayer&&/^(pausa|pausar|pon pausa)$/.test(q.trim())}, function(){spCtl('pause')}],
+  [function(q){return spOn()&&/(reanuda|continua|sigue|dale play|pon play|activa)\b.*\b(musica|cancion|spotify)\b/.test(q)}, function(){spCtl('play')}],
+  [function(q){return spOn()&&(/(siguiente|proxima|salta|pasa|cambia)\b.*\b(cancion|tema)\b/.test(q)||/\botra cancion\b/.test(q))}, function(){spCtl('next')}],
+  [function(q){return spOn()&&(/(anterior|atras|vuelve)\b.*\b(cancion|tema)\b/.test(q)||/\bcancion anterior\b/.test(q))}, function(){spCtl('prev')}],
+  [function(q){return spOn()&&(/(sube|subir|aumenta|mas alto|mas fuerte)\b.*\b(volumen|musica)\b/.test(q)||/\bvolumen (mas )?(alto|arriba)\b/.test(q))}, function(){spCtl('volup')}],
+  [function(q){return spOn()&&(/(baja|bajar|disminuye|mas bajo|menos)\b.*\b(volumen|musica)\b/.test(q)||/\bvolumen (mas )?(bajo|abajo)\b/.test(q))}, function(){spCtl('voldown')}],
+  [function(q){return spOn()&&/(que (cancion|musica|tema) (es|suena|es esta)|como se llama (esta|la) cancion|quien canta)/.test(q)}, function(){reply(spTrack?'Suena '+spTrack+'.':'No sé qué suena ahora.')}],
+  [function(q){return spOn()&&!/\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)&&((/\b(pon|ponme|pone|reproduce|toca|tocame)\b/.test(q)&&/\b(cancion|canciones|musica|tema|disco|album|spotify)\b/.test(q))||/\bquiero (escuchar|oir)\b/.test(q))}, function(q,raw){spPlayQuery(musicQuery(raw))}],
   [function(q){return /\b(cierra|quita|apaga|oculta|termina|deten|detener|para)\b.*\bvideo/.test(q)||/(saca|quita) (el )?video/.test(q)}, function(){closeVideo(); setMood('happy',1000); reply('Listo, quité el video.')}],
   [function(q){return !!vidPlayer&&/(pausa|pausar|pon pausa)/.test(q)}, function(){try{vidPlayer.pauseVideo()}catch(e){}}],
   [function(q){return !!vidPlayer&&/(reanuda|continua|dale play|sigue el video|sigue con el video)/.test(q)}, function(){try{vidPlayer.playVideo()}catch(e){}}],
@@ -1036,7 +1057,7 @@ var INTENTS=[
   [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
   [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
   [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
-   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, y buenas noches para dormirme.')}],
+   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. Si conectas Spotify, pídeme canciones. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, y buenas noches para dormirme.')}],
   [function(q){return /(callate|silencio|no hables|para de hablar)/.test(q)},
    function(){stopSpeaking()}],
   [function(q){return /(me llamo|mi nombre es)\s+[a-z]+/.test(q)},
@@ -1087,6 +1108,9 @@ function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return;
   note('Tú: '+raw);
   var q=norm(raw);
+  if(askMusicNext&&askMusicNext<Date.now()) askMusicNext=false;
+  if(askVideoNext&&askVideoNext<Date.now()) askVideoNext=false;
+  if(askMusicNext){askMusicNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} spPlayQuery(musicQuery('pon '+raw)); return}
   if(askVideoNext){askVideoNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} playVideo(raw.replace(/chispa[,\s]*/ig,' ').trim()); return}
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
@@ -1183,6 +1207,155 @@ function tell(kind,raw){
   aiAsk(raw,{kind:kind,hist:false}).then(function(t){reply(cleanAi(t))}).catch(function(e){setMood(baseline()); reply(e&&e.message==='noai'?NOAI:aiError(e))});
 }
 
+/* ---------- Spotify ---------- */
+var SP_SCOPES='streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state';
+var spPlayer=null, spDeviceId='', spPlaying=false, spTrack='', spDucked=false, spSaved=.8, spSdkP=null, spSdkFail=false, askMusicNext=false;
+function spOn(){return !!(CFG.spId&&CFG.spTok&&CFG.spTok.r)}
+function spRedirect(){return location.origin+location.pathname}
+function spRand(n){var a=new Uint8Array(n); crypto.getRandomValues(a); return Array.prototype.map.call(a,function(b){return ('0'+b.toString(16)).slice(-2)}).join('').slice(0,n)}
+function spB64(buf){var b=new Uint8Array(buf), t=''; for(var i=0;i<b.length;i++) t+=String.fromCharCode(b[i]); return btoa(t).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function spLogin(){
+  if(!CFG.spId){$('#spUse').textContent='Primero pega el Client ID.'; return}
+  if(!(window.crypto&&crypto.subtle)){$('#spUse').textContent='Abre Chispa desde su página https para conectar Spotify.'; return}
+  var ver=spRand(96), st=spRand(16);
+  try{localStorage.setItem('chispa.spv',ver+'|'+st)}catch(e){}
+  crypto.subtle.digest('SHA-256',new TextEncoder().encode(ver)).then(function(h){
+    location.href='https://accounts.spotify.com/authorize?response_type=code&client_id='+encodeURIComponent(CFG.spId)+'&scope='+encodeURIComponent(SP_SCOPES)+'&redirect_uri='+encodeURIComponent(spRedirect())+'&state='+st+'&code_challenge_method=S256&code_challenge='+spB64(h);
+  });
+}
+function spToken(body){
+  return fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body}).then(function(r){
+    if(!r.ok){var e=new Error('http'+r.status); e.status=r.status; throw e}
+    return r.json();
+  }).then(function(j){
+    CFG.spTok={a:j.access_token,r:j.refresh_token||(CFG.spTok&&CFG.spTok.r)||'',e:Date.now()+(j.expires_in||3600)*1000}; saveCfg();
+    return CFG.spTok.a;
+  });
+}
+function spGetToken(){
+  var t=CFG.spTok;
+  if(!t){var e0=new Error('sp'); e0.status=401; return Promise.reject(e0)}
+  if(t.e-60000>Date.now()) return Promise.resolve(t.a);
+  return spToken('grant_type=refresh_token&refresh_token='+encodeURIComponent(t.r)+'&client_id='+encodeURIComponent(CFG.spId)).catch(function(e){
+    if(e&&(e.status===400||e.status===401)){CFG.spTok=null; saveCfg()}
+    e.status=401; throw e;
+  });
+}
+function spApi(path,o){
+  return spGetToken().then(function(tk){
+    o=o||{}; o.headers={Authorization:'Bearer '+tk,'Content-Type':'application/json'};
+    return fetch('https://api.spotify.com/v1'+path,o);
+  }).then(function(r){
+    if(r.status===204||r.status===202) return {};
+    if(!r.ok){var e=new Error('http'+r.status); e.status=r.status; throw e}
+    return r.text().then(function(t){return t?JSON.parse(t):{}});
+  });
+}
+function spErr(e){
+  setMood(baseline());
+  var st=e&&e.status;
+  if(e&&e.nodev||st===404) return reply('No encuentro dónde ponerla. Abre la app de Spotify en la tablet y vuelve a pedírmelo.');
+  if(st===401) return reply('Spotify me cerró la sesión. Conéctalo otra vez en Voz y permisos.');
+  if(st===403) return reply('Spotify no me deja reproducir. Hace falta una cuenta Premium.');
+  if(st===429) return reply('Spotify me pide esperar un momento.');
+  return reply('No pude hablar con Spotify.');
+}
+function spCallback(){
+  var q=new URLSearchParams(location.search), code=q.get('code'), st=q.get('state'), er=q.get('error');
+  if(!code&&!er) return;
+  var saved=''; try{saved=localStorage.getItem('chispa.spv')||''}catch(e){}
+  var parts=saved.split('|');
+  try{history.replaceState(null,'',spRedirect())}catch(e){}
+  if(er){note('Spotify no dejó conectar ('+er+').'); return}
+  if(!parts[0]||parts[1]!==st){note('No pude confirmar el regreso de Spotify. Intenta de nuevo.'); return}
+  try{localStorage.removeItem('chispa.spv')}catch(e){}
+  spToken('grant_type=authorization_code&code='+encodeURIComponent(code)+'&redirect_uri='+encodeURIComponent(spRedirect())+'&client_id='+encodeURIComponent(CFG.spId)+'&code_verifier='+encodeURIComponent(parts[0])).then(function(){
+    el.bubble.textContent='¡Spotify conectado! Pídeme una canción.'; note('Spotify conectado.'); spInit();
+  }).catch(function(){note('Spotify no aceptó la conexión. Revisa el Client ID y la dirección de regreso.')});
+}
+function spInit(){
+  if(!spOn()||spPlayer||spSdkP) return;
+  spSdkP=new Promise(function(res,rej){
+    window.onSpotifyWebPlaybackSDKReady=res;
+    var sc=document.createElement('script'); sc.src='https://sdk.scdn.co/spotify-player.js'; sc.onerror=function(){rej(new Error('sdk'))};
+    document.head.appendChild(sc);
+  }).then(function(){
+    var pl=new Spotify.Player({name:'Chispa',volume:.8,getOAuthToken:function(cb){spGetToken().then(cb).catch(function(){})}});
+    pl.addListener('ready',function(d){spDeviceId=d.device_id; spPlayer=pl; note('Spotify listo en esta tablet.')});
+    pl.addListener('not_ready',function(){spDeviceId=''});
+    pl.addListener('initialization_error',function(){spDeviceId=''; spSdkFail=true; note('Este navegador no toca Spotify directo. Usaré la app de Spotify de la tablet.')});
+    pl.addListener('authentication_error',function(){note('Spotify rechazó la sesión. Vuelve a conectarlo.')});
+    pl.addListener('account_error',function(){spSdkFail=true; note('Spotify dice que esta cuenta no es Premium.')});
+    pl.addListener('playback_error',function(){note('Spotify no pudo reproducir eso.')});
+    pl.addListener('player_state_changed',function(st){
+      if(!st){spPlaying=false; return}
+      spPlaying=!st.paused; var c=st.track_window&&st.track_window.current_track;
+      spTrack=c?c.name+', de '+c.artists.map(function(a){return a.name}).join(' y '):'';
+    });
+    pl.connect();
+    addEventListener('pointerdown',function(){try{pl.activateElement()}catch(e){}},{once:true,passive:true});
+  }).catch(function(){spSdkFail=true});
+}
+function spDuck(on){
+  if(!spPlayer) return;
+  if(on){
+    if(spDucked||!spPlaying) return;
+    spDucked=true;
+    spPlayer.getVolume().then(function(v){spSaved=v||.8; if(spDucked) spPlayer.setVolume(Math.min(.15,spSaved))}).catch(function(){});
+  }else if(spDucked){
+    spDucked=false; try{spPlayer.setVolume(spSaved)}catch(e){}
+  }
+}
+function spDevice(){
+  return new Promise(function(res){
+    var t0=Date.now();
+    (function w(){if(spDeviceId||!spSdkP||spSdkFail||Date.now()-t0>5000) res(); else setTimeout(w,300)})();
+  }).then(function(){
+    if(spDeviceId) return spDeviceId;
+    return spApi('/me/player/devices').then(function(j){
+      var d=(j.devices||[]).filter(function(x){return !x.is_restricted}), a=d.filter(function(x){return x.is_active})[0]||d[0];
+      if(!a){var e=new Error('nodev'); e.nodev=true; throw e}
+      return a.id;
+    });
+  });
+}
+function musicQuery(raw){
+  var t=raw.replace(/chispa[,\s]*/ig,' ').replace(/\b(en|por|desde|con)\s+spotify\b/ig,' ').replace(/\bspotify\b/ig,' ');
+  var m=t.match(/\b(pon(?:me)?|pone|reproduce|toca(?:me)?|quiero (?:escuchar|o[ií]r)|escuchar|o[ií]r)\b\s*(.*)$/i);
+  var r=(m?m[2]:t).replace(/\bpor favor\b/ig,'');
+  r=r.replace(/^(?:un|una|el|la|los|las|unos|unas|algo|alguna|algun|otra)\s+/i,'')
+     .replace(/^(?:canci[oó]n(?:es)?|tema|disco|[aá]lbum|lista)\b\s*(?:(?:de|del)\b\s*)?/i,'')
+     .replace(/^m[uú]sica\s+(?:de|del)\s+/i,'')
+     .replace(/\b(de|del)\b/ig,' ').replace(/\s+/g,' ').trim();
+  return /^(m[uú]sica|canci[oó]n|canciones|algo)$/i.test(r)?'':r;
+}
+function spPlayQuery(q){
+  if(!q){askMusicNext=Date.now()+20000; return reply('¿Qué quieres escuchar?').then(function(){if(askMusicNext) listenNext()})}
+  setMood('thinking'); el.bubble.textContent='Buscando “'+q+'”…';
+  return spApi('/search?type=track&limit=10&market=from_token&q='+encodeURIComponent(q)).then(function(j){
+    var items=(j.tracks&&j.tracks.items)||[];
+    if(!items.length){reply('No encontré esa canción.'); return}
+    var t=items[0];
+    return spDevice().then(function(dev){
+      return reply('Va '+t.name+', de '+t.artists.map(function(a){return a.name}).join(' y ')+'.').then(function(){
+        return spApi('/me/player/play?device_id='+encodeURIComponent(dev),{method:'PUT',body:JSON.stringify({uris:items.map(function(x){return x.uri})})}).then(function(){setMood('happy',1500)});
+      });
+    });
+  }).catch(spErr);
+}
+function spCtl(a){
+  var p;
+  if(a==='pause') p=spApi('/me/player/pause',{method:'PUT'});
+  else if(a==='play') p=spApi('/me/player/play',{method:'PUT'});
+  else if(a==='next') p=spApi('/me/player/next',{method:'POST'});
+  else if(a==='prev') p=spApi('/me/player/previous',{method:'POST'});
+  else p=spApi('/me/player').then(function(j){
+    var v=(j&&j.device&&typeof j.device.volume_percent==='number')?j.device.volume_percent:50, nv=Math.max(0,Math.min(100,v+(a==='volup'?20:-20)));
+    return spApi('/me/player/volume?volume_percent='+nv,{method:'PUT'}).then(function(){return a==='volup'?'Más alto.':'Más bajo.'});
+  });
+  return p.then(function(msg){setMood('happy',800); if(typeof msg==='string') reply(msg)}).catch(spErr);
+}
+
 /* ---------- Videos de YouTube ---------- */
 var vidPlayer=null, vidQ=[], vidI=0, ytP=null, askVideoNext=false;
 function ytApi(){
@@ -1221,6 +1394,7 @@ function closeVideo(){
 }
 function showVideo(){
   var it=vidQ[vidI]; if(!it) return;
+  var dk=document.querySelector('.dock'); if(dk) document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px');
   $('#vid').hidden=false; document.body.classList.add('vidon');
   ytApi().then(function(){
     if(vidPlayer){vidPlayer.loadVideoById(it.id); return}
@@ -1236,7 +1410,7 @@ function showVideo(){
 }
 function playVideo(q){
   if(!CFG.ytKey) return reply('Para mostrar videos necesito una llave de YouTube. Mira cómo ponerla en Voz y permisos.');
-  if(!q){askVideoNext=true; return reply('¿Qué video quieres ver?').then(function(){if(askVideoNext) listenNext()})}
+  if(!q){askVideoNext=Date.now()+20000; return reply('¿Qué video quieres ver?').then(function(){if(askVideoNext) listenNext()})}
   setMood('thinking'); el.bubble.textContent='Buscando “'+q+'”…';
   return ytSearch(q).then(function(list){
     if(!list.length){reply('No encontré videos de eso.'); return}
@@ -1408,7 +1582,17 @@ function showAiUse(){
   $('#aiUse').textContent=CFG.aiKey?'IA conectada ('+(CFG.aiProv==='claude'?'Claude':'Gemini')+').':'Sin llave solo respondo lo básico. Entra a aistudio.google.com con tu cuenta de Google, toca “Get API key” y pega la llave aquí. En el nivel gratis, Google puede usar lo que le digas para mejorar sus productos: no le cuentes cosas privadas.';
   $('#ytUse').textContent=CFG.ytKey?'Videos listos.':'Para ver videos: en console.cloud.google.com crea un proyecto, activa “YouTube Data API v3”, crea una clave de API y pégala aquí.';
 }
-function fillAi(){$('#aiProv').value=CFG.aiProv||'gemini'; $('#aiKey').value=CFG.aiKey; $('#ytKey').value=CFG.ytKey; showAiUse()}
+function showSp(){
+  $('#spUri').value=spRedirect(); $('#spId').value=CFG.spId||'';
+  $('#spUse').textContent=spOn()?'Spotify conectado. Pídeme una canción.':(CFG.spId?'Toca Conectar Spotify.':'1) Entra a developer.spotify.com/dashboard y crea una app marcando Web API y Web Playback SDK. 2) Copia la dirección de arriba en Redirect URIs. 3) Pega aquí el Client ID y toca Conectar. Hace falta Spotify Premium.');
+}
+function fillAi(){$('#aiProv').value=CFG.aiProv||'gemini'; $('#aiKey').value=CFG.aiKey; $('#ytKey').value=CFG.ytKey; showAiUse(); showSp()}
+$('#spConnect').addEventListener('click',function(){CFG.spId=$('#spId').value.trim(); saveCfg(); spLogin()});
+$('#spClear').addEventListener('click',function(){
+  CFG.spTok=null; saveCfg();
+  if(spPlayer){try{spPlayer.disconnect()}catch(e){}}
+  spPlayer=null; spDeviceId=''; spSdkP=null; spPlaying=false; showSp(); $('#spUse').textContent='Spotify desconectado de esta tablet.';
+});
 $('#aiSave').addEventListener('click',function(){
   CFG.aiProv=$('#aiProv').value; CFG.aiKey=$('#aiKey').value.trim(); CFG.aiModel=''; saveCfg();
   if(!CFG.aiKey){showAiUse(); $('#aiUse').textContent='Falta la llave.'; return}
@@ -1508,7 +1692,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-ia', pendingUpdate=false;
+var APP_VERSION='2026-10-15-spotify', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
@@ -1523,6 +1707,7 @@ setInterval(function(){
 tick(); setInterval(tick,1000);
 autoWake();
 if(CFG.follow){setTimeout(function(){startFollow(true)},1500); addEventListener('pointerdown',function(){if(CFG.follow&&!stream&&!camMode) startFollow(true)},{once:true,passive:true})}
+spCallback(); if(spOn()) setTimeout(spInit,2500);
 loadWeather(); setInterval(loadWeather,20*60*1000);
 requestAnimationFrame(frame);
 })();
