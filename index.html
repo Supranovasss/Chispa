@@ -1198,7 +1198,9 @@ function stopListen(){
   listening=false; el.mic.classList.remove('on'); setLbl(el.mic,'Hablar');
   if(mood==='listening') setMood(baseline());
 }
-var wakeEarly=false, lastInterim=null, oneRetry=0, gotRes=false;
+var wakeEarly=false, lastInterim=null, oneRetry=0, gotRes=false, pendHead=null;
+var HEADONLY=/^(pon|ponme|pone|ponga|ponle|reproduce|coloca|colocame|abre|abreme|muestra|muestrame|ensename|busca|buscame|dibuja|dibujame|anota|apunta|agrega|agregame|anade|crea|programa|dime|cuentame|quiero ver|quiero escuchar|quiero|necesito|hazme|dame|traeme)(\s+(un|una|unos|unas|el|la|los|las|de|del|algo|por favor|me|mi|mis))*$/;
+function headMerge(t){var h=pendHead; pendHead=null; return (h&&h.exp>Date.now())?h.t+' '+t:t}
 var WAKE=/(?:(?:oye|oie|oiga|hoy|hey|ey|ola|hola)[,\s]+)?(?:chis\s?p\w*|chiz\s?p\w*|ches\s?p\w*|chipas?|sis\s?pa|chis\s?ba|chizpa)[,\s]*(.*)$/;
 function wakeMatch(alts){
   for(var i=0;i<alts.length;i++){var n=norm(alts[i]).trim(), m=n.match(WAKE); if(m) return {n:n,m:m}}
@@ -1229,10 +1231,11 @@ function startListen(continuous){
         if(wm){
           var rest=wm.m[1].trim();
           act(); armedUntil=0; lastInterim=null; wakeBlue(rest?3200:8000);
-          if(rest) handle(rest); else arm();
+          if(rest&&HEADONLY.test(rest)){pendHead={t:rest,exp:Date.now()+9000}; arm()}
+          else if(rest) handle(rest); else arm();
         }else if(Date.now()<armedUntil){
           if(n.length<2) continue;
-          armedUntil=0; lastInterim=null; handle(n);
+          armedUntil=0; lastInterim=null; handle(headMerge(n));
         }
         else if(recipe&&RCMD.test(n.trim())){handle(n)}
       }else if(res.isFinal){lastInterim=null; stopListen(); handle(txt)}
@@ -1288,7 +1291,7 @@ setInterval(function(){
   var li=lastInterim;
   if(li&&Date.now()-li.at>1700){
     if(li.one&&rec&&!recCont){lastInterim=null; stopListen(); handle(li.t)}
-    else if(!li.one&&Date.now()<armedUntil&&!talking){lastInterim=null; armedUntil=0; handle(li.t)}
+    else if(!li.one&&Date.now()<armedUntil&&!talking){lastInterim=null; armedUntil=0; handle(headMerge(li.t))}
     else if(Date.now()-li.at>6000) lastInterim=null;
   }
 },400);
@@ -2260,6 +2263,7 @@ var INTENTS=[
   [function(q){return q.length<24&&/^(hola|buenas|buenos dias|buenas tardes|hey|ey|oye)/.test(q)},
    function(){reply(pickLine('hola',saludo()+(CFG.name?', '+CFG.name:'')+'. ¿En qué te ayudo?'))}]
   /* Último recurso: “pon …” sin más contexto se trata como pedido de video/canción */
+  ,[function(q){return /\b(diagnostico|diagnosticar|revisa (la )?conexion|por que no (funciona|abre))\b/.test(q)}, function(){runDiag()}]
   ,[function(q){return /^(chispa\s+)?(pon|ponme|ponga|reproduce|colocame|coloca)(\s+(algo|alguna cosa|eso|por favor))*\s*$/.test(q.trim())}, function(){askNext('¿Qué quieres que ponga?',function(raw2,q2){handle('pon '+raw2)})}]
   ,[function(q){return /^(chispa\s+)?(pon|ponme|reproduce|colocame)\s+(?!el volumen|la alarma|un temporizador|temporizador|una alarma|alarma|pausa|musica|la musica)\S+/.test(q.trim())&&!/\b(hora|clima|tiempo|receta|lista|nota|luz|volumen|fuerte|bajo|alto)\b/.test(q)}, function(q,raw){playVideo(videoQuery(raw))}]
 ];
@@ -3079,7 +3083,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-pon', pendingUpdate=false;
+var APP_VERSION='2026-10-16-oracion', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
@@ -3090,6 +3094,26 @@ setInterval(function(){
   if(pendingUpdate&&!talking&&!(listening&&!wakeOn)&&!game&&!storyOn&&$('#vid').hidden&&camMode!=='rps'&&camMode!=='gestures'&&Date.now()-lastAct>60000) location.reload();
 },30000);
 
+
+/* ---------- Diagnóstico ---------- */
+function runDiag(){
+  var box=document.getElementById('diag');
+  if(!box){box=document.createElement('div'); box.id='diag'; box.style.cssText='position:fixed;inset:6% 8%;z-index:99999;background:#0d1722f2;color:#eaf2ff;border:2px solid #2b7fff;border-radius:18px;padding:22px;font:18px/1.6 system-ui,sans-serif;overflow:auto;white-space:pre-wrap'; box.onclick=function(){box.remove()}; document.body.appendChild(box)}
+  var out=['DIAGNÓSTICO · v'+APP_VERSION+'  (toca para cerrar)','Dirección: '+location.href.slice(0,60),'Internet: '+(navigator.onLine?'sí':'NO'),'Reconocimiento de voz: '+(SR?'sí':'NO'),'Cámara disponible: '+((navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)?'sí':'NO'),'Llave IA: '+(CFG.aiKey?'puesta':'falta')+' · YouTube: '+(CFG.ytKey?'puesta':'falta')+' · Azure: '+(CFG.azKey?'puesta':'falta'),''];
+  function show(){box.textContent=out.join('\n')}
+  function t(name,p){var i=out.length; out.push(name+': probando…'); show(); return p.then(function(m){out[i]=name+': OK'+(m?' · '+m:''); show()}).catch(function(e){out[i]=name+': FALLA · '+String((e&&e.message)||e).slice(0,70); show()})}
+  function ft(u){return fetch(u).then(function(r){if(!r.ok) throw new Error('http '+r.status); return r.text()}).then(function(){return ''})}
+  function im(u){return new Promise(function(ok,no){var x=new Image(); x.onload=function(){ok()}; x.onerror=function(){no(new Error('no cargó'))}; x.src=u; setTimeout(function(){no(new Error('tardó mucho'))},12000)})}
+  show();
+  var q=[t('Clima (open-meteo)',ft('https://api.open-meteo.com/v1/forecast?latitude=6.24&longitude=-75.58&current=temperature_2m')),
+   t('Imágenes (Wikimedia)',ft('https://commons.wikimedia.org/w/api.php?action=query&meta=siteinfo&format=json&origin=*')),
+   t('Dibujar (Pollinations)',im('https://image.pollinations.ai/prompt/gato?width=64&height=64&nologo=true')),
+   t('YouTube (script)',ft('https://www.youtube.com/iframe_api')),
+   t('Cámara',(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia?navigator.mediaDevices.getUserMedia({video:true}).then(function(st){st.getTracks().forEach(function(x){x.stop()}); return 'permiso concedido'}):Promise.reject(new Error('no disponible'))))];
+  if(CFG.ytKey) q.push(t('Llave de YouTube',ft('https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&type=video&q=gato&key='+encodeURIComponent(CFG.ytKey))));
+  return Promise.all(q).then(function(){var bad=out.filter(function(l){return /FALLA/.test(l)}).length; return reply(bad?'Encontré '+bad+' problemas. Mira la pantalla.':'Todo está bien por aquí.')});
+}
+document.getElementById('verTag').onclick=function(){runDiag()};
 /* ---------- Arranque ---------- */
 (function(){var dk=document.getElementById('dock'); function f(){document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px')} f(); if(window.ResizeObserver) new ResizeObserver(f).observe(dk); addEventListener('resize',f)})();
 $('#verTag').textContent=' · v'+APP_VERSION;
