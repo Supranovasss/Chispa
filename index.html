@@ -1,0 +1,1298 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>Compañero de Mesón</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Nunito:wght@400;600;700&display=swap">
+<style>
+/* Concepto: pantalla de mesón. En horizontal, datos a la izquierda y la cara de Chispa grande a la derecha; en vertical todo apilado. Un solo look oscuro y cálido, pensado para una habitación o cocina con poca luz. */
+:root{
+  --bg:#0d1722; --panel:#13233a; --line:#25405c; --ink:#f6ecdc; --muted:#9fb3c8;
+  --glow:#ffc78f; --glow2:#ff9a76; --alert:#ff6b6b; --ok:#8be0b5;
+  --font-display:'Fredoka','Trebuchet MS',system-ui,sans-serif;
+  --font-body:'Nunito',system-ui,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+html{box-sizing:border-box;height:100%}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+body{
+  margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:var(--font-body);font-size:16px;line-height:1.4;
+  padding-block:12px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow-x:hidden;overflow-y:auto;
+}
+.app{
+  min-height:100%;display:grid;gap:14px;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"info" "stage" "dock";
+  grid-template-rows:auto 1fr auto;
+  transition:filter 1.2s;
+}
+@media (min-width:820px) and (orientation:landscape){
+  .app{
+    grid-template-columns:minmax(280px,32%) minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr) auto;
+    grid-template-areas:"info stage" "dock dock";
+  }
+}
+body.asleep .app{filter:brightness(.5)}
+body.flash::after{content:"";position:fixed;inset:0;border:8px solid var(--alert);pointer-events:none;animation:flash 1.4s ease-out forwards}
+@keyframes flash{from{opacity:1}to{opacity:0}}
+
+/* Columna de datos */
+.info{grid-area:info;display:flex;flex-direction:column;gap:12px;min-width:0;overflow-y:auto}
+.clock{display:flex;align-items:baseline;gap:10px;font-family:var(--font-display);line-height:1}
+#clock{font-size:clamp(60px,10vw,118px);font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+#ampm{font-size:clamp(18px,2.4vw,28px);color:var(--muted);font-weight:400}
+.date{margin:0;font-size:clamp(17px,1.8vw,22px);color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px 16px;min-width:0}
+.lbl{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.wx-main{display:flex;align-items:center;gap:14px}
+.wx-ico{width:56px;height:56px;color:var(--glow);flex:none}
+.wx-ico svg{width:100%;height:100%;display:block}
+.wx-t{font-family:var(--font-display);font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.wx-d{color:var(--ink);font-weight:600}
+.wx-s{margin:6px 0 0;color:var(--muted);font-size:14px}
+.wx-empty{margin:0;color:var(--muted)}
+ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+#tlist li{display:flex;align-items:center;gap:10px}
+#tlist .tm{font-family:var(--font-display);font-size:28px;font-variant-numeric:tabular-nums;min-width:4.2ch}
+#tlist .tl{flex:1;color:var(--muted)}
+.x{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink);font-size:22px;line-height:1;cursor:pointer}
+#cam{width:100%;max-width:240px;aspect-ratio:4/3;object-fit:cover;border-radius:12px;background:#000;display:block;margin-bottom:10px;transform:scaleX(-1)}
+#wlog{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums;max-height:140px;overflow-y:auto}
+#wlog li b{color:var(--alert);font-weight:700}
+
+/* Escenario con la cara */
+.stage{grid-area:stage;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-width:0}
+.facewrap{flex:1;min-height:240px;width:100%;position:relative}
+#face{position:absolute;inset:0;margin:auto;width:100%;height:100%;max-width:900px;display:block;touch-action:none;cursor:pointer;
+  --eye:var(--glow);--eyeglow:rgba(255,199,143,.45);--mouth:var(--glow2)}
+#face[data-mood=alert]{--eye:var(--alert);--eyeglow:rgba(255,107,107,.5);--mouth:var(--alert)}
+#face[data-mood=listening]{--eye:#bfe9ff;--eyeglow:rgba(150,220,255,.5);--mouth:#bfe9ff}
+#face[data-mood=sleepy]{--eye:#c9b79c;--eyeglow:rgba(200,180,150,.15);--mouth:#c9b79c}
+.eye{fill:var(--eye);transition:fill .3s;filter:drop-shadow(0 0 16px var(--eyeglow))}
+.lid{fill:var(--bg)}
+.blush{fill:var(--glow2)}
+.mouth{stroke:var(--mouth);stroke-width:8;stroke-linecap:round;stroke-linejoin:round;fill:#2a1620;transition:stroke .3s}
+.zzz text{fill:var(--muted);font-family:var(--font-display);font-size:34px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.bubble{margin:0;max-width:34ch;min-height:3.2em;text-align:center;font-family:var(--font-display);font-weight:400;font-size:clamp(20px,2.4vw,32px);line-height:1.25;text-wrap:balance}
+.heard{margin:0;min-height:1.4em;max-width:60ch;text-align:center;color:var(--muted);font-size:14px}
+.rec{position:absolute;top:0;right:0;display:none;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--alert)}
+.rec i{width:10px;height:10px;border-radius:50%;background:var(--alert);animation:pulse 1.4s ease-in-out infinite}
+.stage.watching .rec{display:flex}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* Controles */
+.dock{grid-area:dock;display:flex;flex-direction:column;gap:10px;min-width:0}
+.ask{display:flex;gap:10px}
+.ask input{flex:1;min-width:0;min-height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 17px var(--font-body)}
+.ask input::placeholder{color:var(--muted);font-weight:400}
+.row,.chips{display:flex;flex-wrap:wrap;gap:10px}
+.btn,.chip{font-family:var(--font-body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;cursor:pointer}
+.btn{min-height:52px;padding:0 22px;font-size:16px}
+.chip{min-height:44px;padding:0 16px;font-size:14px;font-weight:600;color:var(--muted)}
+.btn.primary{background:linear-gradient(135deg,var(--glow),var(--glow2));color:#2a1620;border-color:transparent}
+.btn.primary.on{animation:pulse 1.2s ease-in-out infinite}
+.btn[aria-pressed=true]{border-color:var(--glow);background:rgba(255,199,143,.14);color:var(--glow)}
+.btn:focus-visible,.chip:focus-visible,.x:focus-visible,#face:focus-visible,.ask input:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}
+
+.choices{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.choices .btn{min-height:56px;font-size:18px}
+.sheet{position:fixed;top:0;right:0;bottom:0;z-index:20;width:min(480px,100%);background:var(--panel);border-left:1px solid var(--line);box-shadow:-20px 0 60px rgba(0,0,0,.45);overflow-y:auto;display:flex;flex-direction:column;gap:20px;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) 16px}
+.sheethead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sheet h2{margin:0;font-family:var(--font-display);font-weight:500;font-size:24px}
+.sheet section{display:flex;flex-direction:column;gap:12px}
+.sheet label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px;color:var(--muted)}
+.sheet select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:600 16px var(--font-body);padding:0 12px}
+.sheet input[type=range]{width:100%;min-height:32px;accent-color:var(--glow)}
+.presets{display:flex;flex-wrap:wrap;gap:8px}
+.diag{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 14px;margin:0;font-size:15px}
+.diag dt{color:var(--muted)}
+.diag dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.diag dd.ok{color:var(--ok)}
+.diag dd.bad{color:var(--alert)}
+.help{margin:0;font-size:14px;color:var(--muted)}
+.sheet input[type=text],.sheet input[type=password]{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:600 16px var(--font-body);padding:0 12px}
+.sheet label.check{flex-direction:row;align-items:center;gap:10px;color:var(--ink);font-size:16px}
+.sheet label.check input{width:24px;height:24px;accent-color:var(--glow)}
+body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
+@keyframes sway{from{transform:rotate(-4deg) translateY(0)}to{transform:rotate(4deg) translateY(-8px)}}
+@media (orientation:landscape) and (min-width:700px){
+  html,body{height:100%;overflow:hidden}
+  body{height:100dvh;padding-block:8px}
+  .app{height:100%;min-height:0;gap:10px}
+  .info{gap:8px;scrollbar-width:none}
+  .stage{min-height:0;gap:6px}
+  .facewrap{min-height:0}
+  #clock{font-size:clamp(48px,min(8vw,15vh),104px)}
+  #ampm{font-size:clamp(16px,3vh,26px)}
+  .date{font-size:clamp(15px,2.6vh,20px)}
+  .card{padding:10px 12px;border-radius:14px}
+  .lbl{margin-bottom:6px}
+  .wx-ico{width:44px;height:44px}
+  .wx-t{font-size:34px}
+  .wx-s{margin-top:3px;font-size:13px}
+  #cam{max-width:150px;margin-bottom:6px}
+  #wlog{max-height:56px}
+  #tlist .tm{font-size:22px}
+  .bubble{min-height:2.6em;font-size:clamp(18px,3.4vh,28px)}
+  .heard{min-height:1.2em;font-size:13px}
+  .choices{gap:8px}
+  .choices .btn{min-height:44px;font-size:16px;padding:0 16px}
+  .dock{gap:6px}
+  .ask input,.btn{min-height:44px}
+  .btn{padding:0 16px;font-size:15px}
+  .row{gap:8px}
+  .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .chip{flex:none;min-height:38px}
+}
+@media (orientation:landscape) and (max-height:520px){
+  .chips{display:none}
+  .info .card{display:none}
+  #wcard:not([hidden]),#tcard:not([hidden]){display:block}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+
+<div class="app" id="app">
+  <aside class="info">
+    <div class="clock"><span id="clock">0:00</span><span id="ampm"></span></div>
+    <p class="date" id="date"></p>
+    <section class="card" aria-label="Clima">
+      <h2 class="lbl">Clima · Medellín</h2>
+      <div id="wx" aria-live="polite"><p class="wx-empty">Consultando el clima…</p></div>
+    </section>
+    <section class="card" id="tcard" hidden aria-label="Temporizadores">
+      <h2 class="lbl">Temporizadores</h2>
+      <ul id="tlist"></ul>
+    </section>
+    <section class="card" id="wcard" hidden aria-label="Cámara">
+      <h2 class="lbl" id="camTitle">Cámara</h2>
+      <video id="cam" playsinline muted></video>
+      <p class="wx-s" id="camStat"></p>
+      <ul id="wlog"><li>Sin movimiento todavía.</li></ul>
+    </section>
+  </aside>
+
+  <main class="stage" id="stage">
+    <div class="rec"><i></i><span id="recTxt">Vigilando</span></div>
+    <div class="facewrap">
+      <svg id="face" viewBox="0 0 400 290" data-mood="idle" role="img" aria-label="Cara animada de Chispa. Tócala para saludar." tabindex="0">
+        <g id="eyeL" transform="translate(130 120)">
+          <rect class="eye" x="-39" y="-46" width="78" height="92" rx="34"/>
+          <rect class="lid" id="lidL" x="-48" y="-56" width="96" height="0"/>
+          <ellipse class="lid" id="smileL" cx="0" cy="122" rx="62" ry="40"/>
+        </g>
+        <g id="eyeR" transform="translate(270 120)">
+          <rect class="eye" x="-39" y="-46" width="78" height="92" rx="34"/>
+          <rect class="lid" id="lidR" x="-48" y="-56" width="96" height="0"/>
+          <ellipse class="lid" id="smileR" cx="0" cy="122" rx="62" ry="40"/>
+        </g>
+        <ellipse class="blush" id="blushL" cx="84" cy="192" rx="26" ry="14" opacity="0"/>
+        <ellipse class="blush" id="blushR" cx="316" cy="192" rx="26" ry="14" opacity="0"/>
+        <path class="mouth" id="mouth" d="M162 222 Q200 262 238 222"/>
+        <g class="zzz" id="zzz" opacity="0">
+          <text x="318" y="62">Z</text>
+          <text x="344" y="36" style="font-size:26px">z</text>
+          <text x="362" y="16" style="font-size:18px">z</text>
+        </g>
+      </svg>
+    </div>
+    <p class="bubble" id="bubble" aria-live="polite">Hola, soy Chispa. Tócame, escríbeme o dime algo.</p>
+    <div class="choices" id="choices"></div>
+    <p class="heard" id="heard"></p>
+  </main>
+
+  <section class="dock" aria-label="Controles">
+    <form class="ask" id="form" autocomplete="off">
+      <input id="cmd" type="text" placeholder="Escríbele a Chispa…" enterkeyhint="send" aria-label="Mensaje para Chispa">
+      <button class="btn" type="submit">Enviar</button>
+    </form>
+    <div class="row">
+      <button class="btn primary" id="mic" type="button">Hablar</button>
+      <button class="btn" id="wake" type="button" aria-pressed="false">Decir “Chispa”</button>
+      <button class="btn" id="watch" type="button" aria-pressed="false">Vigilar</button>
+      <button class="btn" id="camBtn" type="button" aria-pressed="false">Juegos con cámara</button>
+      <button class="btn" id="voice" type="button" aria-pressed="true">Voz</button>
+      <button class="btn" id="fs" type="button">Pantalla completa</button>
+      <button class="btn" id="cfg" type="button">Voz y permisos</button>
+    </div>
+    <div class="chips">
+      <button class="chip" type="button" data-cmd="¿Qué hora es?">Hora</button>
+      <button class="chip" type="button" data-cmd="¿Cómo está el clima?">Clima</button>
+      <button class="chip" type="button" data-cmd="Cuéntame un chiste">Chiste</button>
+      <button class="chip" type="button" data-cmd="Dato curioso">Dato curioso</button>
+      <button class="chip" type="button" data-cmd="Temporizador de 5 minutos">Temporizador 5 min</button>
+      <button class="chip" type="button" data-cmd="Vamos a jugar">Jugar</button>
+      <button class="chip" type="button" data-cmd="Piedra papel o tijera con la cámara">Piedra, papel o tijera con la mano</button>
+      <button class="chip" type="button" data-cmd="Sígueme con la mirada">Sígueme</button>
+      <button class="chip" type="button" data-cmd="Reconoce mis gestos">Gestos</button>
+      <button class="chip" type="button" data-cmd="Baila">Baila</button>
+      <button class="chip" type="button" data-cmd="Guiña un ojo">Guiño</button>
+      <button class="chip" type="button" data-cmd="Buenas noches">Dormir</button>
+    </div>
+  </section>
+</div>
+
+<div class="sheet" id="sheet" role="dialog" aria-label="Voz y permisos" hidden>
+  <div class="sheethead"><h2>Voz y permisos</h2><button class="x" id="sheetX" type="button" aria-label="Cerrar">×</button></div>
+  <section>
+    <h3 class="lbl">Voz de Chispa</h3>
+    <label>Voz del dispositivo<select id="voiceSel"></select></label>
+    <div class="presets">
+      <button class="chip" type="button" data-p="natural">Natural</button>
+      <button class="chip" type="button" data-p="calida">Cálida</button>
+      <button class="chip" type="button" data-p="juguetona">Juguetona</button>
+      <button class="chip" type="button" data-p="tranquila">Tranquila</button>
+      <button class="chip" type="button" data-p="robot">Robot</button>
+    </div>
+    <label>Tono<input id="pitch" type="range" min="0.5" max="2" step="0.05"></label>
+    <label>Velocidad<input id="rate" type="range" min="0.6" max="1.6" step="0.05"></label>
+    <button class="btn" id="voiceTest" type="button">Probar voz</button>
+    <p class="help" id="voiceHelp"></p>
+  </section>
+  <section>
+    <h3 class="lbl">Voz natural en la nube (Azure)</h3>
+    <label class="check"><input id="azOn" type="checkbox">Usar la voz de Azure</label>
+    <label>Voz<select id="azVoice"></select></label>
+    <label>Región de tu recurso<input id="azRegion" type="text" placeholder="por ejemplo: eastus" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+    <label>Llave (se guarda solo en esta tablet)<input id="azKey" type="password" placeholder="pega aquí tu llave" autocomplete="off"></label>
+    <div class="row">
+      <button class="btn" id="azSave" type="button">Guardar y probar</button>
+      <button class="btn" id="azClear" type="button">Quitar llave</button>
+    </div>
+    <p class="help" id="azUse"></p>
+    <p class="help" id="azHelp"></p>
+  </section>
+  <section>
+    <h3 class="lbl">Micrófono y cámara</h3>
+    <dl class="diag" id="diag"></dl>
+    <div class="row">
+      <button class="btn" id="askMic" type="button">Permitir micrófono</button>
+      <button class="btn" id="askCam" type="button">Permitir cámara</button>
+      <button class="btn" id="reDiag" type="button">Revisar de nuevo</button>
+    </div>
+    <p class="help" id="permHelp"></p>
+  </section>
+  <p class="help" id="ver"></p>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+var CITY='Medellín', LAT=6.2442, LON=-75.5812, TZ='America/Bogota';
+
+var el={
+  face:$('#face'),eyeL:$('#eyeL'),eyeR:$('#eyeR'),lidL:$('#lidL'),lidR:$('#lidR'),
+  smL:$('#smileL'),smR:$('#smileR'),bL:$('#blushL'),bR:$('#blushR'),mouth:$('#mouth'),zzz:$('#zzz'),
+  bubble:$('#bubble'),choices:$('#choices'),heard:$('#heard'),stage:$('#stage'),
+  mic:$('#mic'),wake:$('#wake'),watch:$('#watch'),voice:$('#voice'),fs:$('#fs'),
+  cmd:$('#cmd'),form:$('#form'),cam:$('#cam'),wlog:$('#wlog'),wcard:$('#wcard'),tcard:$('#tcard'),tlist:$('#tlist')
+};
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function rand(a,b){return a+Math.random()*(b-a)}
+function norm(s){return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function note(t){el.heard.textContent=t}
+
+/* ---------- Cara ---------- */
+var MOODS={
+  idle:{curve:20,open:0,lid:0,smile:0,blush:.05,sc:1,mw:38},
+  happy:{curve:30,open:8,lid:0,smile:1,blush:.45,sc:1,mw:44},
+  listening:{curve:0,open:16,lid:0,smile:0,blush:0,sc:1.1,mw:20},
+  talking:{curve:14,open:10,lid:0,smile:0,blush:.2,sc:1,mw:36},
+  sleepy:{curve:4,open:0,lid:.6,smile:0,blush:0,sc:1,mw:30},
+  alert:{curve:-14,open:14,lid:0,smile:0,blush:0,sc:1.12,mw:34},
+  surprised:{curve:-8,open:36,lid:0,smile:0,blush:.1,sc:1.15,mw:20},
+  thinking:{curve:-4,open:0,lid:.22,smile:0,blush:0,sc:1,mw:26}
+};
+var GAZE={listening:{x:0,y:0},thinking:{x:14,y:-10},sleepy:{x:0,y:10},alert:{x:0,y:0},surprised:{x:0,y:-4}};
+var S={curve:20,open:0,lid:0,smile:0,blush:0,sc:1,mw:38,gx:0,gy:0};
+var mood='idle', moodTimer=0, gaze={x:0,y:0}, pointerAt=0;
+var asleep=false, talking=false, listening=false, wakeOn=false, voiceOn=true, lastAct=Date.now();
+var blinkEnd=0, nextBlink=2000, winkUntil=0;
+
+function baseline(){return asleep?'sleepy':((listening&&!wakeOn)?'listening':'idle')}
+function setMood(m,ms){
+  clearTimeout(moodTimer);
+  mood=m; el.face.setAttribute('data-mood',m);
+  if(GAZE[m]) gaze=GAZE[m];
+  if(ms) moodTimer=setTimeout(function(){setMood(baseline())},ms);
+}
+function frame(t){
+  var M=MOODS[mood], k=reduce?0.3:0.14, op=M.open;
+  if(mood==='talking') op=6+(Math.sin(t/85)*.5+Math.sin(t/41)*.3+.8)*12;
+  S.curve+=(M.curve-S.curve)*k; S.open+=(op-S.open)*.35; S.lid+=(M.lid-S.lid)*k;
+  S.smile+=(M.smile-S.smile)*k; S.blush+=(M.blush-S.blush)*k; S.sc+=(M.sc-S.sc)*k; S.mw+=(M.mw-S.mw)*k;
+  S.gx+=(gaze.x-S.gx)*.12; S.gy+=(gaze.y-S.gy)*.12;
+  var by=1;
+  if(t<blinkEnd){var p=1-(blinkEnd-t)/150; by=1-Math.sin(Math.PI*p)*.92}
+  else if(t>nextBlink){blinkEnd=t+150; nextBlink=t+2500+Math.random()*3500}
+  var sy=S.sc*by, syR=t<winkUntil?S.sc*.08:sy;
+  el.eyeL.setAttribute('transform','translate('+(130+S.gx)+' '+(120+S.gy)+') scale('+S.sc+' '+sy+')');
+  el.eyeR.setAttribute('transform','translate('+(270+S.gx)+' '+(120+S.gy)+') scale('+S.sc+' '+syR+')');
+  var lh=Math.max(0,S.lid*98), sc=62+(1-S.smile)*60;
+  el.lidL.setAttribute('height',lh); el.lidR.setAttribute('height',lh);
+  el.smL.setAttribute('cy',sc); el.smR.setAttribute('cy',sc);
+  el.bL.setAttribute('opacity',S.blush); el.bR.setAttribute('opacity',S.blush);
+  var x1=200-S.mw, x2=200+S.mw, y=222, c=S.curve*2, o=Math.max(0,S.open);
+  var d='M'+x1+' '+y+' Q200 '+(y+c)+' '+x2+' '+y;
+  if(o>=1.2) d+=' Q200 '+(y+c+o*2)+' '+x1+' '+y+'Z';
+  el.mouth.setAttribute('d',d);
+  el.zzz.setAttribute('opacity',clamp((S.lid-.25)*4,0,1));
+  requestAnimationFrame(frame);
+}
+addEventListener('pointermove',function(e){
+  if(mood!=='idle'&&mood!=='happy') return;
+  var r=el.face.getBoundingClientRect();
+  var dx=(e.clientX-(r.left+r.width/2))/r.width, dy=(e.clientY-(r.top+r.height/2))/r.height;
+  gaze={x:clamp(dx*60,-18,18),y:clamp(dy*40,-10,10)}; pointerAt=Date.now();
+},{passive:true});
+setInterval(function(){
+  if(reduce||asleep||Date.now()-pointerAt<4000) return;
+  if(mood==='idle'||mood==='happy') gaze=Math.random()<.35?{x:0,y:0}:{x:rand(-18,18),y:rand(-9,9)};
+},2600);
+setInterval(function(){
+  if(reduce||asleep||mood!=='idle') return;
+  if(Math.random()<.6) setMood('happy',1600); else setMood('surprised',800);
+},25000);
+
+/* ---------- Dormir y despertar ---------- */
+function goSleep(){asleep=true; document.body.classList.add('asleep'); setMood('sleepy')}
+function wakeUp(){asleep=false; document.body.classList.remove('asleep'); setMood('surprised',700)}
+function act(){lastAct=Date.now(); if(asleep) wakeUp()}
+addEventListener('pointerdown',act,{passive:true});
+addEventListener('keydown',act);
+setInterval(function(){
+  if(!asleep&&Date.now()-lastAct>120000&&!talking&&!(listening&&!wakeOn)&&camMode!=='rps'&&camMode!=='gestures'&&camMode!=='follow') goSleep();
+},5000);
+
+/* ---------- Voz de salida ---------- */
+var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0};
+try{var sv=JSON.parse(localStorage.getItem('chispa.cfg')||'{}'); for(var kk in sv) if(kk in CFG) CFG[kk]=sv[kk]}catch(e){}
+function saveCfg(){try{localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}catch(e){}}
+var speakId=0, lastSaid='', lastSaidEnd=0;
+function voiceScore(v){
+  var n=v.name||'', l=(v.lang||'').replace('_','-'), sc=0;
+  if(!/^es/i.test(l)) return -99;
+  if(v.localService===false) sc+=4;
+  if(/^es-(US|MX|419|CO|AR|CL|PE|VE)/i.test(l)) sc+=3;
+  if(/google|neural|natural|network|online/i.test(n)) sc+=2;
+  if(/\b(male|hombre|jorge|diego|juan|pablo|carlos|raul|alvaro|enrique|miguel|jose)\b/i.test(n)) sc-=5;
+  if(/female|mujer|sabina|paulina|helena|dalia|salome|elena|lucia|monica|paloma|camila|valentina|esperanza|marisol|carlota|elvira/i.test(n)) sc+=1;
+  return sc;
+}
+function pickVoice(){
+  if(!('speechSynthesis' in window)) return null;
+  var vs=speechSynthesis.getVoices()||[], best=null, bs=-98;
+  if(CFG.voice){for(var q0=0;q0<vs.length;q0++) if(vs[q0].name===CFG.voice) return vs[q0]}
+  vs.forEach(function(v){var sc=voiceScore(v); if(sc>bs){bs=sc; best=v}});
+  return best;
+}
+var curAudio=null, azCache={}, azKeys=[], azLimit=480000;
+function azMonthKey(){var d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)}
+function azUsed(){return CFG.azMonth===azMonthKey()?CFG.azChars:0}
+function azReady(){return !!(CFG.azOn&&CFG.azKey&&CFG.azRegion&&azUsed()<azLimit)}
+function xmlEsc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
+function azureFetch(text){
+  if(azCache[text]) return Promise.resolve(azCache[text]);
+  var voice=CFG.azVoice||'es-VE-PaolaNeural', loc=voice.split('-').slice(0,2).join('-');
+  var ssml="<speak version='1.0' xml:lang='"+loc+"'><voice xml:lang='"+loc+"' name='"+voice+"'>"+xmlEsc(text)+"</voice></speak>";
+  return fetch('https://'+CFG.azRegion.trim().toLowerCase()+'.tts.speech.microsoft.com/cognitiveservices/v1',{
+    method:'POST',
+    headers:{'Ocp-Apim-Subscription-Key':CFG.azKey.trim(),'Content-Type':'application/ssml+xml','X-Microsoft-OutputFormat':'audio-24khz-48kbitrate-mono-mp3'},
+    body:ssml
+  }).then(function(r){
+    if(!r.ok){var e=new Error('http'+r.status); e.status=r.status; throw e}
+    return r.blob();
+  }).then(function(blob){
+    var m=azMonthKey(); if(CFG.azMonth!==m){CFG.azMonth=m; CFG.azChars=0}
+    CFG.azChars+=text.length; saveCfg();
+    azCache[text]=blob; azKeys.push(text); if(azKeys.length>40) delete azCache[azKeys.shift()];
+    return blob;
+  });
+}
+function azError(e){
+  if(e&&(e.status===401||e.status===403)) return 'Azure rechazó la llave o la región. Revísalas.';
+  if(e&&e.status===429) return 'Azure dice que no hay cupo disponible ahora.';
+  if(e&&e.status) return 'Azure respondió con un error ('+e.status+').';
+  return 'No pude conectar con Azure. Revisa internet y la región, o si el navegador lo permite.';
+}
+function azNote(e){var m=azError(e)+' Uso la voz del dispositivo.'; note(m); var u=$('#azUse'); if(u) u.textContent=m}
+function speak(text){
+  return new Promise(function(res){
+    var id=++speakId, fell=false;
+    lastSaid=norm(text);
+    if(curAudio){try{curAudio.pause()}catch(e0){} curAudio=null}
+    function done(){
+      if(id!==speakId||!talking) return;
+      talking=false; lastSaidEnd=Date.now(); setMood('happy',1200); res();
+    }
+    talking=true; setMood('talking');
+    var ms=Math.max(1200,text.length*62);
+    function system(){
+      if(id!==speakId||fell) return;
+      fell=true;
+      if(voiceOn&&('speechSynthesis' in window)){
+        try{
+          speechSynthesis.cancel();
+          var parts=(text.match(/[^.!?…:]+[.!?…:]*/g)||[text]).map(function(x){return x.trim()}).filter(Boolean), v=pickVoice();
+          parts.forEach(function(x,i){
+            var u=new SpeechSynthesisUtterance(x);
+            u.lang=v?v.lang:'es-US'; if(v) u.voice=v;
+            u.rate=CFG.rate; u.pitch=CFG.pitch;
+            if(i===parts.length-1){u.onend=done; u.onerror=done}
+            speechSynthesis.speak(u);
+          });
+          setTimeout(done,ms*2+4000);
+          return;
+        }catch(e1){}
+      }
+      setTimeout(done,ms);
+    }
+    if(voiceOn&&azReady()){
+      azureFetch(text).then(function(blob){
+        if(id!==speakId) return;
+        var url=URL.createObjectURL(blob), a=new Audio(url); curAudio=a;
+        a.onended=function(){URL.revokeObjectURL(url); done()};
+        a.onerror=function(){URL.revokeObjectURL(url); system()};
+        var pl=a.play(); if(pl&&pl.catch) pl.catch(function(){system()});
+        setTimeout(done,ms*3+8000);
+      }).catch(function(e2){if(id===speakId&&!fell){azNote(e2); system()}});
+      return;
+    }
+    system();
+  });
+}
+function reply(text){el.bubble.textContent=text; return speak(text)}
+
+var ac=null;
+function audio(){
+  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume()}catch(e){}
+  return ac;
+}
+addEventListener('pointerdown',audio,{once:true,passive:true});
+function beep(freqs){
+  var c=audio(); if(!c) return;
+  var t=c.currentTime;
+  freqs.forEach(function(f,i){
+    var o=c.createOscillator(), g=c.createGain(), s=t+i*.25;
+    o.type='sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(.0001,s); g.gain.exponentialRampToValueAtTime(.25,s+.02); g.gain.exponentialRampToValueAtTime(.0001,s+.2);
+    o.connect(g); g.connect(c.destination); o.start(s); o.stop(s+.25);
+  });
+}
+
+/* ---------- Reloj ---------- */
+var dateFmt=new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long'});
+function tick(){
+  var d=new Date(), h=d.getHours();
+  $('#clock').textContent=(h%12||12)+':'+String(d.getMinutes()).padStart(2,'0');
+  $('#ampm').textContent=h<12?'a. m.':'p. m.';
+  $('#date').textContent=cap(dateFmt.format(d));
+  var now=Date.now(), fired=false;
+  for(var i=timers.length-1;i>=0;i--){
+    if(now>=timers[i].end){ring(timers[i]); timers.splice(i,1); fired=true}
+  }
+  renderTimers();
+}
+function horaHablada(d){
+  d=d||new Date();
+  var h=d.getHours(), m=d.getMinutes(), h12=h%12||12, nx=(h+1)%12||12;
+  var per=h<6?'de la madrugada':h<12?'de la mañana':h<19?'de la tarde':'de la noche';
+  function art(n){return n===1?'Es la una':'Son las '+n}
+  if(m===0) return art(h12)+' en punto '+per;
+  if(m===15) return art(h12)+' y cuarto '+per;
+  if(m===30) return art(h12)+' y media '+per;
+  if(m===45) return art(nx)+' menos cuarto '+per;
+  return art(h12)+' y '+m+' '+per;
+}
+
+/* ---------- Temporizadores ---------- */
+var timers=[], tid=0;
+var DURRE=/(media hora|(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte|treinta|cuarenta|cincuenta|sesenta)\s*(horas?|h|minutos?|min|segundos?|seg)\b)/i;
+var NUM={un:1,una:1,uno:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,quince:15,veinte:20,treinta:30,cuarenta:40,cincuenta:50,sesenta:60};
+function parseDur(q){
+  if(/media hora/.test(q)) return 1800;
+  var m=q.match(/(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte|treinta|cuarenta|cincuenta|sesenta)\s*(horas?|h|minutos?|min|segundos?|seg)\b/);
+  if(!m) return 0;
+  var n=isNaN(m[1])?NUM[m[1]]:+m[1], u=m[2].charAt(0);
+  return n*(u==='h'?3600:u==='m'?60:1);
+}
+function durText(sec){
+  var h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60, p=[];
+  if(h) p.push(h+(h===1?' hora':' horas'));
+  if(m) p.push(m+(m===1?' minuto':' minutos'));
+  if(s) p.push(s+(s===1?' segundo':' segundos'));
+  return p.join(' y ');
+}
+function mmss(ms){
+  var s=Math.max(0,Math.ceil(ms/1000)), h=Math.floor(s/3600), m=Math.floor(s%3600/60), r=s%60;
+  var pad=function(n){return String(n).padStart(2,'0')};
+  return (h?h+':':'')+pad(m)+':'+pad(r);
+}
+function addTimer(sec,msg){
+  timers.push({id:++tid,end:Date.now()+sec*1000,label:durText(sec),msg:msg||''});
+  renderTimers();
+  reply(msg?'Listo, te lo recuerdo en '+durText(sec)+': '+msg+'.':'Listo, temporizador de '+durText(sec)+'.');
+}
+function renderTimers(){
+  el.tcard.hidden=timers.length===0;
+  el.tlist.textContent='';
+  timers.forEach(function(t){
+    var li=document.createElement('li'), a=document.createElement('span'), b=document.createElement('span'), x=document.createElement('button');
+    a.className='tm'; a.textContent=mmss(t.end-Date.now());
+    b.className='tl'; b.textContent=t.msg?t.msg+' ('+t.label+')':t.label;
+    x.className='x'; x.type='button'; x.textContent='×'; x.setAttribute('aria-label','Cancelar temporizador de '+t.label); x.dataset.id=t.id;
+    li.appendChild(a); li.appendChild(b); li.appendChild(x); el.tlist.appendChild(li);
+  });
+}
+el.tlist.addEventListener('click',function(e){
+  var id=e.target.dataset&&e.target.dataset.id; if(!id) return;
+  timers=timers.filter(function(t){return String(t.id)!==id}); renderTimers();
+});
+function ring(t){
+  act(); setMood('alert',9000); beep([880,1175,880,1175]);
+  setTimeout(function(){reply(t.msg?'Te recuerdo: '+t.msg+'.':'¡Listo! Terminó tu temporizador de '+t.label+'.'); setMood('alert',9000)},1300);
+}
+
+/* ---------- Clima ---------- */
+var WX=null, wxErr='';
+var WCODE=function(c){
+  if(c===0) return 'cielo despejado';
+  if(c<=2) return 'cielo parcialmente nublado';
+  if(c===3) return 'cielo nublado';
+  if(c===45||c===48) return 'niebla';
+  if(c>=51&&c<=57) return 'llovizna';
+  if(c>=61&&c<=67) return 'lluvia';
+  if(c>=71&&c<=77) return 'nieve';
+  if(c>=80&&c<=82) return 'chubascos';
+  if(c>=95) return 'tormenta eléctrica';
+  return 'cielo variado';
+};
+function wxIcon(c){
+  var a='<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  var cloud='M15 33a8 8 0 0 1-1-16 11 11 0 0 1 21 2 7 7 0 0 1-1 14z';
+  var sun='<circle cx="24" cy="24" r="8"/><path d="M24 6v6M24 36v6M6 24h6M36 24h6M11.3 11.3l4.2 4.2M32.5 32.5l4.2 4.2M11.3 36.7l4.2-4.2M32.5 15.5l4.2-4.2"/>';
+  if(c===0) return a+sun+'</svg>';
+  if(c<=2) return a+'<circle cx="17" cy="16" r="6"/><path d="M17 4v3M5 16h3M8.5 7.5l2 2M25.5 7.5l-2 2"/><path d="M17 40a7 7 0 0 1-1-14 10 10 0 0 1 19 2 6 6 0 0 1-1 12z"/></svg>';
+  if(c===3) return a+'<path d="'+cloud+'" transform="translate(0 3)"/></svg>';
+  if(c===45||c===48) return a+'<path d="M8 18h32M12 26h28M8 34h32"/></svg>';
+  if(c>=95) return a+'<path d="'+cloud+'" transform="translate(0 -4)"/><path d="M25 30l-5 8h6l-3 8"/></svg>';
+  return a+'<path d="'+cloud+'" transform="translate(0 -4)"/><path d="M16 36l-2 6M25 36l-2 6M34 36l-2 6"/></svg>';
+}
+function renderWx(){
+  var box=$('#wx');
+  if(!WX){box.innerHTML='<p class="wx-empty">'+(wxErr||'Consultando el clima…')+'</p>'; return}
+  box.innerHTML='<div class="wx-main"><span class="wx-ico">'+wxIcon(WX.code)+'</span><div><div class="wx-t">'+Math.round(WX.t)+'°</div><div class="wx-d">'+cap(WX.desc)+'</div></div></div>'+
+    '<p class="wx-s">Sensación '+Math.round(WX.feel)+'° · Humedad '+Math.round(WX.hum)+'%</p>'+
+    '<p class="wx-s">Hoy '+Math.round(WX.min)+'° a '+Math.round(WX.max)+'° · Lluvia en las próximas horas '+Math.round(WX.rain)+'%</p>';
+}
+function loadWeather(){
+  var url='https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON+
+    '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code'+
+    '&hourly=precipitation_probability&daily=temperature_2m_max,temperature_2m_min'+
+    '&timezone='+encodeURIComponent(TZ)+'&forecast_days=2';
+  return fetch(url).then(function(r){if(!r.ok) throw new Error('http'); return r.json()}).then(function(j){
+    var cur=j.current, hp=j.hourly.precipitation_probability, idx=j.hourly.time.indexOf(cur.time.slice(0,13)+':00');
+    if(idx<0) idx=0;
+    var rain=Math.max.apply(null,hp.slice(idx,idx+6).concat([0]));
+    WX={t:cur.temperature_2m,feel:cur.apparent_temperature,hum:cur.relative_humidity_2m,code:cur.weather_code,
+        desc:WCODE(cur.weather_code),min:j.daily.temperature_2m_min[0],max:j.daily.temperature_2m_max[0],rain:rain};
+    wxErr=''; renderWx(); return true;
+  }).catch(function(){
+    if(!WX){wxErr='Sin conexión al clima en esta vista.'; renderWx()}
+    return false;
+  });
+}
+function wxSpeech(){
+  var w=WX, s='Ahora hay '+Math.round(w.t)+' grados, con '+w.desc+'. Hoy la mínima es de '+Math.round(w.min)+' y la máxima de '+Math.round(w.max)+'.';
+  if(w.rain>=50) s+=' Hay '+Math.round(w.rain)+' por ciento de probabilidad de lluvia en las próximas horas, mejor lleva paraguas.';
+  else if(w.rain>=25) s+=' Hay '+Math.round(w.rain)+' por ciento de probabilidad de lluvia en las próximas horas.';
+  else s+=' No se espera lluvia en las próximas horas.';
+  return s;
+}
+function askWeather(){
+  if(WX) return reply(wxSpeech());
+  setMood('thinking'); el.bubble.textContent='Mirando el cielo…';
+  return loadWeather().then(function(ok){
+    if(ok&&WX) reply(wxSpeech());
+    else reply('No puedo consultar el clima desde aquí. Ábreme directamente en Chrome y lo hago.');
+  });
+}
+
+/* ---------- Cámara: vigilar, seguir, gestos y juego ---------- */
+var stream=null, camMode=null, camTimer=0, prevG=null, hits=0, lastAlert=0, lastFollow=0, lastSurprise=0;
+var cv=document.createElement('canvas'); cv.width=64; cv.height=48;
+var cx=cv.getContext('2d',{willReadFrequently:true});
+
+function logWatch(txt,isMotion){
+  if(el.wlog.firstElementChild&&el.wlog.firstElementChild.dataset.empty!=='0') el.wlog.textContent='';
+  var li=document.createElement('li'); li.dataset.empty='0';
+  var t=new Date().toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit',second:'2-digit'});
+  if(isMotion){var b=document.createElement('b'); b.textContent=t; li.appendChild(b); li.appendChild(document.createTextNode(' · '+txt))}
+  else li.textContent=t+' · '+txt;
+  el.wlog.insertBefore(li,el.wlog.firstChild);
+  while(el.wlog.children.length>20) el.wlog.removeChild(el.wlog.lastChild);
+}
+function motion(){
+  act(); logWatch('Movimiento detectado',true);
+  document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
+  setMood('alert',4000); beep([660,880]);
+  if(voiceOn) setTimeout(function(){reply('Detecté movimiento.'); setMood('alert',4000)},700);
+}
+function syncCam(){
+  var on=!!stream, titles={watch:'Vigilancia',rps:'Piedra, papel o tijera',follow:'Seguimiento',gestures:'Gestos'};
+  el.watch.setAttribute('aria-pressed',camMode==='watch'); el.watch.textContent=camMode==='watch'?'Vigilando':'Vigilar';
+  $('#camBtn').setAttribute('aria-pressed',on&&camMode!=='watch'&&!!camMode);
+  el.stage.classList.toggle('watching',on);
+  $('#recTxt').textContent=camMode==='watch'?'Vigilando':'Cámara activa';
+  el.wcard.hidden=!on;
+  $('#camTitle').textContent=titles[camMode]||'Cámara';
+  el.wlog.hidden=camMode!=='watch';
+  $('#camStat').textContent=''; $('#camStat').hidden=camMode==='watch'||!camMode;
+}
+function camOpen(){
+  if(stream) return Promise.resolve(stream);
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){var e0=new Error('nomd'); return Promise.reject(e0)}
+  return navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false}).then(function(st){
+    stream=st; el.cam.srcObject=st;
+    var pl=el.cam.play(); if(pl&&pl.catch) pl.catch(function(){});
+    return st;
+  });
+}
+function camStop(speakIt){
+  var was=!!stream;
+  clearInterval(camTimer); camMode=null; rpsCam.on=false; rpsCam.token++; rpsSamples=null;
+  if(stream){stream.getTracks().forEach(function(t){t.stop()}); stream=null}
+  el.cam.srcObject=null;
+  if(game&&game.type==='camrps'){game=null; clearChoices()}
+  syncCam();
+  if(speakIt) reply(was?'Listo, apagué la cámara.':'La cámara ya estaba apagada.');
+}
+function stopWatch(speakIt){camStop(speakIt)}
+function startMode(m,needRecog){
+  return camOpen().then(function(){return needRecog?loadRecog():null}).then(function(){
+    camMode=m; prevG=null; hits=0; rpsSamples=null; gHold={n:'',c:0}; palm.length=0; lastVT=-1; curGesture='None';
+    clearInterval(camTimer); camTimer=setInterval(camTick,120); syncCam();
+  });
+}
+function camFail(e){
+  if(!camMode) camStop();
+  setMood('thinking',1500);
+  if(e&&e.recog){reply('No pude cargar el reconocimiento de gestos. Hace falta internet. Si quieres, te sigo con la mirada sin eso.'); return}
+  openSheet(); reply('No pude abrir la cámara. Mira el diagnóstico.');
+}
+function camTick(){
+  if(!stream||el.cam.readyState<2) return;
+  if(camMode==='rps'||camMode==='gestures') recogTick(); else motionTick();
+}
+
+/* Movimiento: vigilar y seguir con la mirada */
+function motionTick(){
+  cx.drawImage(el.cam,0,0,64,48);
+  var d=cx.getImageData(0,0,64,48).data, g=new Uint8Array(64*48), ch=0, sx=0, sy=0;
+  for(var i=0,p=0;i<d.length;i+=4,p++){
+    g[p]=d[i]*.3+d[i+1]*.59+d[i+2]*.11;
+    if(prevG&&Math.abs(g[p]-prevG[p])>28){ch++; sx+=p%64; sy+=(p/64)|0}
+  }
+  prevG=g;
+  var frac=ch/(64*48);
+  if(camMode==='watch'){
+    if(frac>.025) hits++; else hits=Math.max(0,hits-1);
+    if(hits>=2&&Date.now()-lastAlert>10000){hits=0; lastAlert=Date.now(); motion()}
+  }else if(camMode==='follow'){
+    if(frac>.012){
+      var x=sx/ch/64, y=sy/ch/48;
+      gaze={x:clamp((.5-x)*36,-20,20),y:clamp((y-.5)*20,-10,10)};
+      lastFollow=Date.now(); pointerAt=Date.now();
+      if(frac>.2&&!talking&&mood==='idle'&&Date.now()-lastSurprise>6000){lastSurprise=Date.now(); setMood('surprised',900)}
+    }else if(Date.now()-lastFollow>4000&&(gaze.x!==0||gaze.y!==0)){gaze={x:0,y:0}}
+  }
+}
+
+/* Gestos de la mano con MediaPipe (se descarga la primera vez) */
+var recog=null, recogP=null, lastVT=-1, gHold={n:'',c:0}, gCool={}, palm=[], rpsSamples=null, curGesture='None';
+var MP='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+var MODELS=['https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task','https://storage.googleapis.com/mediapipe-tasks/gesture_recognizer/gesture_recognizer.task'];
+var GLAB={Closed_Fist:'Puño',Open_Palm:'Mano abierta',Victory:'Tijera (V)',Thumb_Up:'Pulgar arriba',Thumb_Down:'Pulgar abajo',Pointing_Up:'Dedo arriba',ILoveYou:'Te quiero',None:'Sin gesto'};
+function loadRecog(){
+  if(recog) return Promise.resolve(recog);
+  if(recogP) return recogP;
+  note('Cargando el reconocimiento de gestos. La primera vez tarda unos segundos…');
+  setMood('thinking'); el.bubble.textContent='Cargando mis ojos nuevos…';
+  recogP=import(MP+'/vision_bundle.mjs').then(function(M){
+    return M.FilesetResolver.forVisionTasks(MP+'/wasm').then(function(fs){
+      function make(model,del){return M.GestureRecognizer.createFromOptions(fs,{baseOptions:{modelAssetPath:model,delegate:del},runningMode:'VIDEO',numHands:1})}
+      return make(MODELS[0],'GPU').catch(function(){return make(MODELS[0],'CPU')}).catch(function(){return make(MODELS[1],'CPU')});
+    });
+  }).then(function(r){recog=r; setMood(baseline()); note(''); return r}).catch(function(){
+    recogP=null; var er=new Error('recog'); er.recog=true; throw er;
+  });
+  return recogP;
+}
+function trackWave(x){var n=Date.now(); palm.push({t:n,x:x}); while(palm.length&&n-palm[0].t>1300) palm.shift()}
+function isWaving(){
+  if(palm.length<6) return false;
+  var ch=0, last=0, mn=1, mx=0;
+  for(var i=1;i<palm.length;i++){
+    var dx=palm[i].x-palm[i-1].x; mn=Math.min(mn,palm[i].x); mx=Math.max(mx,palm[i].x);
+    if(Math.abs(dx)>.012){var sg=dx>0?1:-1; if(last&&sg!==last) ch++; last=sg}
+  }
+  return ch>=3&&(mx-mn)>.12;
+}
+function recogTick(){
+  if(!recog||el.cam.currentTime===lastVT) return;
+  lastVT=el.cam.currentTime;
+  var r; try{r=recog.recognizeForVideo(el.cam,performance.now())}catch(e){return}
+  var lm=r&&r.landmarks&&r.landmarks[0], cat=r&&r.gestures&&r.gestures[0]&&r.gestures[0][0];
+  curGesture=(lm&&cat&&cat.score>.5)?cat.categoryName:'None';
+  $('#camStat').textContent=lm?'Veo: '+(GLAB[curGesture]||curGesture):'No veo tu mano';
+  if(lm){
+    var px=lm[9].x, py=lm[9].y;
+    gaze={x:clamp((.5-px)*36,-20,20),y:clamp((py-.5)*18,-10,10)}; pointerAt=Date.now(); trackWave(px);
+  }else palm.length=0;
+  if(rpsSamples) rpsSamples.push(curGesture);
+  if(camMode==='gestures') reactGesture();
+}
+var GREACT={
+  Wave:'¡Hola! Te vi saludar.',Open_Palm:'Palma abierta. ¿Me saludas?',Closed_Fist:'Un puño. ¡Choca esos cinco!',
+  Victory:'¡Amor y paz!',Thumb_Up:'¡Genial! Me alegra.',Thumb_Down:'Uy. ¿Algo no te gustó?',
+  Pointing_Up:'¿Sí? Te escucho.',ILoveYou:'¡Yo también te quiero!'
+};
+function reactGesture(){
+  if(curGesture===gHold.n) gHold.c++; else gHold={n:curGesture,c:1};
+  var wave=curGesture==='Open_Palm'&&isWaving(), key=wave?'Wave':curGesture;
+  if(key==='None'||!GREACT[key]) return;
+  if(!wave&&gHold.c<4) return;
+  var now=Date.now();
+  if(talking||now-(gCool[key]||0)<4500) return;
+  gCool[key]=now; reply(GREACT[key]);
+}
+
+/* Piedra, papel o tijera con la mano */
+var rpsCam={on:false,token:0,score:[0,0]};
+var G2R={Closed_Fist:'piedra',Open_Palm:'papel',Victory:'tijera'};
+function startCamRps(){
+  endGame();
+  startMode('rps',true).then(function(){
+    game={type:'camrps'}; rpsCam.on=true; rpsCam.score=[0,0]; var tk=++rpsCam.token;
+    showChoices(['Terminar'],function(){var sc=rpsCam.score.slice(); endGame(); reply('¡Buen juego! Terminamos '+sc[0]+' a '+sc[1]+'.')});
+    reply('Vamos a jugar con la mano. Muéstrame tu mano frente a la cámara. Haré la cuenta y, a la de ya, saca piedra, papel o tijera.').then(function(){camRound(tk)});
+  }).catch(camFail);
+}
+function camRound(tk){
+  if(!rpsCam.on||tk!==rpsCam.token) return;
+  var steps=['Piedra','Papel','Tijera','¡Ya!'], i=0;
+  rpsSamples=null;
+  (function step(){
+    if(!rpsCam.on||tk!==rpsCam.token) return;
+    el.bubble.textContent=steps[i]; setMood(i<3?'listening':'surprised'); beep(i<3?[440]:[880]);
+    if(i<3){i++; setTimeout(step,800); return}
+    rpsSamples=[];
+    setTimeout(function(){if(rpsCam.on&&tk===rpsCam.token) camJudge(tk)},1400);
+  })();
+}
+function camJudge(tk){
+  var valid=(rpsSamples||[]).filter(function(g){return G2R[g]}).slice(-6), cnt={}, best='', bn=0;
+  rpsSamples=null;
+  valid.forEach(function(g){cnt[g]=(cnt[g]||0)+1});
+  for(var k in cnt) if(cnt[k]>bn){best=k; bn=cnt[k]}
+  if(bn<2){
+    setMood('thinking',1200);
+    reply('No vi bien tu mano. ¡Otra vez!').then(function(){setTimeout(function(){camRound(tk)},600)});
+    return;
+  }
+  var me=G2R[best], cpu=RPS[(Math.random()*3)|0], r;
+  if(me===cpu) r=0;
+  else if((me==='piedra'&&cpu==='tijera')||(me==='papel'&&cpu==='piedra')||(me==='tijera'&&cpu==='papel')) r=1;
+  else r=-1;
+  if(r===1) rpsCam.score[0]++; if(r===-1) rpsCam.score[1]++;
+  reply('Tú sacaste '+me+' y yo '+cpu+'. '+(r===0?'¡Empate!':r===1?'¡Ganaste!':'¡Gané yo!')+' Vas '+rpsCam.score[0]+' a '+rpsCam.score[1]+'.')
+    .then(function(){setTimeout(function(){camRound(tk)},1200)});
+}
+
+/* Modos de cámara */
+function startWatch(){
+  if(camMode==='watch') return reply('Ya estoy vigilando.');
+  endGame();
+  return startMode('watch',false).then(function(){
+    logWatch('Vigilancia activada',false); reply('Listo, estoy vigilando. Te aviso si veo movimiento.');
+  }).catch(camFail);
+}
+function startFollow(){
+  if(camMode==='follow') return reply('Ya te estoy siguiendo con la mirada.');
+  endGame();
+  return startMode('follow',false).then(function(){reply('Te miro. Muévete y te sigo con la mirada.')}).catch(camFail);
+}
+function startGestures(){
+  if(camMode==='gestures') return reply('Ya estoy mirando tus gestos.');
+  endGame();
+  return startMode('gestures',true).then(function(){
+    reply('Listo. Muéstrame pulgar arriba, victoria, un puño o una palma abierta. También puedes saludarme con la mano.');
+  }).catch(camFail);
+}
+function camMenu(){
+  endGame(); reply('¿Qué hacemos con la cámara?');
+  var opts=['Piedra, papel o tijera','Seguirme con la mirada','Reconocer gestos','Vigilar'];
+  if(stream) opts.push('Apagar cámara');
+  showChoices(opts,function(l){
+    clearChoices();
+    if(/Piedra/.test(l)) startCamRps(); else if(/Seguirme/.test(l)) startFollow();
+    else if(/gestos/.test(l)) startGestures(); else if(/Vigilar/.test(l)) startWatch(); else camStop(true);
+  });
+}
+$('#camBtn').addEventListener('click',camMenu);
+
+/* ---------- Voz de entrada ---------- */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, armedUntil=0;
+var startedAt=0, wfails=0, gestureSeen=false, autoBlocked=false;
+function stopListen(){
+  if(rec){rec.onend=null; rec.onerror=null; rec.onresult=null; try{rec.abort()}catch(e){} rec=null}
+  listening=false; el.mic.classList.remove('on'); el.mic.textContent='Hablar';
+  if(mood==='listening') setMood(baseline());
+}
+function startListen(continuous){
+  if(!SR){note('Este navegador no tiene reconocimiento de voz. Escríbeme.'); wakeOn=false; syncWake(); return false}
+  stopListen(); startedAt=Date.now();
+  var r=new SR(); r.lang='es-CO'; r.continuous=continuous; r.interimResults=!continuous;
+  r.onstart=function(){listening=true; if(!continuous) el.mic.classList.add('on'); el.mic.textContent=continuous?'Hablar':'Escuchando…'; if(!talking&&!continuous) setMood('listening')};
+  r.onresult=function(e){
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      var res=e.results[i], txt=res[0].transcript;
+      if(continuous){
+        if(!res.isFinal||talking||Date.now()-lastSaidEnd<1800) continue;
+        var n=norm(txt).trim();
+        if(n.length>3&&lastSaid.indexOf(n)>=0) continue;
+        var m=n.match(/(?:chis\s?p\w*|chipa|chizpa)[,\s]*(.*)$/);
+        if(m){
+          act(); armedUntil=0;
+          if(m[1].trim()) handle(m[1].trim()); else arm();
+        }else if(Date.now()<armedUntil){armedUntil=0; handle(n)}
+      }else if(res.isFinal){stopListen(); handle(txt)}
+      else note('Escuchando: '+txt);
+    }
+  };
+  r.onerror=function(e){
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      wakeOn=false; syncWake(); stopListen();
+      if(!gestureSeen){note('Toca la pantalla una vez para activar “Chispa”.'); return}
+      autoBlocked=true; note('No tengo permiso para el micrófono. Aquí te ayudo a arreglarlo.'); openSheet();
+    }else if(e.error==='no-speech'&&!continuous) note('No te escuché. Intenta otra vez.');
+  };
+  r.onend=function(){
+    listening=false; el.mic.classList.remove('on'); el.mic.textContent='Hablar';
+    if(!talking&&mood==='listening') setMood(baseline());
+    if(wakeOn){
+      wfails=(Date.now()-startedAt<1500)?Math.min(wfails+1,6):0;
+      setTimeout(function(){if(wakeOn&&!listening) startListen(true)},400+wfails*600);
+    }
+  };
+  rec=r;
+  try{r.start(); return true}catch(err){return false}
+}
+function syncWake(){el.wake.setAttribute('aria-pressed',wakeOn); el.wake.textContent=wakeOn?'Escucho “Chispa”':'Activar “Chispa”'}
+function arm(){
+  armedUntil=Date.now()+8000; beep([880,1320]); setMood('listening',8000);
+  el.bubble.textContent='Te escucho…'; note('Dime qué necesitas.');
+}
+el.mic.addEventListener('click',function(){
+  if(wakeOn){arm(); return}
+  if(listening) stopListen(); else startListen(false);
+});
+el.wake.addEventListener('click',function(){
+  if(wakeOn){wakeOn=false; CFG.wake=false; saveCfg(); syncWake(); stopListen(); note('Ya no escucho todo el tiempo.'); return}
+  CFG.wake=true; saveCfg(); autoBlocked=false; wakeOn=true; syncWake();
+  if(startListen(true)) note('Di “Chispa” y lo que necesites.');
+});
+
+/* ---------- Comandos ---------- */
+var JOKES=[
+  '¿Qué hace una abeja en el gimnasio? ¡Zum-ba!',
+  '¿Por qué los pájaros vuelan hacia el sur en invierno? Porque caminando tardarían muchísimo.',
+  '¿Qué le dice un techo a otro techo? Techo de menos.',
+  '¿Por qué el libro de matemáticas estaba triste? Porque tenía muchos problemas.',
+  '¿Cuál es el colmo de un electricista? Que su esposa se llame Luz y sus hijos le sigan la corriente.',
+  '¿Qué le dice una iguana a su hermana gemela? Somos iguanitas.',
+  'Un café le dice a otro: me siento molido.'
+];
+var FACTS=[
+  'Los pulpos tienen tres corazones.',
+  'Un día en Venus dura más que un año en Venus.',
+  'Las bananas son botánicamente bayas, pero las fresas no.',
+  'El Sol contiene casi toda la masa del sistema solar.',
+  'Los tiburones existían antes que los árboles.',
+  'La miel casi no se daña: se han encontrado frascos comestibles de miles de años.'
+];
+var ix={j:-1,f:-1};
+function nextOf(list,key){var i;do{i=(Math.random()*list.length)|0}while(i===ix[key]&&list.length>1); ix[key]=i; return list[i]}
+function saludo(){var h=new Date().getHours(); return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches'}
+function calc(q){
+  var m=q.match(/(\d+(?:[.,]\d+)?)\s*(\+|mas|-|menos|\*|x|por|\/|entre|dividido(?: por| entre)?)\s*(\d+(?:[.,]\d+)?)/);
+  if(!m) return null;
+  var a=parseFloat(m[1].replace(',','.')), b=parseFloat(m[3].replace(',','.')), op=m[2], r;
+  if(op==='+'||op==='mas') r=a+b;
+  else if(op==='-'||op==='menos') r=a-b;
+  else if(op==='*'||op==='x'||op==='por') r=a*b;
+  else{ if(b===0) return 'No se puede dividir entre cero.'; r=a/b }
+  return 'Eso da '+new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(r)+'.';
+}
+var INTENTS=[
+  [function(q){return /(modos? de camara|juegos? con (la )?camara|que (puedo|podemos) hacer con la camara)/.test(q)}, function(){camMenu()}],
+  [function(q){return /((camara|mano|gesto).*(piedra|papel|tijera))|((piedra|papel|tijera).*(camara|mano|gesto))/.test(q)}, function(){startCamRps()}],
+  [function(q){return /(sigueme|mirame|sigue mi|seguirme|siguenos)/.test(q)}, function(){startFollow()}],
+  [function(q){return /(reconoce.*(gesto|mano)|(que|cual) gesto|mira mi mano|gestos)/.test(q)}, function(){startGestures()}],
+  [function(q){return /(apaga|cierra|desactiva|quita|deja de usar).*camara/.test(q)}, function(){camStop(true)}],
+  [function(q){return /(me llamo|mi nombre es)\s+[a-z]+/.test(q)},
+   function(q,raw){var m=raw.match(/(?:me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i); if(!m){reply('No alcancé a oír tu nombre.'); return} CFG.name=cap(m[1].toLowerCase()); saveCfg(); setMood('happy',1800); reply('Mucho gusto, '+CFG.name+'. Ya no se me olvida.')}],
+  [function(q){return /recuerd/.test(q)&&parseDur(q)>0},
+   function(q,raw){
+     var m=raw.replace(/recu[eé]rda(?:me)?/i,' ').replace(DURRE,' ').replace(/\s+/g,' ').trim()
+       .replace(/^(en|dentro de)\s+/i,'').replace(/\s+(en|dentro de)$/i,'').replace(/^(que|de|para)\s+/i,'').trim();
+     addTimer(parseDur(q),m);
+   }],
+  [function(q){return /(piedra.*papel|papel.*piedra)/.test(q)}, function(){startRps()}],
+  [function(q){return /(adivina.*numero|numero.*adivina)/.test(q)}, function(){startGuess()}],
+  [function(q){return /(trivia|hazme preguntas|preguntame)/.test(q)}, function(){startTrivia()}],
+  [function(q){return /\bdado\b/.test(q)}, function(){dice()}],
+  [function(q){return /(cara o sello|cara o cruz|moneda)/.test(q)}, function(){coin()}],
+  [function(q){return /(jugar|juguemos|jugamos|un juego)/.test(q)}, function(){gameMenu()}],
+  [function(q){return /(baila|bailar|bailemos)/.test(q)}, function(){dance()}],
+  [function(q){return /(guina|guinale|guiñ)/.test(q)}, function(){winkUntil=performance.now()+900; setMood('happy',1500); reply('¡Hecho!')}],
+  [function(q){return /(cancela|quita|borra|apaga|elimina).*(temporizador|timer|alarma|cronometro)/.test(q)},
+   function(){var n=timers.length; timers.length=0; renderTimers(); reply(n?'Listo, cancelé los temporizadores.':'No tenías temporizadores activos.')}],
+  [function(q){return /(temporizador|timer|alarma|cronometro|avisame|ponme)/.test(q)&&parseDur(q)>0},
+   function(q){addTimer(parseDur(q))}],
+  [function(q){return /(deja de|para de|apaga|desactiva|quita|termina|detener).*(vigil|camara|seguridad)/.test(q)},
+   function(){stopWatch(true)}],
+  [function(q){return /(vigila|vigilancia|modo seguridad|activa.*(camara|seguridad)|cuida la casa)/.test(q)},
+   function(){startWatch()}],
+  [function(q){return /(duerme|buenas noches|a dormir|descansa|modo noche)/.test(q)},
+   function(){reply('Buenas noches. Toca la pantalla cuando me necesites.').then(goSleep)}],
+  [function(q){return /(que hora|la hora|hora es)/.test(q)},
+   function(){reply(horaHablada()+'.')}],
+  [function(q){return /(que dia|fecha|a cuanto estamos)/.test(q)},
+   function(){reply('Hoy es '+new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date())+'.')}],
+  [function(q){return /(clima|tiempo (hace|va)|llover|llueve|lluvia|temperatura|paraguas|hace (calor|frio))/.test(q)},
+   function(){askWeather()}],
+  [function(q){return /(chiste|hazme reir|algo gracioso|algo divertido)/.test(q)},
+   function(){reply(nextOf(JOKES,'j'))}],
+  [function(q){return /(dato|curiosidad|cuentame algo|sabias que)/.test(q)},
+   function(){reply(nextOf(FACTS,'f'))}],
+  [function(q){return calc(q)!==null},
+   function(q){reply(calc(q))}],
+  [function(q){return /gracias/.test(q)}, function(){reply('¡Con gusto!')}],
+  [function(q){return /(como estas|como te va|que tal)/.test(q)}, function(){reply('¡Muy bien! Con ganas de ayudarte. ¿Y tú?')}],
+  [function(q){return /(como te llamas|quien eres|tu nombre)/.test(q)}, function(){reply('Soy Chispa, tu compañero de mesón.')}],
+  [function(q){return q.length<24&&/^(hola|buenas|buenos dias|buenas tardes|hey|ey|oye)/.test(q)},
+   function(){reply(saludo()+(CFG.name?', '+CFG.name:'')+'. ¿En qué te ayudo?')}]
+];
+function handle(raw){
+  raw=String(raw||'').trim(); if(!raw) return;
+  note('Tú: '+raw);
+  var q=norm(raw);
+  if(game&&gameInput(raw,q)) return;
+  for(var i=0;i<INTENTS.length;i++){
+    if(INTENTS[i][0](q)){INTENTS[i][1](q,raw); return}
+  }
+  askClaude(raw);
+}
+var hist=[];
+function askClaude(raw){
+  var p;
+  try{p=window.claude&&window.claude.use?window.claude.use('sample'):null}catch(e){p=null}
+  var fallback='Eso todavía no lo sé hacer. Prueba con la hora, el clima, un chiste, un juego o un temporizador.';
+  if(!p){reply(fallback); return}
+  setMood('thinking'); el.bubble.textContent='Pensando…';
+  var persona='Eres Chispa, un compañero amable y juguetón que vive en una tablet sobre el mesón de la cocina'+(CFG.name?'. Hablas con '+CFG.name:'')+'. Responde en español, en máximo dos frases cortas, sin markdown ni emojis, como si hablaras en voz alta.';
+  var msgs=hist.concat([{role:'user',content:raw}]).map(function(m,i){return i===0?{role:m.role,content:persona+'\n\n'+m.content}:m});
+  Promise.resolve(p).then(function(ask){
+    if(!ask) throw new Error('none');
+    return ask(msgs,{modelTier:'quick',cache:false});
+  }).then(function(r){
+    var t=(r&&r.text||'').trim()||'No supe qué decirte.';
+    hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6);
+    reply(t);
+  }).catch(function(){
+    setMood(baseline()); reply(fallback);
+  });
+}
+
+/* ---------- Juegos ---------- */
+var game=null;
+function showChoices(list,cb){
+  el.choices.textContent='';
+  list.forEach(function(label){
+    var b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent=label;
+    b.addEventListener('click',function(){cb(label)}); el.choices.appendChild(b);
+  });
+}
+function clearChoices(){el.choices.textContent=''}
+function endGame(){if(game&&game.type==='camrps') camStop(false); game=null; clearChoices()}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=(Math.random()*(i+1))|0,t=a[i];a[i]=a[j];a[j]=t} return a}
+function gameMenu(){
+  endGame(); reply('¡Vamos a jugar! Elige un juego.');
+  showChoices(['Piedra, papel o tijera','Piedra, papel o tijera con la mano','Adivina el número','Trivia','Cara o sello','Lanzar dado'],function(l){
+    clearChoices();
+    if(l==='Cara o sello') coin(); else if(l==='Lanzar dado') dice();
+    else if(/mano/.test(l)) startCamRps(); else if(/Piedra/.test(l)) startRps();
+    else if(/Adivina/.test(l)) startGuess(); else startTrivia();
+  });
+}
+function dice(){var n=1+((Math.random()*6)|0); setMood('surprised',800); reply('Salió el '+n+'.')}
+function coin(){reply(Math.random()<.5?'Salió cara.':'Salió sello.')}
+
+var RPS=['piedra','papel','tijera'];
+function startRps(){endGame(); game={type:'rps',score:[0,0]}; rpsPrompt('Piedra, papel o tijera. ¡Elige!')}
+function rpsPrompt(t){
+  reply(t);
+  showChoices(['Piedra','Papel','Tijera','Terminar'],function(l){
+    if(l==='Terminar'){endGame(); reply('¡Buen juego!'); return}
+    playRps(norm(l));
+  });
+}
+function playRps(me){
+  if(!game||game.type!=='rps') return;
+  var cpu=RPS[(Math.random()*3)|0], r;
+  if(me===cpu) r=0;
+  else if((me==='piedra'&&cpu==='tijera')||(me==='papel'&&cpu==='piedra')||(me==='tijera'&&cpu==='papel')) r=1;
+  else r=-1;
+  if(r===1) game.score[0]++; if(r===-1) game.score[1]++;
+  rpsPrompt('Yo saqué '+cpu+'. '+(r===0?'¡Empate!':r===1?'¡Ganaste!':'¡Gané yo!')+' Vas '+game.score[0]+' a '+game.score[1]+'.');
+}
+
+function startGuess(){endGame(); game={type:'guess',n:1+((Math.random()*10)|0),left:4}; guessPrompt('Pensé un número del 1 al 10. Tienes 4 intentos. ¿Cuál es?')}
+function guessPrompt(t){reply(t); showChoices(['1','2','3','4','5','6','7','8','9','10'],function(l){guessTry(+l)})}
+function guessTry(n){
+  if(!game||game.type!=='guess') return;
+  if(n===game.n){endGame(); setMood('happy',2000); reply('¡Acertaste! Era el '+n+'.'); return}
+  game.left--;
+  if(game.left<=0){var a=game.n; endGame(); reply('Se acabaron los intentos. Era el '+a+'. ¡Revancha cuando quieras!'); return}
+  guessPrompt((n<game.n?'Más alto.':'Más bajo.')+' Te quedan '+game.left+(game.left===1?' intento.':' intentos.'));
+}
+
+var QS=[
+  {q:'¿Cuál es el planeta más grande del sistema solar?',o:['Marte','Júpiter','Saturno'],a:1},
+  {q:'¿Cuál es la capital de Colombia?',o:['Medellín','Bogotá','Cali'],a:1},
+  {q:'¿Cuántos corazones tiene un pulpo?',o:['Uno','Dos','Tres'],a:2},
+  {q:'¿Cuál es el animal terrestre más rápido?',o:['León','Guepardo','Caballo'],a:1},
+  {q:'¿Cuántos lados tiene un hexágono?',o:['Cinco','Seis','Ocho'],a:1},
+  {q:'¿Cuál es el océano más grande?',o:['Atlántico','Índico','Pacífico'],a:2},
+  {q:'¿Quién escribió Cien años de soledad?',o:['García Márquez','Borges','Neruda'],a:0},
+  {q:'¿Cuántos huesos tiene un adulto, más o menos?',o:['106','206','306'],a:1}
+];
+function startTrivia(){endGame(); game={type:'trivia',pool:shuffle(QS.slice()).slice(0,5),i:0,score:0,opts:[]}; triviaAsk('')}
+function triviaAsk(pre){
+  var Q=game.pool[game.i]; game.opts=shuffle(Q.o.slice());
+  reply(pre+'Pregunta '+(game.i+1)+': '+Q.q+' Opciones: '+game.opts.slice(0,-1).join(', ')+' o '+game.opts[game.opts.length-1]+'.');
+  showChoices(game.opts,function(l){triviaAnswer(l)});
+}
+function triviaAnswer(l){
+  if(!game||game.type!=='trivia') return;
+  var Q=game.pool[game.i], right=Q.o[Q.a], ok=norm(l)===norm(right);
+  if(ok) game.score++;
+  game.i++;
+  var pre=ok?'¡Correcto! ':'Era '+right+'. ';
+  if(game.i>=game.pool.length){var sc=game.score; endGame(); setMood('happy',2000); reply(pre+'Terminamos. Acertaste '+sc+' de 5.'); return}
+  triviaAsk(pre);
+}
+function gameInput(raw,q){
+  if(/(terminar|salir|parar|ya no|cancelar|basta)/.test(q)){endGame(); reply('Listo, terminamos el juego.'); return true}
+  if(game.type==='rps'){var m=q.match(/piedra|papel|tijera/); if(m){playRps(m[0]); return true} return false}
+  if(game.type==='guess'){
+    var g=q.match(/\b(\d+|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/);
+    if(g){guessTry(isNaN(g[1])?NUM[g[1]]:+g[1]); return true}
+    return false;
+  }
+  if(game.type==='trivia'){
+    for(var i=0;i<game.opts.length;i++) if(q.indexOf(norm(game.opts[i]))>=0){triviaAnswer(game.opts[i]); return true}
+    return false;
+  }
+  return false;
+}
+
+/* ---------- Baile ---------- */
+function dance(){
+  if(document.body.classList.contains('dancing')) return;
+  reply('¡Allá voy!').then(function(){
+    document.body.classList.add('dancing'); setMood('happy',6500);
+    beep([523,659,784,659,523,659,784,1047,988,784,659,784,880,784,659,523,587,659,698,659,587,523,494,523]);
+    setTimeout(function(){document.body.classList.remove('dancing')},6500);
+  });
+}
+
+/* ---------- Voz y permisos ---------- */
+var sheet=$('#sheet'), voiceSel=$('#voiceSel'), pitchEl=$('#pitch'), rateEl=$('#rate');
+function openSheet(){sheet.hidden=false; fillVoices(); fillAz(); pitchEl.value=CFG.pitch; rateEl.value=CFG.rate; $('#ver').textContent='Versión '+APP_VERSION; runDiag(false)}
+function closeSheet(){sheet.hidden=true}
+function fillVoices(){
+  if(!('speechSynthesis' in window)){$('#voiceHelp').textContent='Este navegador no tiene voz de salida.'; return}
+  var all=speechSynthesis.getVoices()||[], es=all.filter(function(v){return /^es/i.test(v.lang)}), list=(es.length?es:all).slice();
+  if(es.length) list.sort(function(x,y){return voiceScore(y)-voiceScore(x)});
+  voiceSel.textContent='';
+  var o0=document.createElement('option'); o0.value=''; o0.textContent='Automática (la más natural en español)'; voiceSel.appendChild(o0);
+  var net=false;
+  list.forEach(function(v){
+    if(v.localService===false) net=true;
+    var o=document.createElement('option'); o.value=v.name;
+    o.textContent=v.name+' ('+v.lang+')'+(v.localService===false?' · en línea':''); voiceSel.appendChild(o);
+  });
+  voiceSel.value=CFG.voice;
+  $('#voiceHelp').textContent=!es.length?'No encontré voces en español en este dispositivo; muestro todas las disponibles.':
+    net?'Las voces marcadas “en línea” suelen sonar más naturales. Prueba varias.':
+    'Tu dispositivo solo ofrece voces locales, que suenan más robóticas. Para una voz más natural, abre los ajustes de Android, busca “Salida de texto a voz”, elige “Servicios de voz de Google” e instala el español de Estados Unidos o México. Después vuelve aquí y elígela.';
+}
+if('speechSynthesis' in window) speechSynthesis.addEventListener('voiceschanged',function(){if(!sheet.hidden) fillVoices()});
+function testVoice(){reply('Hola, así suena mi voz ahora.')}
+voiceSel.addEventListener('change',function(){CFG.voice=voiceSel.value; saveCfg(); testVoice()});
+pitchEl.addEventListener('input',function(){CFG.pitch=+pitchEl.value; saveCfg()});
+rateEl.addEventListener('input',function(){CFG.rate=+rateEl.value; saveCfg()});
+var PRESETS={natural:[1,1],calida:[1.1,.95],juguetona:[1.4,1.08],tranquila:[.85,.92],robot:[.5,.95]};
+document.querySelectorAll('[data-p]').forEach(function(b){b.addEventListener('click',function(){
+  var v=PRESETS[b.dataset.p]; CFG.pitch=v[0]; CFG.rate=v[1]; pitchEl.value=v[0]; rateEl.value=v[1]; saveCfg(); testVoice();
+})});
+$('#voiceTest').addEventListener('click',testVoice);
+$('#cfg').addEventListener('click',openSheet);
+$('#sheetX').addEventListener('click',closeSheet);
+addEventListener('keydown',function(e){if(e.key==='Escape'&&!sheet.hidden) closeSheet()});
+
+var AZV=[['es-VE-PaolaNeural','Paola (Venezuela)'],['es-CO-SalomeNeural','Salomé (Colombia)'],['es-MX-DaliaNeural','Dalia (México)'],['es-MX-MarinaNeural','Marina (México)'],['es-US-PalomaNeural','Paloma (Estados Unidos)'],['es-AR-ElenaNeural','Elena (Argentina)'],['es-PE-CamilaNeural','Camila (Perú)'],['es-CL-CatalinaNeural','Catalina (Chile)'],['es-EC-AndreaNeural','Andrea (Ecuador)'],['es-UY-ValentinaNeural','Valentina (Uruguay)'],['es-BO-SofiaNeural','Sofía (Bolivia)'],['es-CR-MariaNeural','María (Costa Rica)']];
+function showAzUse(){
+  $('#azUse').textContent=CFG.azKey?'Este mes llevas unos '+azUsed().toLocaleString('es-CO')+' de 500.000 caracteres gratuitos (cuenta de esta tablet). Al llegar a 480.000 vuelvo a la voz del dispositivo.':'';
+  $('#azHelp').textContent=CFG.azKey?'':'Crea un recurso de voz (Speech) en Azure con el nivel Gratis (F0), copia la llave y la región y pégalas aquí.';
+}
+function fillAz(){
+  var sel=$('#azVoice'); sel.textContent='';
+  AZV.forEach(function(v){var o=document.createElement('option'); o.value=v[0]; o.textContent=v[1]; sel.appendChild(o)});
+  sel.value=CFG.azVoice; $('#azOn').checked=!!CFG.azOn; $('#azRegion').value=CFG.azRegion; $('#azKey').value=CFG.azKey; showAzUse();
+}
+$('#azOn').addEventListener('change',function(){CFG.azOn=$('#azOn').checked; saveCfg()});
+$('#azVoice').addEventListener('change',function(){CFG.azVoice=$('#azVoice').value; saveCfg(); if(azReady()) reply('Hola, soy yo con mi nueva voz.')});
+$('#azSave').addEventListener('click',function(){
+  CFG.azVoice=$('#azVoice').value; CFG.azRegion=$('#azRegion').value.trim(); CFG.azKey=$('#azKey').value.trim();
+  CFG.azOn=!!(CFG.azKey&&CFG.azRegion); $('#azOn').checked=CFG.azOn; saveCfg(); showAzUse();
+  if(!CFG.azOn){$('#azUse').textContent='Falta la llave o la región.'; return}
+  if(!voiceOn){voiceOn=true; el.voice.setAttribute('aria-pressed',true)}
+  reply('Hola, soy Chispa. ¿Cómo suena mi voz?');
+});
+$('#azClear').addEventListener('click',function(){
+  CFG.azKey=''; CFG.azRegion=''; CFG.azOn=false; saveCfg(); fillAz(); $('#azUse').textContent='Llave borrada de esta tablet.';
+});
+function framed(){try{return window.self!==window.top}catch(e){return true}}
+function permState(name){
+  if(!(navigator.permissions&&navigator.permissions.query)) return Promise.resolve(['No se puede saber desde este navegador','']);
+  return navigator.permissions.query({name:name}).then(function(r){
+    return r.state==='granted'?['Permitido','ok']:r.state==='denied'?['Bloqueado. Hay que activarlo en los ajustes del sitio','bad']:['Aún no lo pides. Toca el botón de abajo',''];
+  }).catch(function(){return ['No se puede saber desde este navegador','']});
+}
+function runDiag(keepHelp){
+  var dl=$('#diag'); dl.textContent='';
+  function row(k,v,cls){var dt=document.createElement('dt'),dd=document.createElement('dd'); dt.textContent=k; dd.textContent=v; if(cls) dd.className=cls; dl.appendChild(dt); dl.appendChild(dd)}
+  var fr=framed(), sec=window.isSecureContext;
+  row('Dónde estás',fr?'Dentro de claude.ai. Aquí los permisos están bloqueados':'Directo en el navegador',fr?'bad':'ok');
+  row('Dirección',location.protocol+'//'+(location.host||'archivo local'),'');
+  row('Conexión segura',sec?'Sí':'No. El navegador no deja usar micrófono ni cámara',sec?'ok':'bad');
+  row('Reconocimiento de voz',SR?'Disponible':'No disponible en este navegador',SR?'ok':'bad');
+  Promise.all([permState('microphone'),permState('camera')]).then(function(r){
+    row('Micrófono',r[0][0],r[0][1]); row('Cámara',r[1][0],r[1][1]);
+  });
+  if(!keepHelp) $('#permHelp').textContent=fr?'Abre la página directamente en Chrome, fuera de claude.ai. Dentro de claude.ai no se puede dar permiso.':
+    !sec?'Chrome solo permite micrófono y cámara en páginas con https. Sube la página a un sitio web o ábrela como archivo local en Chrome.':
+    'Si dice Bloqueado: toca el candado o el ícono junto a la dirección, entra a Permisos y activa micrófono y cámara. Luego toca Revisar de nuevo.';
+}
+function askPerm(kind){
+  var md=navigator.mediaDevices, nom=kind==='audio'?'micrófono':'cámara';
+  if(!md||!md.getUserMedia){$('#permHelp').textContent='Este navegador no ofrece el '+nom+' en esta dirección. Falta una conexión segura (https).'; return}
+  md.getUserMedia(kind==='audio'?{audio:true}:{video:true}).then(function(st){
+    st.getTracks().forEach(function(t){t.stop()}); $('#permHelp').textContent='Listo, permiso concedido para el '+nom+'.'; runDiag(true);
+  }).catch(function(e){
+    var n=e&&e.name;
+    $('#permHelp').textContent=n==='NotAllowedError'?'Está bloqueado. Toca el candado junto a la dirección, entra a Permisos, activa el '+nom+' y toca Revisar de nuevo.':
+      n==='NotFoundError'?'No encontré ese dispositivo.':'No se pudo: '+(n||'error desconocido')+'.';
+    runDiag(true);
+  });
+}
+$('#askMic').addEventListener('click',function(){askPerm('audio')});
+$('#askCam').addEventListener('click',function(){askPerm('video')});
+$('#reDiag').addEventListener('click',function(){runDiag(false)});
+
+/* ---------- Eventos de la interfaz ---------- */
+el.form.addEventListener('submit',function(e){e.preventDefault(); var v=el.cmd.value; el.cmd.value=''; handle(v)});
+document.querySelectorAll('.chip').forEach(function(b){b.addEventListener('click',function(){handle(b.dataset.cmd)})});
+var pokes=[], lastPet=0, down=false, dist=0, lx=0, ly=0;
+el.face.addEventListener('pointerdown',function(e){down=true; dist=0; lx=e.clientX; ly=e.clientY});
+el.face.addEventListener('pointermove',function(e){
+  if(!down) return;
+  dist+=Math.abs(e.clientX-lx)+Math.abs(e.clientY-ly); lx=e.clientX; ly=e.clientY;
+  if(dist>260&&Date.now()-lastPet>7000&&!talking){
+    lastPet=Date.now(); dist=0; setMood('happy',2200);
+    reply(['Mmm, qué rico.','Me gustan los mimos.','Ronroneo digital activado.'][(Math.random()*3)|0]);
+  }
+});
+addEventListener('pointerup',function(){down=false},{passive:true});
+addEventListener('pointercancel',function(){down=false},{passive:true});
+el.face.addEventListener('click',function(e){
+  if(dist>40) return;
+  var now=Date.now(); pokes=pokes.filter(function(t){return now-t<4000}); pokes.push(now);
+  if(pokes.length>=5){pokes=[]; setMood('surprised',1500); reply('¡Ya, ya! Me estás mareando.'); return}
+  var tg=e.target;
+  if(tg&&tg.closest&&tg.closest('#eyeL,#eyeR')){winkUntil=performance.now()+700; reply('¡Ay, mi ojito!'); return}
+  if(tg&&tg.id==='mouth'){setMood('happy',1500); reply('¡Jijiji!'); return}
+  var l=['¡Jiji, cosquillas!','¡Hola! ¿Me llamabas?','¡Aquí estoy!','¿Qué hacemos hoy?','Tócame los ojos, a ver qué pasa.'];
+  reply(l[(Math.random()*l.length)|0]);
+});
+el.face.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault(); el.face.click()}});
+el.watch.addEventListener('click',function(){camMode==='watch'?camStop(true):startWatch()});
+el.voice.addEventListener('click',function(){
+  voiceOn=!voiceOn; el.voice.setAttribute('aria-pressed',voiceOn);
+  if(!voiceOn){if('speechSynthesis' in window) speechSynthesis.cancel(); if(curAudio){try{curAudio.pause()}catch(e){}}}
+  note(voiceOn?'Voz activada.':'Voz silenciada. Seguiré respondiendo en pantalla.');
+});
+el.fs.addEventListener('click',function(){
+  if(document.fullscreenElement){document.exitFullscreen(); return}
+  var p=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+  if(p&&p.catch) p.catch(function(){note('Pantalla completa no disponible en esta vista.')});
+  else if(!p) note('Pantalla completa no disponible en esta vista.');
+});
+if(!SR){el.wake.disabled=true; el.wake.title='Este navegador no tiene reconocimiento de voz'}
+function autoWake(){
+  if(!SR||CFG.wake===false||autoBlocked||wakeOn) return;
+  wakeOn=true; syncWake();
+  if(startListen(true)) note('Di “Chispa” y lo que necesites.');
+}
+addEventListener('pointerdown',function(){var first=!gestureSeen; gestureSeen=true; if(first&&!wakeOn) autoWake()},{passive:true});
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&wakeOn&&!listening) startListen(true)});
+
+/* Mantener la pantalla encendida mientras esté visible */
+function lock(){try{if(navigator.wakeLock) navigator.wakeLock.request('screen').catch(function(){})}catch(e){}}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible') lock()});
+lock();
+
+/* ---------- Actualización automática ---------- */
+var APP_VERSION='2026-10-15-azure', pendingUpdate=false;
+function checkUpdate(){
+  fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+    if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
+  }).catch(function(){});
+}
+setTimeout(checkUpdate,20000); setInterval(checkUpdate,10*60*1000);
+setInterval(function(){
+  if(pendingUpdate&&!talking&&!(listening&&!wakeOn)&&!game&&camMode!=='rps'&&camMode!=='gestures'&&Date.now()-lastAct>60000) location.reload();
+},30000);
+
+/* ---------- Arranque ---------- */
+tick(); setInterval(tick,1000);
+autoWake();
+loadWeather(); setInterval(loadWeather,20*60*1000);
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
