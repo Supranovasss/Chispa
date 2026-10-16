@@ -1185,6 +1185,10 @@ function stopListen(){
   listening=false; el.mic.classList.remove('on'); setLbl(el.mic,'Hablar');
   if(mood==='listening') setMood(baseline());
 }
+var HEADONLY=/^(pon|ponme|pone|ponga|ponle|reproduce|coloca|colocame|abre|abreme|muestra|muestrame|ensename|busca|buscame|dibuja|dibujame|anota|apunta|agrega|agregame|anade|crea|programa|dime|cuentame|quiero ver|quiero escuchar|quiero|necesito|hazme|dame|traeme)(\s+(un|una|unos|unas|el|la|los|las|de|del|algo|por favor|me|mi|mis))*$/;
+var pendHead=null, lastHead=null;
+function headPending(){return !!(pendHead&&pendHead.exp>Date.now())}
+function headMerge(t){var h=pendHead; pendHead=null; if(/\b(que hora|la hora|hora es|clima|temperatura|pronostico|chiste|dato curioso|ayuda|llueve|cierra|quita|apaga|para|detente|cancela|olvida)\b/.test(norm(t))) return t; return (h&&h.exp>Date.now())?h.t+' '+t:t}
 var lastIntH=null, wakeEarly=false, lastInterim=null, oneRetry=0, gotRes=false;
 var WAKE=/(?:(?:oye|oie|oiga|hoy|hey|ey|ola|hola)[,\s]+)?(?:chis\s?p\w*|chiz\s?p\w*|ches\s?p\w*|chipas?|sis\s?pa|chis\s?ba|chizpa)[,\s]*(.*)$/;
 function wakeMatch(alts){
@@ -1216,15 +1220,18 @@ function startListen(continuous){
         if(wm){
           var rest=wm.m[1].trim();
           act(); armedUntil=0; lastInterim=null; wakeBlue(rest?3200:25000);
-          if(rest) handle(rest); else arm();
+          if(rest&&HEADONLY.test(rest)){pendHead={t:rest,exp:Date.now()+15000}; arm()}
+          else if(rest) handle(rest); else arm();
         }else if(Date.now()<armedUntil){
           if(n.length<2) continue;
-          armedUntil=0; lastInterim=null; handle(n);
+          if(HEADONLY.test(n)&&!headPending()){pendHead={t:n,exp:Date.now()+15000}; armedUntil=Date.now()+25000; lastInterim=null; wakeBlue(20000); continue}
+          armedUntil=0; lastInterim=null; handle(headMerge(n));
         }
         else if(recipe&&RCMD.test(n.trim())){handle(n)}
         else if(lastIntH&&Date.now()-lastIntH.at<12000&&n.indexOf(lastIntH.t)===0&&n.length>lastIntH.t.length+2){lastIntH=null; stopSpeaking(); handle(n)}
+        else if(lastHead&&Date.now()-lastHead.at<14000){var hh=lastHead.t; lastHead=null; stopSpeaking(); handle(hh+' '+n)}
         else note('Oí: «'+txt+'» · pero no oí “Oye Chispa” antes, así que no hice nada')
-      }else if(res.isFinal){lastInterim=null; stopListen(); handle(txt)}
+      }else if(res.isFinal){lastInterim=null; stopListen(); var nn=norm(txt).trim(); if(HEADONLY.test(nn)&&!headPending()){pendHead={t:nn,exp:Date.now()+15000}; wakeBlue(12000); setTimeout(function(){startListen(false)},200)} else handle(headMerge(txt))}
       else{note('Escuchando: '+txt); lastInterim={t:txt,at:Date.now(),one:true}}
     }
   };
@@ -1276,8 +1283,8 @@ function oneShot(){
 setInterval(function(){
   var li=lastInterim, nw=li?String(li.t).trim().split(/\s+/).length:0, need=nw<2?4200:nw<3?2800:1700;
   if(li&&Date.now()-li.at>need){
-    if(li.one&&rec&&!recCont){lastInterim=null; lastIntH={t:norm(li.t).trim(),at:Date.now()}; stopListen(); handle(li.t)}
-    else if(!li.one&&Date.now()<armedUntil&&!talking){lastInterim=null; armedUntil=0; lastIntH={t:norm(li.t).trim(),at:Date.now()}; handle(li.t)}
+    if(li.one&&rec&&!recCont){if(!HEADONLY.test(norm(li.t).trim())){lastInterim=null; lastIntH={t:norm(li.t).trim(),at:Date.now()}; stopListen(); handle(li.t)} else if(Date.now()-li.at>8000) lastInterim=null}
+    else if(!li.one&&Date.now()<armedUntil&&!talking){if(HEADONLY.test(li.t)){if(Date.now()-li.at>8000) lastInterim=null} else {lastInterim=null; armedUntil=0; lastIntH={t:norm(li.t).trim(),at:Date.now()}; handle(headMerge(li.t))}}
     else if(Date.now()-li.at>6000) lastInterim=null;
   }
 },400);
@@ -2247,6 +2254,7 @@ function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return;
   note('Tú: '+raw);
   var q=norm(raw);
+  if(HEADONLY.test(q)&&!headPending()){pendHead={t:q,exp:Date.now()+15000}; note('Te escucho… dime qué más'); wakeBlue(15000); setMood('listening',8000); if(wakeOn){armedUntil=Date.now()+25000; lastInterim=null} else startListen(false); return}
   if(q.replace(/[^a-z0-9]/g,'').length<2||/^(e+h+|m+|a+h+|u+m+|e+m+|hm+)$/.test(q.trim())){reAsk('',true); return}
   if(askMusicNext&&askMusicNext<Date.now()) askMusicNext=false;
   if(askVideoNext&&askVideoNext<Date.now()) askVideoNext=false;
@@ -3058,7 +3066,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-ventana', pendingUpdate=false;
+var APP_VERSION='2026-10-16-ventana2', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
