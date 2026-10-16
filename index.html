@@ -2404,7 +2404,7 @@ var INTENTS=[
   [function(q){return !!ringing}, function(){stopRing(); reply('Listo.')}],
   [function(q){return !!askRem&&askRem.exp>Date.now()}, function(q,raw){if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){askRem=null; reply('Listo, lo dejo.'); return} remFollow(raw)}],
   [function(q){return optsOn()&&(selNum(q)!=null||/^(la|el|opcion|numero|receta|otras?|mas|dame|muestrame|quiero|ninguna|no me gusta|videos?|internet|google|navegador|busca|buscalas|buscala|algo|mas ligeras?|sin|con|que sean?|vegetarian|vegan|rapid|economic)/.test(q)||dietsOf(q).length>0)&&!/(hora|clima|alarma|temporizador|cierra|chiste)/.test(q)}, function(q,raw){optsFollow(q,raw)}],
-  [function(q){return /\brecetas?\s+(de|del|con|para|sin|ligeras?|saludables?|faciles|rapidas|economicas|limpias?)\b|(?<!mis |las |todas |de |esa |la )\brecetas\b|\b(cocinar|cocinemos|preparemos|cocinamos|preparamos)\b|\b(hacer|preparar)\b.{0,20}\b(comer|cena|almuerzo|desayuno|postre|torta|pastel|sopa|ensalada|pollo|carne|arroz|pasta|pan|galletas?|arepas?)\b/.test(q)&&!/(guiame|paso a paso|lista|ingredientes|alarma|mis recetas|recetario|libro|guardad|abre la receta|borra|recetas guardadas|que recetas tengo|cierra|quita)/.test(q)&&!/^(cierra|quita)/.test(q)},
+  [function(q){return /\brecetas?\s+(de|del|con|para|sin|ligeras?|saludables?|faciles|rapidas|economicas|limpias?)\b|(?<!mis |las |todas |de |esa |la )\brecetas\b|\b(cocinar|cocinemos|preparemos|cocinamos|preparamos)\b|\b(hacer|preparar)\b.{0,20}\b(comer|cena|almuerzo|desayuno|postre|torta|pastel|sopa|ensalada|pollo|carne|arroz|pasta|pan|galletas?|arepas?)\b/.test(q)&&!/(guiame|paso a paso|lista|ingredientes|alarma|temporizador|cronometro|recordatorio|recuerdame|mis recetas|recetario|libro|guardad|abre la receta|borra|recetas guardadas|que recetas tengo|cierra|quita)/.test(q)&&!/^(cierra|quita)/.test(q)},
    function(q,raw){var d=optsDish(raw,q); if(!d&&!dietsOf(q).length){askDish=Date.now()+30000; reAsk('¿Qué quieres cocinar?'); return} var fs=findRecipe&&d?findRecipe(d):null; if(fs&&!/(recetas|opciones|otras)/.test(q)){openSavedRecipe(fs); return} OPTS={dish:d,diet:dietsOf(q),list:[]}; optsSeen=[]; optsGen(d,dietsOf(q),false)}],
   [function(q){return askDish>Date.now()}, function(q,raw){askDish=0; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo.'); return} var dd=raw.replace(/^(?:una?|el|la|algo de|algo con)\s+/i,'').trim(); OPTS={dish:dd,diet:dietsOf(q),list:[]}; optsSeen=[]; optsGen(dd,dietsOf(q),false)}],
   [function(q){return recipeOn()&&(/(cierra|termina|cancela|deja|salir|detener|apaga).*(receta|cocina)/.test(q)||/^(cierra|termina|ya no|cancela)\W*$/.test(q.trim()))}, function(){closeRecipe(); reply('Listo, cerré la receta.')}],
@@ -2553,6 +2553,35 @@ function latinFix(raw){
   r=r.replace(/[,\s]+(?:pues|pe|po|nom[aá]s|ahorita)(?=[\s.!?,]|$)/giu,'').replace(/\s+/g,' ').trim();
   return r;
 }
+/* ---------- Entender la frase completa (contexto), no palabra por palabra ---------- */
+var CTX_VERB='pon|ponme|ponnos|ponga|busca|buscame|buscanos|reproduce|reproduceme|toca|tocame|colocame|coloca|quiero ver|quiero escuchar|quiero oir|queremos ver|queremos escuchar|muestrame|ensename|abre|abreme|dame|traeme|necesito|quisiera ver|quisiera escuchar|vamos a ver|vamos a escuchar|a ver';
+var CTX_NOUN='mix|mixes|mezcla|video|videos|clip|clips|concierto|conciertos|pelicula|peliculas|documental|documentales|tutorial|tutoriales|karaoke|karaokes|playlist|compilado|compilacion|recopilacion|podcast|cancion|canciones|musica|exitos|lo mejor|sesion|set en vivo|en vivo|serie|capitulo|episodio';
+var CTX_NUMW={una:1,un:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,media:'media','1':1};
+function ctxMedia(q,raw){
+  if(!new RegExp('(?:^|\\s)(?:'+CTX_VERB+')\\b').test(q)) return false;
+  var mn=q.match(new RegExp('(?:^|\\s)((?:el|este|ese|la|las|los|un|una|unos|unas|algun|alguna|algo|otro|otra|mas)\\s+)?(?:'+CTX_NOUN+')\\s+(?:de|del|sobre|para|con|en|por|a|al)\\b'));
+  var dur=q.match(/\b(\d+|una|un|dos|tres|cuatro|cinco|seis|media)\s+horas?\s+(?:de|del)\s+\S+/);
+  var strongNoun=/\b(mix|mixes|video|videos|clip|clips|concierto|conciertos|pelicula|peliculas|documental|documentales|tutorial|tutoriales|karaoke|compilado|compilacion|recopilacion|podcast|serie|capitulo|episodio)\b/.test(q);
+  if(!mn&&!dur) return false;
+  if(mn&&mn[1]&&/^(el|este|ese|la|las|los)\s/.test(mn[1])) return false;
+  if(/\b(temporizador|temporizadores|cronometro|alarma|alarmas|recordatorio|recordatorios|despiertame|avisame)\b/.test(q)) return false;
+  if(!strongNoun&&/\b(imagen|imagenes|foto|fotos|dibuja|dibujo|receta|recetas|nota|notas|agenda|lista de compras|clima|pronostico)\b/.test(q)) return false;
+  if(mn&&!strongNoun&&!dur&&/^(?:\S+\s+){0,3}(musica|cancion|canciones|exitos|lo mejor)\s/.test(q.replace(new RegExp('^.*?(?:'+CTX_VERB+')\\s+'),''))&&false) return false;
+  var wantsYT=strongNoun||!!dur||/\b(youtube|you tube)\b/.test(q);
+  function acc(x){return x.replace(/a/g,'[aá]').replace(/e/g,'[eé]').replace(/i/g,'[ií]').replace(/o/g,'[oó]').replace(/u/g,'[uú]')}
+  var t=raw.replace(/chispa[,\s]*/ig,' ').replace(/\b(en|por|desde|de)\s+you\s?tube\b/ig,' ').replace(/\byou\s?tube\b/ig,' ')
+    .replace(new RegExp('^.*?(?:^|[\\s,])(?:'+acc(CTX_VERB).replace(/ /g,'\\s+')+')(?![\\wáéíóú])\\s*','i'),'')
+    .replace(/\bpor favor\b/ig,'').replace(/^(?:me|nos|te)\s+/i,'')
+    .replace(/\b(una|un)\s+horas?\b/ig,'1 hora').replace(/\bdos\s+horas\b/ig,'2 horas').replace(/\btres\s+horas\b/ig,'3 horas').replace(/\bmedia\s+hora\b/ig,'30 minutos')
+    .replace(/^(?:un|una|unos|unas|algun|alguna|algo|el|la|los|las)\s+(?=\S)/i,'')
+    .replace(/\s+/g,' ').trim();
+  var dm=t.match(/^(\d+ horas?|30 minutos)\s+de\s+(.+)$/i); if(dm) t='mix de '+dm[2]+' de '+dm[1]; else if(dur&&!/\b(mix|video|concierto)/i.test(t)) t='mix '+t;
+  if(!t) return false;
+  dlog('  contexto: pedido de contenido → «'+t+'»'+(wantsYT?' (YouTube)':''));
+  if(!wantsYT&&spOn()){spPlayQuery(musicQuery(raw),isPlaylistReq(q)); return true}
+  playVideo(t,{auto:/\b(mix|playlist|musica|canciones|exitos|compilado|compilacion|recopilacion)\b/i.test(t)||!!dur});
+  return true;
+}
 function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return; var raw0=raw; try{raw=latinFix(raw)||raw}catch(e){} if(raw!==raw0) dlog('  español latino: «'+raw0+'» → «'+raw+'»'); dlog('HANDLE «'+raw+'»');
   note('Tú: '+raw);
@@ -2565,6 +2594,7 @@ function handle(raw){
   if(askVideoNext){askVideoNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} playVideo(raw.replace(/chispa[,\s]*/ig,' ').trim()); return}
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
+  try{if(!(typeof optsOn==='function'&&optsOn()&&selNum(q)!=null)&&ctxMedia(q,raw)){misses=0; return}}catch(e){dlog('ctx error '+e.message)}
   for(var i=0;i<INTENTS.length;i++){
     if(INTENTS[i][0](q)){misses=0; INTENTS[i][1](q,raw); return}
   }
@@ -3369,7 +3399,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-recetas', pendingUpdate=false;
+var APP_VERSION='2026-10-16-contexto', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
