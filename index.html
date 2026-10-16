@@ -430,6 +430,7 @@ function frame(t){
   S.curve+=(M.curve-S.curve)*k; S.open+=(op-S.open)*.35; S.lid+=(M.lid-S.lid)*k;
   S.smile+=(M.smile-S.smile)*k; S.blush+=(M.blush-S.blush)*k; S.sc+=(M.sc-S.sc)*k; S.mw+=(M.mw-S.mw)*k;
   var gz=(document.body.classList.contains('vidon')||document.body.classList.contains('imgon'))?{x:18,y:-10}:gaze;
+  if(mood==='talking'&&!reduce) gz={x:gz.x+Math.sin(t/900)*13+Math.sin(t/1700)*7,y:gz.y+Math.sin(t/640)*5};
   S.gx+=(gz.x-S.gx)*.14; S.gy+=(gz.y-S.gy)*.14;
   var tx=clamp(gz.x/34,-1,1), ty=clamp(gz.y/18,-1,1);
   S.hx=(S.hx||0)+(tx-(S.hx||0))*.07; S.hy=(S.hy||0)+(ty-(S.hy||0))*.07;
@@ -1337,7 +1338,7 @@ var INTENTS=[
   [function(q){return /(como estas|como te va|que tal)/.test(q)}, function(){reply('¡Muy bien! Con ganas de ayudarte. ¿Y tú?')}],
   [function(q){return /(como te llamas|quien eres|tu nombre)/.test(q)}, function(){reply('Soy Chispa, tu compañero de mesón.')}],
   [function(q){return q.length<24&&/^(hola|buenas|buenos dias|buenas tardes|hey|ey|oye)/.test(q)},
-   function(){reply(saludo()+(CFG.name?', '+CFG.name:'')+'. ¿En qué te ayudo?')}]
+   function(){reply(pickLine('hola',saludo()+(CFG.name?', '+CFG.name:'')+'. ¿En qué te ayudo?'))}]
 ];
 function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return;
@@ -1357,11 +1358,34 @@ function handle(raw){
 var hist=[], recentFacts=[];
 function sampleAvail(){try{return !!(window.claude&&window.claude.use)}catch(e){return false}}
 function aiReady(){return !!(CFG.aiKey||sampleAvail())}
+var LINES={tap:[],hola:[]}, linesBusy={}, linesFail=0, linesUsed={tap:[],hola:[]};
+function linesAsk(kind){
+  if(linesBusy[kind]||!aiReady()||Date.now()<linesFail) return;
+  linesBusy[kind]=true;
+  var h=new Date().getHours(), mom=h<12?'la mañana':h<19?'la tarde':'la noche', nm=CFG.name?' La persona se llama '+CFG.name+', úsalo en algunas.':'';
+  var pr=kind==='tap'
+    ?'Dame 8 frases distintas y cortas (máximo 12 palabras) que diría Chispa cuando alguien le toca la cara: unas juguetonas (cosquillas, risitas), otras saludando, otras preguntando qué hacer hoy o en qué ayudar.'
+    :'Dame 8 saludos distintos y cortos (máximo 14 palabras) para decir en '+mom+' cuando alguien dice hola. Que terminen invitando a pedir algo, pero cada uno con palabras diferentes.';
+  pr+=nm+' Una frase por línea, sin numerar, sin comillas.'+(linesUsed[kind].length?' No repitas estas: '+linesUsed[kind].join(' | '):'');
+  aiAsk(pr,{kind:'lines',hist:false}).then(function(t){
+    var l=cleanAi(t).split('\n').map(function(x){return x.replace(/^[\s\-*•\d.)]+/,'').replace(/^["“]|["”]$/g,'').trim()}).filter(function(x){return x.length>=4&&x.length<=110});
+    if(l.length) LINES[kind]=LINES[kind].concat(l).slice(0,16); else linesFail=Date.now()+300000;
+  }).catch(function(){linesFail=Date.now()+300000}).then(function(){linesBusy[kind]=false});
+}
+function pickLine(kind,fallback){
+  var line=LINES[kind].length?LINES[kind].shift():null;
+  if(LINES[kind].length<3) linesAsk(kind);
+  if(!line) return Array.isArray(fallback)?fallback[(Math.random()*fallback.length)|0]:fallback;
+  linesUsed[kind].push(line.slice(0,40)); linesUsed[kind]=linesUsed[kind].slice(-8);
+  return line;
+}
+setTimeout(function(){linesAsk('tap'); setTimeout(function(){linesAsk('hola')},2500)},5000);
 function persona(kind){
   var base='Eres Chispa, un compañero amable, cálido y juguetón que vive en una tablet sobre el mesón de la cocina'+(CFG.name?'. Hablas con '+CFG.name:'')+'. Hablas español latinoamericano natural, como en Colombia. Lo que escribas se lee en voz alta, así que no uses markdown, listas, viñetas, asteriscos ni emojis.';
   if(kind==='story') return base+' Cuentas historias largas y entretenidas, bien narradas, con inicio, desarrollo y final, de unas 800 a 1000 palabras. No hagas preguntas ni comentarios al final, solo la historia.';
   if(kind==='anec') return base+' Cuentas anécdotas con gracia y detalle, de unas 200 a 300 palabras. No hagas preguntas al final.';
   if(kind==='fact') return base+' Responde solo con el dato, en una o dos frases.';
+  if(kind==='lines') return base+' Responde solo con la lista pedida, una frase por línea, sin numeración, sin comillas y sin explicaciones.';
   if(kind==='wx') return base+' Usa solamente los datos del clima que te den, sin inventar nada. Responde en dos o tres frases.';
   return base+' Responde en máximo tres frases cortas.';
 }
@@ -1926,10 +1950,9 @@ el.face.addEventListener('click',function(e){
   var tg=e.target;
   if(tg&&tg.closest&&tg.closest('#eyeL,#eyeR')){winkUntil=performance.now()+700; reply('¡Ay, mi ojito!'); return}
   if(tg&&tg.id==='mouth'){setMood('happy',1500); reply('¡Jijiji!'); return}
-  var l=['¡Jiji, cosquillas!','¡Hola! ¿Me llamabas?','¡Aquí estoy!','¿Qué hacemos hoy?','Tócame los ojos, a ver qué pasa.'];
-  reply(l[(Math.random()*l.length)|0]);
+  reply(pickLine('tap',['¡Jiji, cosquillas!','¡Hola! ¿Me llamabas?','¡Aquí estoy!','¿Qué hacemos hoy?','Tócame los ojos, a ver qué pasa.']));
 });
-el.face.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault(); el.face.click()}});
+el.face.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault(); el.face.dispatchEvent(new MouseEvent('click',{bubbles:true}))}});
 el.watch.addEventListener('click',function(){camMode==='watch'?camStop(true):startWatch()});
 el.fs.addEventListener('click',function(){
   if(document.fullscreenElement){document.exitFullscreen(); return}
@@ -1952,7 +1975,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-manos', pendingUpdate=false;
+var APP_VERSION='2026-10-15-variado', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
