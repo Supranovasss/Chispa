@@ -1185,7 +1185,7 @@ function stopListen(){
   listening=false; el.mic.classList.remove('on'); setLbl(el.mic,'Hablar');
   if(mood==='listening') setMood(baseline());
 }
-var wakeEarly=false, lastInterim=null, oneRetry=0, gotRes=false;
+var lastIntH=null, wakeEarly=false, lastInterim=null, oneRetry=0, gotRes=false;
 var WAKE=/(?:(?:oye|oie|oiga|hoy|hey|ey|ola|hola)[,\s]+)?(?:chis\s?p\w*|chiz\s?p\w*|ches\s?p\w*|chipas?|sis\s?pa|chis\s?ba|chizpa)[,\s]*(.*)$/;
 function wakeMatch(alts){
   for(var i=0;i<alts.length;i++){var n=norm(alts[i]).trim(), m=n.match(WAKE); if(m) return {n:n,m:m}}
@@ -1207,21 +1207,23 @@ function startListen(continuous){
         if(talking||Date.now()-lastSaidEnd<1800) continue;
         var n=norm(txt).trim(), wm=wakeMatch(alts);
         if(!res.isFinal){
-          if(wm&&!wakeEarly){wakeEarly=true; act(); wakeBlue(8000); setMood('listening',8000)}
-          else if(!wm&&Date.now()<armedUntil&&n.length>1) lastInterim={t:n,at:Date.now()};
+          if(wm&&!wakeEarly){wakeEarly=true; act(); wakeBlue(12000); setMood('listening',8000); armedUntil=Math.max(armedUntil,Date.now()+25000)}
+          else if(!wm&&Date.now()<armedUntil&&n.length>1){lastInterim={t:n,at:Date.now()}; armedUntil=Math.max(armedUntil,Date.now()+9000)}
           continue;
         }
         wakeEarly=false;
         if(n.length>3&&lastSaid.indexOf(n)>=0) continue;
         if(wm){
           var rest=wm.m[1].trim();
-          act(); armedUntil=0; lastInterim=null; wakeBlue(rest?3200:8000);
+          act(); armedUntil=0; lastInterim=null; wakeBlue(rest?3200:25000);
           if(rest) handle(rest); else arm();
         }else if(Date.now()<armedUntil){
           if(n.length<2) continue;
           armedUntil=0; lastInterim=null; handle(n);
         }
         else if(recipe&&RCMD.test(n.trim())){handle(n)}
+        else if(lastIntH&&Date.now()-lastIntH.at<12000&&n.indexOf(lastIntH.t)===0&&n.length>lastIntH.t.length+2){lastIntH=null; stopSpeaking(); handle(n)}
+        else note('Oí: «'+txt+'» · pero no oí “Oye Chispa” antes, así que no hice nada')
       }else if(res.isFinal){lastInterim=null; stopListen(); handle(txt)}
       else{note('Escuchando: '+txt); lastInterim={t:txt,at:Date.now(),one:true}}
     }
@@ -1272,10 +1274,10 @@ function oneShot(){
   })();
 }
 setInterval(function(){
-  var li=lastInterim;
-  if(li&&Date.now()-li.at>1700){
-    if(li.one&&rec&&!recCont){lastInterim=null; stopListen(); handle(li.t)}
-    else if(!li.one&&Date.now()<armedUntil&&!talking){lastInterim=null; armedUntil=0; handle(li.t)}
+  var li=lastInterim, nw=li?String(li.t).trim().split(/\s+/).length:0, need=nw<2?4200:nw<3?2800:1700;
+  if(li&&Date.now()-li.at>need){
+    if(li.one&&rec&&!recCont){lastInterim=null; lastIntH={t:norm(li.t).trim(),at:Date.now()}; stopListen(); handle(li.t)}
+    else if(!li.one&&Date.now()<armedUntil&&!talking){lastInterim=null; armedUntil=0; lastIntH={t:norm(li.t).trim(),at:Date.now()}; handle(li.t)}
     else if(Date.now()-li.at>6000) lastInterim=null;
   }
 },400);
@@ -1289,7 +1291,7 @@ function syncWake(){el.wake.setAttribute('aria-pressed',wakeOn); if(!wakeOn) mic
 var wbT=0;
 function wakeBlue(ms){document.body.classList.add('wakeblue'); clearTimeout(wbT); wbT=setTimeout(function(){document.body.classList.remove('wakeblue')},ms)}
 function arm(){
-  armedUntil=Date.now()+10000; lastInterim=null; beep([880,1320]); setMood('listening',8000);
+  armedUntil=Date.now()+25000; lastInterim=null; beep([880,1320]); setMood('listening',8000);
   el.bubble.textContent='Te escucho…'; note('Dime qué necesitas.');
 }
 el.mic.addEventListener('click',function(){
@@ -2692,7 +2694,7 @@ var misses=0;
 function reAsk(msg,silent){
   function go(){
     wakeBlue(10000);
-    if(wakeOn){armedUntil=Date.now()+10000; lastInterim=null; if(!silent) beep([880,1320]); setMood('listening',9000)}
+    if(wakeOn){armedUntil=Date.now()+25000; lastInterim=null; if(!silent) beep([880,1320]); setMood('listening',9000)}
     else startListen(false);
   }
   if(msg) return reply(msg).then(go);
@@ -3056,7 +3058,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-aviso', pendingUpdate=false;
+var APP_VERSION='2026-10-16-ventana', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
