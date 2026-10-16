@@ -896,6 +896,7 @@ function motionTick(){
 }
 
 /* Gestos de la mano con MediaPipe (se descarga la primera vez) */
+var G2R={Closed_Fist:'piedra',Open_Palm:'papel',Victory:'tijera'};
 var recog=null, recogP=null, lastVT=-1, gHold={n:'',c:0}, gCool={}, palm=[], rpsSamples=null, curGesture='None';
 var MP='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 var MODELS=['https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task','https://storage.googleapis.com/mediapipe-tasks/gesture_recognizer/gesture_recognizer.task'];
@@ -925,6 +926,23 @@ function isWaving(){
   }
   return ch>=3&&(mx-mn)>.12;
 }
+/* Piedra, papel o tijera por la forma de la mano (21 puntos), sin importar la rotación */
+function rpsClass(lm){
+  if(!lm||lm.length<21) return '';
+  var ar=(el.cam.videoWidth||4)/(el.cam.videoHeight||3);
+  function d(a,b){var dx=(lm[a].x-lm[b].x)*ar, dy=lm[a].y-lm[b].y, dz=((lm[a].z||0)-(lm[b].z||0))*ar*.5; return Math.sqrt(dx*dx+dy*dy+dz*dz)}
+  var F=[[5,6,8],[9,10,12],[13,14,16],[17,18,20]], e=[], n=0, i;
+  for(i=0;i<4;i++){
+    var m=F[i][0], pp=F[i][1], t=F[i][2], tw=d(t,0), pw=d(pp,0), mw=d(m,0);
+    var ext=tw>pw*1.08 && tw/mw>1.45;
+    e.push(ext); if(ext) n++;
+  }
+  if(e[0]&&e[1]&&!e[2]&&!e[3]) return 'tijera';
+  if(n>=3&&e[0]&&e[1]) return 'papel';
+  if(n===0||(n===1&&(e[2]||e[3]))) return 'piedra';
+  if(e[0]&&e[1]&&n===3&&!e[3]) return 'papel';
+  return '';
+}
 function recogTick(){
   if(!recog||el.cam.currentTime===lastVT) return;
   lastVT=el.cam.currentTime;
@@ -936,7 +954,9 @@ function recogTick(){
     var px=lm[9].x, py=lm[9].y;
     gaze={x:clamp((.5-px)*2*1.5*34,-34,34),y:clamp((py-.5)*2*1.4*18,-18,18)}; pointerAt=Date.now(); trackWave(px);
   }else palm.length=0;
-  if(rpsSamples) rpsSamples.push(curGesture);
+  var rc=lm?rpsClass(lm):'';
+  if(rpsSamples) rpsSamples.push(rc||G2R[curGesture]||'');
+  if(camMode==='rps'&&rpsCam.on){note(lm?'Veo: '+(rc||'tu mano, pero no distingo el gesto'):'No veo tu mano')}
   if(camMode==='gestures') reactGesture();
 }
 var GREACT={Wave:'¡Hola! Te vi saludar.'};
@@ -962,7 +982,6 @@ function reactGesture(){
 
 /* Piedra, papel o tijera con la mano */
 var rpsCam={on:false,token:0,score:[0,0]};
-var G2R={Closed_Fist:'piedra',Open_Palm:'papel',Victory:'tijera'};
 function startCamRps(){
   endGame();
   startMode('rps',true).then(function(){
@@ -980,11 +999,11 @@ function camRound(tk){
     el.bubble.textContent=steps[i]; setMood(i<3?'listening':'surprised'); beep(i<3?[440]:[880]);
     if(i<3){i++; setTimeout(step,800); return}
     rpsSamples=[];
-    setTimeout(function(){if(rpsCam.on&&tk===rpsCam.token) camJudge(tk)},1400);
+    setTimeout(function(){if(rpsCam.on&&tk===rpsCam.token) camJudge(tk)},1700);
   })();
 }
 function camJudge(tk){
-  var valid=(rpsSamples||[]).filter(function(g){return G2R[g]}).slice(-6), cnt={}, best='', bn=0;
+  var valid=(rpsSamples||[]).filter(function(g){return g}).slice(-9), cnt={}, best='', bn=0;
   rpsSamples=null;
   valid.forEach(function(g){cnt[g]=(cnt[g]||0)+1});
   for(var k in cnt) if(cnt[k]>bn){best=k; bn=cnt[k]}
@@ -993,7 +1012,7 @@ function camJudge(tk){
     reply('No vi bien tu mano. ¡Otra vez!').then(function(){setTimeout(function(){camRound(tk)},600)});
     return;
   }
-  var me=G2R[best], cpu=RPS[(Math.random()*3)|0], r;
+  var me=best, cpu=RPS[(Math.random()*3)|0], r;
   if(me===cpu) r=0;
   else if((me==='piedra'&&cpu==='tijera')||(me==='papel'&&cpu==='piedra')||(me==='tijera'&&cpu==='papel')) r=1;
   else r=-1;
@@ -1933,7 +1952,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-siempre', pendingUpdate=false;
+var APP_VERSION='2026-10-15-manos', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
