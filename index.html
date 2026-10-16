@@ -2475,7 +2475,7 @@ addEventListener('pointerup',function(){down=false},{passive:true});
 addEventListener('pointercancel',function(){down=false},{passive:true});
 el.face.addEventListener('click',function(e){
   if(dist>40) return;
-  if(storyOn){stopSpeaking(); return}
+  if(storyOn||talking){stopSpeaking(); lastTapAt=Date.now(); return}
   if(holdMic()){oneShot(); return}
   var now=Date.now(); pokes=pokes.filter(function(t){return now-t<5000}); pokes.push(now);
   if(pokes.length>=10){pokes=[]; secretTrick(); return}
@@ -2510,7 +2510,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-recetas2', pendingUpdate=false;
+var APP_VERSION='2026-10-16-calla', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
