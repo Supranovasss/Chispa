@@ -2162,8 +2162,8 @@ var INTENTS=[
   [function(q){return imgOn()&&imgList.length>1&&/(anterior|atras|vuelve|regresa)/.test(q)}, function(){imgI=(imgI-1+imgList.length)%imgList.length; showImg()}],
   [function(q){return /(como se veria|como se vera|como seria|dibujame|dibuja|imagina|genera (una )?(imagen|foto|ilustracion)|crea (una )?(imagen|foto|ilustracion)|hazme (una )?(imagen|foto|ilustracion|dibujo)|inventa (una )?(imagen|foto|ilustracion))/.test(q)},
    function(q){var pr=imgPrompt(q); if(pr.length<3){reply('¿Qué quieres que dibuje?'); return} imgGen(pr)}],
-  [function(q){return /(muestrame|ensename|ensena|ponme|busca|buscame|quiero ver|ver)\s+(en google\s+)?(una\s+|unas\s+|unos\s+)?(imagen|imagenes|foto|fotos|fotografia|fotografias)\s+(de|del)\s+.+/.test(q)},
-   function(q){var m=q.match(/(?:imagen|imagenes|foto|fotos|fotografia|fotografias)\s+(?:de|del)\s+(.+)$/); imgSearch(m[1].replace(/\bchispa\b/g,'').trim())}],
+  [function(q){return /\b(imagen|imagenes|foto|fotos|fotografia|fotografias|ilustracion|ilustraciones)\s+(de|del|sobre)\s+\S+/.test(q)&&!/\b(cierra|quita|oculta|apaga|borra|elimina|video|videos|youtube|cancion|musica)\b/.test(q)},
+   function(q){var m=q.match(/(?:imagen|imagenes|foto|fotos|fotografia|fotografias|ilustracion|ilustraciones)\s+(?:de|del|sobre)\s+(.+)$/); imgSearch(m[1].replace(/\bchispa\b/g,'').trim())}],
   [function(q){return /(modos? de camara|juegos? con (la )?camara|que (puedo|podemos) hacer con la camara)/.test(q)}, function(){camMenu()}],
   [function(q){return /((camara|mano|gesto).*(piedra|papel|tijera))|((piedra|papel|tijera).*(camara|mano|gesto))/.test(q)}, function(){startCamRps()}],
   [function(q){return /(sigueme|mirame|sigue mi|seguirme|siguenos)/.test(q)}, function(){startFollow()}],
@@ -2227,7 +2227,7 @@ var INTENTS=[
    function(){popCard('kcard',15000); reply(horaHablada()+'.')}],
   [function(q){return /(que dia|fecha|a cuanto estamos)/.test(q)},
    function(){popCard('kcard',15000); reply('Hoy es '+new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date())+'.')}],
-  [function(q){return /(clima|tiempo (hace|va)|llover|llueve|lluvia|temperatura|paraguas|hace (calor|frio))/.test(q)},
+  [function(q){return /(clima|tiempo (hace|va|esta|tenemos)|llover|llueve|lluvia|lloviendo|temperatura|paraguas|hace (calor|frio|sol)|pronostico|grados|nublado|como (esta|amanecio|anda) (el dia|la tarde|la noche|afuera|la manana)|que tal (esta )?(el dia|afuera)|va a (hacer|estar) (calor|frio|lindo))/.test(q)},
    function(){askWeather()}],
   [function(q){return /(chiste|hazme reir|algo gracioso|algo divertido)/.test(q)},
    function(){reply(nextOf(JOKES,'j'))}],
@@ -3053,7 +3053,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-youtube', pendingUpdate=false;
+var APP_VERSION='2026-10-16-imagenes', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
