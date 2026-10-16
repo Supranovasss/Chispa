@@ -2177,13 +2177,13 @@ var INTENTS=[
   [function(q){return spOn()&&(/(sube|subir|aumenta|mas alto|mas fuerte)\b.*\b(volumen|musica)\b/.test(q)||/\bvolumen (mas )?(alto|arriba)\b/.test(q))}, function(){spCtl('volup')}],
   [function(q){return spOn()&&(/(baja|bajar|disminuye|mas bajo|menos)\b.*\b(volumen|musica)\b/.test(q)||/\bvolumen (mas )?(bajo|abajo)\b/.test(q))}, function(){spCtl('voldown')}],
   [function(q){return spOn()&&/(que (cancion|musica|tema) (es|suena|es esta)|como se llama (esta|la) cancion|quien canta)/.test(q)}, function(){reply(spTrack?'Suena '+spTrack+'.':'No sé qué suena ahora.')}],
-  [function(q){return spOn()&&!/\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)&&isSongReq(q)}, function(q,raw){spPlayQuery(musicQuery(raw))}],
+  [function(q){return spOn()&&!/\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)&&isSongReq(q)}, function(q,raw){spPlayQuery(musicQuery(raw),isPlaylistReq(q))}],
   [function(q){return /\b(cierra|quita|apaga|oculta|termina|deten|detener|para)\b.*\bvideo/.test(q)||/(saca|quita) (el )?video/.test(q)}, function(){closeVideo(); setMood('happy',1000); reply('Listo, quité el video.')}],
   [function(q){return !!vidPlayer&&/(pausa|pausar|pon pausa)/.test(q)}, function(){if(resumeMedia) resumeMedia.t=true; try{vidPlayer.pauseVideo()}catch(e){}}],
   [function(q){return !!vidPlayer&&/(reanuda|continua|dale play|sigue el video|sigue con el video)/.test(q)}, function(){try{vidPlayer.playVideo()}catch(e){}}],
   [function(q){return vidQ.length>1&&/(otro video|siguiente video|el siguiente|otro mas|cambia (de )?video)/.test(q)}, function(){vidI=(vidI+1)%vidQ.length; showVideo()}],
   [function(q){return isSongReq(q)||/\b(pon|ponme|ponga|muestrame|ensename|reproduce|busca|buscame|quiero ver|ver)\b.*\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)}, function(q,raw){
-     if(isSongReq(q)&&!/\bvideo/.test(q)){var sq=musicQuery(raw); playVideo(sq?sq+' audio oficial':'')} else playVideo(videoQuery(raw))}],
+     if(isSongReq(q)&&!/\bvideo/.test(q)){var sq=musicQuery(raw); if(isPlaylistReq(q)) playVideo(sq?sq+' mix música':'',{auto:true}); else playVideo(sq?sq+' audio oficial':'')} else playVideo(videoQuery(raw))}],
   [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
   [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
   [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
@@ -2244,7 +2244,7 @@ function handle(raw){
   if(q.replace(/[^a-z0-9]/g,'').length<2||/^(e+h+|m+|a+h+|u+m+|e+m+|hm+)$/.test(q.trim())){reAsk('',true); return}
   if(askMusicNext&&askMusicNext<Date.now()) askMusicNext=false;
   if(askVideoNext&&askVideoNext<Date.now()) askVideoNext=false;
-  if(askMusicNext){askMusicNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} spPlayQuery(musicQuery('pon '+raw)); return}
+  if(askMusicNext){askMusicNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} spPlayQuery(musicQuery('pon '+raw),isPlaylistReq(q)); return}
   if(askVideoNext){askVideoNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} playVideo(raw.replace(/chispa[,\s]*/ig,' ').trim()); return}
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
@@ -2588,24 +2588,40 @@ function ctxCmd(q){
   return null;
 }
 var SONG_V=/\b(pon|ponme|pone|pones|poner|ponerme|pongo|ponla|ponle|ponga|pongas|reproduce|reproduceme|reproducir|toca|tocame|tocar|coloca|colocame|escuchar|oir|busca|buscame|buscar|quiero escuchar|quiero oir|quisiera escuchar|quisiera oir|me gustaria escuchar|me gustaria oir|puedes poner|puedes tocar|puedes reproducir|dame)\b/;
-var SONG_N=/\b(cancion|canciones|cancioncita|musica|tema|temas|rola|rolas|disco|album|playlist|spotify)\b/;
+var GENRES='salsa|reggaeton|regueton|reguetón|vallenato|bachata|merengue|cumbia|rock|pop|baladas?|rancheras?|tango|jazz|clasica|trap|electronica|urbano|champeta|boleros?|mariachi|hip hop|rap|lofi|lo fi|instrumental|romantica|romanticas|salsa brava|crossover|dembow|techno|blues|reggae|country|gospel|cristiana|infantil|infantiles|relajante';
+var SONG_N=new RegExp('\\b(cancion|canciones|cancioncita|musica|tema|temas|rola|rolas|disco|album|playlist|play list|lista de reproduccion|mix|emisora|spotify|'+GENRES+')\\b');
+var PL_RE=new RegExp('\\b(playlist|play list|lista de reproduccion|mix|emisora|'+GENRES+')\\b');
+function isPlaylistReq(q){return PL_RE.test(q)&&!/\b(cancion|tema|rola|disco|album)\b/.test(q)}
 function isSongReq(q){return (SONG_V.test(q)&&SONG_N.test(q))||/\bquiero (escuchar|oir)\b/.test(q)||/\b(ponme|pon)\s+(algo de|algo)\s+musica\b/.test(q)}
 function musicQuery(raw){
   var t=raw.replace(/chispa[,\s]*/ig,' ').replace(/\b(en|por|desde|con)\s+spotify\b/ig,' ').replace(/\bspotify\b/ig,' ');
   var m=t.match(/\b(pon(?:me)?|pone|pones|poner(?:me)?|pongo|reproduc(?:e|ir)(?:me)?|toca(?:r|me)?|coloca(?:me)?|busca(?:me|r)?|dame|quiero (?:escuchar|o[ií]r)|escuchar|o[ií]r)\b\s*(.*)$/i);
   var r=(m?m[2]:t).replace(/\bpor favor\b/ig,'');
-  r=r.replace(/^(?:me|nos|te)\s+/i,'').replace(/^(?:un|una|el|la|los|las|unos|unas|algo|alguna|algun|otra)\s+/i,'')
+  r=r.replace(/^(?:me|nos|te)\s+/i,'').replace(/\b(playlist|play\s?list|lista de reproducci[oó]n|emisora|mix)\b\s*(?:de|del)?\s*/ig,' ').replace(/^(?:un|una|el|la|los|las|unos|unas|algo|alguna|algun|otra)\s+/i,'')
      .replace(/^(?:canci[oó]n(?:es)?|tema|disco|[aá]lbum|lista)\b\s*(?:(?:de|del)\b\s*)?/i,'')
      .replace(/^m[uú]sica\s+(?:de|del)\s+/i,'')
      .replace(/\b(de|del)\b/ig,' ').replace(/\s+/g,' ').trim();
   return /^(m[uú]sica|canci[oó]n|canciones|algo)$/i.test(r)?'':r;
 }
 var askN=0;
-function spPlayQuery(q){
+function spPlayQuery(q,pl){
   if(resumeMedia) resumeMedia.t=true;
   if(q) askN=0;
   if(!q){if(++askN>2){askN=0; askMusicNext=false; return reply('Cuando quieras, dime pon y el nombre de la canción.')} askMusicNext=Date.now()+20000; return reply('¿Qué quieres escuchar?').then(function(){if(askMusicNext) listenNext()})}
   setMood('thinking'); el.bubble.textContent='Buscando “'+q+'”…';
+  if(pl) return spApi('/search?type=playlist&limit=5&market=from_token&q='+encodeURIComponent(q)).then(function(j){
+    var its=((j.playlists&&j.playlists.items)||[]).filter(Boolean);
+    if(!its.length) throw new Error('nopl');
+    var l0=its[0];
+    return spDevice().then(function(dev){
+      return reply('Va una playlist de '+q+'.').then(function(){
+        return spApi('/me/player/play?device_id='+encodeURIComponent(dev),{method:'PUT',body:JSON.stringify({context_uri:l0.uri})}).then(function(){setMood('happy',1500)});
+      });
+    });
+  }).catch(function(e){
+    if(e&&e.status===429) return spErr(e);
+    setMood(baseline()); reply('Spotify no está disponible, la busco en YouTube.'); return playVideo(q+' mix música',{auto:true});
+  });
   return spApi('/search?type=track&limit=10&market=from_token&q='+encodeURIComponent(q)).then(function(j){
     var items=(j.tracks&&j.tracks.items)||[];
     if(!items.length){reply('No encontré esa canción.'); return}
@@ -2700,7 +2716,7 @@ function showVideo(){
       playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1},
       events:{
         onReady:function(e){try{e.target.playVideo()}catch(x){}},
-        onStateChange:function(e){ytState=e.data; ytSince=Date.now(); vidPlaying=(e.data!==2&&e.data!==0&&e.data!==5); if(e.data===0){closeVideo(); setMood('happy',1200)}},
+        onStateChange:function(e){ytState=e.data; ytSince=Date.now(); vidPlaying=(e.data!==2&&e.data!==0&&e.data!==5); if(e.data===0){if(vidAuto&&vidQ[vidI+1]){vidI++; showVideo()} else {closeVideo(); setMood('happy',1200)}}},
         onError:function(){vidI++; if(vidQ[vidI]) showVideo(); else {closeVideo(); reply('Ese video no se deja reproducir aquí. Pídeme otro.')}}
       }});
   }).catch(function(){closeVideo(); reply('No pude cargar el reproductor de YouTube. Hace falta internet y abrirme desde la página.')});
@@ -2727,7 +2743,9 @@ function ytLinkFallback(q){
   var w=null; try{w=window.open(url,'_blank')}catch(e){}
   return reply(w?'Te lo abrí en YouTube.':'Toca el botón rojo para abrirlo en YouTube.');
 }
-function playVideo(q){
+var vidAuto=false;
+function playVideo(q,o){
+  vidAuto=!!(o&&o.auto);
   if(q) askN=0;
   if(!q){if(++askN>2){askN=0; askVideoNext=false; return reply('Cuando quieras, dime pon y el nombre del video.')} askVideoNext=Date.now()+20000; return reply('¿Qué video quieres ver?').then(function(){if(askVideoNext) listenNext()})}
   setMood('thinking'); el.bubble.textContent='Buscando “'+q+'”…';
@@ -3031,7 +3049,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-control', pendingUpdate=false;
+var APP_VERSION='2026-10-16-playlist', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
