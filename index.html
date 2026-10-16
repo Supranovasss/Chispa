@@ -434,8 +434,10 @@ function speak(text){
     function done(){
       if(id!==speakId||!talking) return;
       talking=false; lastSaidEnd=Date.now(); setMood('happy',1200); res();
+      if(wakeOn) setTimeout(function(){if(wakeOn&&!listening&&!talking) startListen(true)},600);
     }
     talking=true; setMood('talking');
+    if(wakeOn&&rec){rec.onend=null; rec.onerror=null; rec.onresult=null; try{rec.abort()}catch(e0){} rec=null; listening=false; el.mic.classList.remove('on'); el.mic.textContent='Hablar'}
     var ms=Math.max(1200,text.length*62);
     function system(){
       if(id!==speakId||fell) return;
@@ -861,6 +863,7 @@ function stopListen(){
 }
 function startListen(continuous){
   if(!SR){note('Este navegador no tiene reconocimiento de voz. Escríbeme.'); wakeOn=false; syncWake(); return false}
+  if(continuous&&talking) return true;
   stopListen(); startedAt=Date.now();
   var r=new SR(); r.lang='es-CO'; r.continuous=continuous; r.interimResults=!continuous;
   r.onstart=function(){listening=true; if(!continuous) el.mic.classList.add('on'); el.mic.textContent=continuous?'Hablar':'Escuchando…'; if(!talking&&!continuous) setMood('listening')};
@@ -892,7 +895,7 @@ function startListen(continuous){
     if(!talking&&mood==='listening') setMood(baseline());
     if(wakeOn){
       wfails=(Date.now()-startedAt<1500)?Math.min(wfails+1,6):0;
-      setTimeout(function(){if(wakeOn&&!listening) startListen(true)},400+wfails*600);
+      setTimeout(function(){if(wakeOn&&!listening&&!talking) startListen(true)},400+wfails*600);
     }
   };
   rec=r;
@@ -1276,7 +1279,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-azure', pendingUpdate=false;
+var APP_VERSION='2026-10-15-voz2', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
