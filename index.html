@@ -261,6 +261,32 @@ body.rsideon .rc{left:calc((100vw - min(34vw,420px) - 14px)/2);width:min(calc(10
 .rsb .rm.cur{outline:2px solid #5cc8ff;background:rgba(92,200,255,.14)}
 .rsb h3{margin:0;font-size:19px;color:#fff;padding-right:34px}
 .rsb .rm ul{margin:0;padding-left:18px}
+.hub{position:fixed;z-index:14;left:50%;top:calc((100dvh - var(--dockh,130px))/2);transform:translate(-50%,-50%);width:min(92vw,1020px);height:min(calc(100dvh - var(--dockh,130px) - 30px),680px);display:flex;flex-direction:column;padding:16px 18px 14px;border-radius:24px;background:rgba(15,28,48,.97);border:1px solid var(--line);box-shadow:0 18px 60px rgba(0,0,0,.6);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.hub[hidden]{display:none}
+.hubtabs{display:flex;gap:8px;padding-right:48px;flex-wrap:wrap}
+.hubtabs button{border:1px solid var(--line);background:rgba(255,255,255,.05);color:#cfe3f5;border-radius:999px;padding:8px 16px;font:inherit;font-size:15px;cursor:pointer}
+.hubtabs button.on{background:rgba(92,200,255,.2);border-color:#5cc8ff;color:#fff}
+.hubb{flex:1;min-height:0;overflow:auto;margin-top:12px;-webkit-overflow-scrolling:touch}
+.hag{display:grid;grid-template-columns:minmax(260px,380px) 1fr;gap:18px;height:100%}
+.cal{display:flex;flex-direction:column;gap:6px}
+.calh{display:flex;align-items:center;justify-content:space-between;font-size:18px;font-weight:600;color:#fff;text-transform:capitalize}
+.calh button{background:rgba(255,255,255,.07);border:0;color:#fff;border-radius:10px;width:38px;height:34px;font-size:20px;cursor:pointer}
+.calg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calg span{text-align:center;font-size:12px;color:#8fa9c4;padding:2px 0}
+.calg button{aspect-ratio:1.15;border-radius:10px;border:1px solid transparent;background:rgba(255,255,255,.05);color:#e6f0fa;font:inherit;font-size:15px;cursor:pointer;position:relative}
+.calg button.out{opacity:.3}
+.calg button.today{border-color:#ffc78f;color:#ffc78f}
+.calg button.sel{background:rgba(92,200,255,.28);border-color:#5cc8ff;color:#fff}
+.calg button.has::after{content:"";position:absolute;bottom:4px;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#ff8a8a}
+.hlist{display:flex;flex-direction:column;gap:8px;min-width:0}
+.hlist h3{margin:0 0 2px;font-size:17px;color:#fff}
+.hit{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border-radius:14px;padding:10px 12px;font-size:15px;line-height:1.35;color:#e6f0fa}
+.hit .tx{flex:1;min-width:0}
+.hit b{color:#8fd0ff;display:block;font-size:13px}
+.hit button{border:0;border-radius:10px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer;background:rgba(255,255,255,.1);color:#fff}
+.hit button.dl{background:rgba(255,120,120,.18);color:#ff9a9a;padding:7px 11px}
+.hhint{color:#8fa9c4;font-size:14px;margin:4px 0 0}
+@media (orientation:portrait),(max-width:760px){.hag{grid-template-columns:1fr}}
 @media (orientation:portrait){body.rsideon .rc{left:50%;width:calc(100vw - 24px);top:30%}.rside{width:calc(100vw - 24px);right:12px;top:auto;height:42dvh;bottom:calc(var(--dockh,130px) + 10px)}}
 @media (orientation:portrait){.rc{width:calc(100vw - 24px)}}
 #llist li,#alist li{font-size:16px}
@@ -337,6 +363,7 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
   <div class="vid" id="vid" hidden><div id="vidBox"></div><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="vid imgv" id="imgv" hidden><img id="imgEl" alt=""><p id="imgCap"></p><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
 
+  <div class="hub" id="hub" hidden><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="hubtabs" id="hubtabs"><button type="button" data-tab="agenda">📅 Agenda</button><button type="button" data-tab="recetas">🍳 Recetas</button><button type="button" data-tab="notas">📝 Notas</button><button type="button" data-tab="lista">🛒 Lista</button></div><div class="hubb" id="hubB"></div></div>
   <div class="rside" id="rside" hidden><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="rsb" id="rsb"></div></div>
   <div class="rc" id="rcard" hidden><div class="rcin"><h2 id="rcT"></h2><p class="rcs" id="rcS"></p><div id="rcB"></div></div><div class="rcbar"><i id="rcP"></i></div><p class="rch">👍 siguiente · 👎 atrás · ✌️ repetir · mano abierta hacia tu derecha = siguiente · o di “siguiente”</p><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="rc ringc" id="ring" hidden><h2 id="ringT"></h2><p class="rct" id="ringM"></p><p class="rch">Toca la pantalla o di “para” para detener · “pospón” para 5 minutos más</p></div>
@@ -351,7 +378,7 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
       <button class="tb" id="fs" type="button" style="--c:#d6b8ff"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg><span class="lb">Pantalla completa</span></button>
       <button class="tb" id="cfg" type="button" style="--c:#ffd36b"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg><span class="lb">Voz y permisos</span></button>
     </nav>
-    <p class="tip" id="tip">Di “Oye Chispa” y pide: hora · clima · chiste · dato curioso · historia · video · canción · temporizador · receta · alarma · lista de compras · jugar · bailar · dormir · ayuda<span id="verTag"></span></p>
+    <p class="tip" id="tip">Di “Oye Chispa” y pide: hora · clima · chiste · dato curioso · historia · video · canción · temporizador · receta · agenda · notas · alarma · lista de compras · cuentas · jugar · bailar · dormir · ayuda<span id="verTag"></span></p>
   </section>
 </div>
 
@@ -1453,8 +1480,8 @@ function secretTrick(){
 }
 /* ---------- Cerrar todo lo que está en pantalla ---------- */
 function closeAll(){
-  var any=!$('#vid').hidden||!$('#imgv').hidden||!$('#kcard').hidden||!$('#xcard').hidden||!$('#lcard').hidden||!$('#acard').hidden||!!recipe;
-  closeRecipe(); stopRing();
+  var any=!$('#vid').hidden||!$('#imgv').hidden||!$('#kcard').hidden||!$('#xcard').hidden||!$('#lcard').hidden||!$('#acard').hidden||!!recipe||!$('#hub').hidden;
+  closeRecipe(); stopRing(); closeHub();
   if(game){any=true; endGame()}
   if(!$('#vid').hidden) closeVideo();
   if(!$('#imgv').hidden) closeImg();
@@ -1686,6 +1713,7 @@ function parseRecipe(t){
   return {title:String(j.titulo||'Receta'),ingr:(j.ingredientes||[]).map(String),steps:steps,i:-1};
 }
 function startRecipe(dish){
+  var saved=findRecipe(dish); if(saved){openSavedRecipe(saved); return}
   if(!aiReady()){reply('Para guiarte con una receta necesito mi cerebro de IA. Pon la llave en Voz y permisos.'); return}
   if(recipeBusy) return; recipeBusy=true; setMood('thinking'); el.bubble.textContent='Buscando la receta de '+dish+'…';
   var pr='Receta de '+dish+' para 2 personas. Responde SOLO con un JSON válido, sin texto extra, con este formato exacto: {"titulo":"...","ingredientes":["200 gramos de ..."],"pasos":[{"texto":"...","minutos":0}]}. Entre 6 y 10 pasos, cada uno de una o dos frases cortas, claras y fáciles de escuchar. "minutos" solo si el paso es esperar o cocinar un tiempo fijo; si no, 0. Escribe las unidades completas (gramos, mililitros, cucharadas) sin abreviar.';
@@ -1694,7 +1722,7 @@ function startRecipe(dish){
     recipeBusy=false;
     if(!r){setMood(baseline()); reply('No logré armar la receta. Intenta otra vez.'); return}
     closeVideo(); if(!$('#imgv').hidden) closeImg();
-    recipe=r; showRecipe(); recipeCam();
+    recipe=r; rememberRecipe(r); showRecipe(); recipeCam();
     reply('Aquí está la receta de '+r.title+'. ¿Quieres que te la lea completa, o te guío paso a paso diciendo siguiente?');
   }).catch(function(e){recipeBusy=false; setMood(baseline()); reply(e&&e.message==='noai'?NOAI:aiError(e))});
 }
@@ -1792,7 +1820,7 @@ function cleanClose(q){
   return q.replace(/\b(oye|hey|ey)?\s*chispa\b/g,' ').replace(/\b(por favor|porfa|porfis|gracias|me haces el favor|si eres tan amable|ahora|ya|mismo|rapido|de una|un momento)\b/g,' ').replace(/[¿?¡!,.]/g,' ').replace(/\s+/g,' ').trim();
 }
 function openThings(){
-  return {recipe:!!recipe, video:!$('#vid').hidden, img:!$('#imgv').hidden, timers:timers.length>0||!$('#tcard').hidden, lista:!$('#lcard').hidden, alarm:!$('#acard').hidden, clock:!$('#kcard').hidden, wx:!$('#xcard').hidden, game:!!game, ring:!!ringing};
+  return {recipe:!!recipe, video:!$('#vid').hidden, img:!$('#imgv').hidden, timers:timers.length>0||!$('#tcard').hidden, hub:!$('#hub').hidden, lista:!$('#lcard').hidden, alarm:!$('#acard').hidden, clock:!$('#kcard').hidden, wx:!$('#xcard').hidden, game:!!game, ring:!!ringing};
 }
 function anyOpen(){var o=openThings(); for(var k in o) if(o[k]) return true; return false}
 function closeWhat(q){
@@ -1802,6 +1830,7 @@ function closeWhat(q){
   var rest=m[1].trim(), words=rest?rest.split(' ').length:0;
   if(words>9) return null;
   if(/\bde la lista\b|\bde mi lista\b|\bde las compras\b|\bde compras\b.*\bde\b/.test(rest)&&!/^(la |el )?lista/.test(rest)) return null;
+  if(/\b(agenda|calendario|recetario|notas|libro de recetas)\b/.test(rest)) return 'hub';
   if(/\b(receta|recetas|ingrediente|ingredientes|cocina|menu de receta|menu de recetas|pasos)\b/.test(rest)) return 'recipe';
   if(/\b(video|videos|youtube|reproductor|pelicula)\b/.test(rest)) return 'video';
   if(/\b(imagen|imagenes|foto|fotos|dibujo|dibujos|ilustracion|figura|picture|grafico)\b/.test(rest)) return 'img';
@@ -1819,6 +1848,7 @@ function closeWhat(q){
 function doClose(w){
   var o=openThings(), done=false;
   if(w==='recipe'&&o.recipe){closeRecipe(); done=true}
+  else if(w==='hub'&&o.hub){closeHub(); done=true}
   else if(w==='video'&&o.video){closeVideo(); done=true}
   else if(w==='img'&&o.img){closeImg(); done=true}
   else if(w==='timers'&&o.timers){timers.length=0; renderTimers(); $('#tcard').hidden=true; done=true}
@@ -1834,12 +1864,206 @@ function doClose(w){
   setMood('happy',900); reply('Listo.');
 }
 
+
+/* ---------- Centro: agenda, recetas guardadas, notas y lista ---------- */
+var RECS=[], NOTES=[], HUBTAB='agenda', hubSel=null, hubMon=new Date();
+try{RECS=JSON.parse(localStorage.getItem('chispa.rec')||'[]')||[]}catch(e0){}
+try{NOTES=JSON.parse(localStorage.getItem('chispa.notes')||'[]')||[]}catch(e0){}
+function saveRecs(){try{localStorage.setItem('chispa.rec',JSON.stringify(RECS.slice(0,40)))}catch(e){}}
+function saveNotes(){try{localStorage.setItem('chispa.notes',JSON.stringify(NOTES.slice(0,100)))}catch(e){}}
+function rememberRecipe(r){
+  var k=norm(r.title); RECS=RECS.filter(function(x){return norm(x.title)!==k});
+  RECS.unshift({title:r.title,ingr:r.ingr,steps:r.steps,at:Date.now()}); saveRecs();
+}
+function findRecipe(dish){
+  var d=norm(dish).replace(/\b(de|del|la|el|los|las|un|una|con|para)\b/g,' ').replace(/\s+/g,' ').trim(); if(!d) return null;
+  var ws=d.split(' ').filter(function(w){return w.length>2}); if(!ws.length) return null;
+  var best=null, bs=0;
+  RECS.forEach(function(r){var t=norm(r.title); var sc=0; ws.forEach(function(w){if(t.indexOf(w)>=0) sc++}); if(sc>bs&&sc>=Math.max(1,Math.ceil(ws.length*0.6))){bs=sc; best=r}});
+  return best;
+}
+function mk(tag,cls,txt){var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e}
+function dkey(d){return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate()}
+var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function openHub(tab,sel){
+  HUBTAB=tab||HUBTAB||'agenda'; lastShown='hub';
+  if(sel!==undefined){hubSel=sel?dkey(sel):null; if(sel) hubMon=new Date(sel.getFullYear(),sel.getMonth(),1)}
+  else if(HUBTAB==='agenda'){hubMon=new Date(new Date().getFullYear(),new Date().getMonth(),1)}
+  var dk=document.querySelector('.dock'); if(dk) document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px');
+  ['acard','lcard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true});
+  renderHub(); $('#hub').hidden=false;
+}
+function closeHub(){$('#hub').hidden=true}
+function renderHub(){
+  var B=$('#hubB'); B.textContent='';
+  Array.prototype.forEach.call(document.querySelectorAll('#hubtabs button'),function(b){b.classList.toggle('on',b.dataset.tab===HUBTAB)});
+  if(HUBTAB==='agenda') hubAgenda(B); else if(HUBTAB==='recetas') hubRecetas(B); else if(HUBTAB==='notas') hubNotas(B); else hubLista(B);
+}
+function hubAgenda(B){
+  var wrap=mk('div','hag'), cal=mk('div','cal'), y=hubMon.getFullYear(), mo=hubMon.getMonth();
+  var h=mk('div','calh'), pv=mk('button',null,'‹'), nx=mk('button',null,'›'); pv.dataset.nav='-1'; nx.dataset.nav='1'; pv.setAttribute('aria-label','Mes anterior'); nx.setAttribute('aria-label','Mes siguiente');
+  h.appendChild(pv); h.appendChild(mk('span',null,MESES[mo]+' '+y)); h.appendChild(nx); cal.appendChild(h);
+  var g=mk('div','calg'); ['L','M','M','J','V','S','D'].forEach(function(l){g.appendChild(mk('span',null,l))});
+  var first=new Date(y,mo,1), off=(first.getDay()+6)%7, days=new Date(y,mo+1,0).getDate(), cnt={};
+  REMS.forEach(function(r){var k=dkey(new Date(r.at)); cnt[k]=(cnt[k]||0)+1});
+  var tk=dkey(new Date());
+  for(var i=0;i<off;i++){var e=mk('button','out',''); e.disabled=true; g.appendChild(e)}
+  for(var d=1;d<=days;d++){
+    var dt=new Date(y,mo,d), k=dkey(dt), b=mk('button',null,String(d)); b.dataset.day=String(dt.getTime());
+    if(cnt[k]) b.classList.add('has'); if(k===tk) b.classList.add('today'); if(k===hubSel) b.classList.add('sel');
+    g.appendChild(b);
+  }
+  cal.appendChild(g); wrap.appendChild(cal);
+  var L=mk('div','hlist'), now=Date.now()-3600000, items=REMS.slice().sort(function(a,b){return a.at-b.at});
+  if(hubSel){items=items.filter(function(r){return dkey(new Date(r.at))===hubSel}); var pd=hubSel.split('-'); L.appendChild(mk('h3',null,'Ese día: '+(+pd[2])+' de '+MESES[+pd[1]]))}
+  else{items=items.filter(function(r){return r.at>=now}); L.appendChild(mk('h3',null,'Todo lo que viene ('+items.length+')'))}
+  items.forEach(function(r){
+    var it=mk('div','hit'), tx=mk('div','tx'), bb=mk('b',null,(r.kind==='alarma'?'⏰ Alarma · ':'🔔 Recordatorio · ')+fmtWhen(r)), x=mk('button','dl','✕');
+    tx.appendChild(bb); tx.appendChild(document.createTextNode(r.msg||(r.kind==='alarma'?'Alarma':'Recordatorio'))); x.dataset.del='rem:'+r.id; x.setAttribute('aria-label','Borrar');
+    it.appendChild(tx); it.appendChild(x); L.appendChild(it);
+  });
+  if(!items.length) L.appendChild(mk('p','hhint',hubSel?'No hay nada ese día.':'No tienes alarmas ni recordatorios pendientes.'));
+  L.appendChild(mk('p','hhint','Di: «recuérdame mañana a las 8 llamar a Ana», «despiértame a las 6» o «qué tengo hoy». Toca un día del calendario para verlo.'));
+  wrap.appendChild(L); B.appendChild(wrap);
+}
+function hubRecetas(B){
+  var L=mk('div','hlist'); L.appendChild(mk('h3',null,'Mis recetas ('+RECS.length+')'));
+  RECS.forEach(function(r,i){
+    var it=mk('div','hit'), tx=mk('div','tx'), bb=mk('b',null,r.steps.length+' pasos · '+r.ingr.length+' ingredientes'), o=mk('button',null,'Abrir'), x=mk('button','dl','✕');
+    tx.appendChild(bb); tx.appendChild(document.createTextNode(r.title)); o.dataset.open=String(i); x.dataset.del='rec:'+i;
+    it.appendChild(tx); it.appendChild(o); it.appendChild(x); L.appendChild(it);
+  });
+  if(!RECS.length) L.appendChild(mk('p','hhint','Todavía no tienes recetas guardadas. Pídeme una: «guíame con la receta de arepas». Se guardan solas.'));
+  else L.appendChild(mk('p','hhint','Di «abre la receta de …» para cocinarla sin gastar IA, o «borra la receta de …».'));
+  B.appendChild(L);
+}
+function hubNotas(B){
+  var L=mk('div','hlist'); L.appendChild(mk('h3',null,'Mis notas ('+NOTES.length+')'));
+  NOTES.forEach(function(n){
+    var it=mk('div','hit'), tx=mk('div','tx'), bb=mk('b',null,cap(dayText(new Date(n.at)))), x=mk('button','dl','✕');
+    tx.appendChild(bb); tx.appendChild(document.createTextNode(n.t)); x.dataset.del='note:'+n.id;
+    it.appendChild(tx); it.appendChild(x); L.appendChild(it);
+  });
+  if(!NOTES.length) L.appendChild(mk('p','hhint','No tienes notas. Di: «anota que el wifi se cambió» o «apunta que mañana hay reunión».'));
+  B.appendChild(L);
+}
+function hubLista(B){
+  var L=mk('div','hlist'); L.appendChild(mk('h3',null,'Lista de compras ('+SHOP.length+')'));
+  SHOP.forEach(function(t,i){
+    var it=mk('div','hit'), tx=mk('div','tx',t), x=mk('button','dl','✕'); x.dataset.del='shop:'+i; it.appendChild(tx); it.appendChild(x); L.appendChild(it);
+  });
+  if(!SHOP.length) L.appendChild(mk('p','hhint','La lista está vacía. Di: «agrega leche y pan a la lista».'));
+  B.appendChild(L);
+}
+$('#hub').addEventListener('click',function(e){
+  var t=e.target.closest('button'); if(!t||t.classList.contains('mx')) return;
+  if(t.dataset.tab){HUBTAB=t.dataset.tab; if(HUBTAB==='agenda') hubSel=null; renderHub(); return}
+  if(t.dataset.nav){hubMon=new Date(hubMon.getFullYear(),hubMon.getMonth()+(+t.dataset.nav),1); renderHub(); return}
+  if(t.dataset.day){var k=dkey(new Date(+t.dataset.day)); hubSel=(hubSel===k)?null:k; renderHub(); return}
+  if(t.dataset.open!==undefined){var r=RECS[+t.dataset.open]; if(r) openSavedRecipe(r); return}
+  if(t.dataset.del){
+    var a=t.dataset.del.split(':'), kind=a[0], id=a.slice(1).join(':');
+    if(kind==='rem'){REMS=REMS.filter(function(r){return String(r.id)!==id}); saveRem(); renderRems()}
+    else if(kind==='rec'){RECS.splice(+id,1); saveRecs()}
+    else if(kind==='note'){NOTES=NOTES.filter(function(n){return String(n.id)!==id}); saveNotes()}
+    else if(kind==='shop'){SHOP.splice(+id,1); saveShop(); renderShop()}
+    renderHub();
+  }
+});
+function openSavedRecipe(r){
+  closeHub(); closeVideo(); if(!$('#imgv').hidden) closeImg();
+  recipe={title:r.title,ingr:r.ingr.slice(),steps:r.steps.map(function(x){return {t:x.t,m:x.m}}),i:-1}; showRecipe(); recipeCam();
+  reply('Aquí está la receta de '+r.title+'. ¿Quieres que te la lea completa, o te guío paso a paso diciendo siguiente?');
+}
+function addNote(t){NOTES.unshift({id:Date.now()+Math.random(),t:t,at:Date.now()}); saveNotes(); if(!$('#hub').hidden&&HUBTAB==='notas') renderHub()}
+
 /* ---------- Mostrar por voz: alarmas, lista, receta, imagen, lo último ---------- */
+
+function hubQuery(q){
+  q=cleanClose(q);
+  if(/\b(pon|crea|programa|agrega|agregar|anade|recuerdame|despiertame|avisame|borra|elimina|cancela|quita|cierra|oculta|apaga|guarda|anota|apunta)\b/.test(q)) return null;
+  if(/\b(receta|recetas)\s+(de|del|para|con)\b/.test(q)) return null;
+  var tab=null;
+  if(/\b(agenda|calendario|todas las alarmas|todos los recordatorios|lista de alarmas|lista de recordatorios|todos mis recordatorios|todas mis alarmas|mis alarmas|mis recordatorios|mis pendientes|las alarmas|los recordatorios|que alarmas|que recordatorios|que pendientes|alarmas y recordatorios)\b/.test(q)) tab='agenda';
+  else if(/\b(recetario|libro de recetas|mis recetas|recetas guardadas|todas las recetas|las recetas|lista de recetas|que recetas)\b/.test(q)) tab='recetas';
+  else if(/\b(mis notas|las notas|todas las notas|lista de notas|mis apuntes|que notas)\b/.test(q)) tab='notas';
+  else if(/\b(lista de compras completa|todas las compras)\b/.test(q)) tab='lista';
+  if(!tab) return null;
+  var words=q.split(' ').length;
+  var verb=/\b(abre|abreme|abrir|muestra|muestrame|mostrar|ensena|ensename|ver|quiero ver|dame|ponme|saca|sacame|lee|leeme|dime|cuales|cuales son|que|cuantas|cuantos|tengo|hay|guarde|guardaste|tenemos)\b/.test(q);
+  if(verb||words<=4) return tab;
+  return null;
+}
+var DIAS=['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
+function addD(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)}
+function agendaQuery(q){
+  q=cleanClose(q);
+  if(/\b(pon|crea|programa|agrega|recuerdame|despiertame|avisame|borra|elimina|cancela)\b/.test(q)) return null;
+  var ask=/(que (tengo|hay|me toca|pendiente|pendientes tengo|tengo pendiente)|tengo (algo|alguna cosa|pendientes?)|mi agenda de|agenda de|agenda para|mis pendientes de|que (alarmas|recordatorios) (tengo|hay) (para )?(hoy|manana|el|esta|la semana)|que (tengo|hay) en (mi )?(agenda|calendario)|tengo (algo )?(hoy|manana))/.test(q);
+  if(!ask) return null;
+  var now=new Date(), a=new Date(now.getFullYear(),now.getMonth(),now.getDate()), m;
+  if(/\bpasado manana\b/.test(q)) return {d:addD(a,2),label:'pasado mañana'};
+  if(/\bmanana\b/.test(q)) return {d:addD(a,1),label:'mañana'};
+  if(/\bhoy\b/.test(q)) return {d:a,label:'hoy'};
+  if(/\b(esta semana|la semana|semana)\b/.test(q)) return {d:a,to:addD(a,7),label:'esta semana'};
+  for(var i=0;i<7;i++) if(new RegExp('\\b'+DIAS[i]+'\\b').test(q)){var diff=(i-a.getDay()+7)%7; return {d:addD(a,diff),label:'el '+DIAS[i]}}
+  m=q.match(/\bel (\d{1,2}) de (\w+)/); if(m){var mi=MESES.indexOf(m[2]); if(mi>=0){var dt=new Date(a.getFullYear(),mi,+m[1]); if(dt<a) dt=new Date(a.getFullYear()+1,mi,+m[1]); return {d:dt,label:'el '+m[1]+' de '+m[2]}}}
+  return {d:null,label:'todo'};
+}
+function agendaSay(o){
+  var items=REMS.slice().sort(function(a,b){return a.at-b.at});
+  if(o.d){var from=o.d.getTime(), to=(o.to||addD(o.d,1)).getTime(); items=items.filter(function(r){return r.at>=from&&r.at<to})}
+  else items=items.filter(function(r){return r.at>=Date.now()-3600000});
+  openHub('agenda',o.d||undefined);
+  if(!items.length){reply(o.d?'No tienes nada '+(o.label==='esta semana'?'esta semana':o.label.indexOf('el ')===0?o.label:o.label)+'.':'No tienes pendientes.'); return}
+  var l=items.slice(0,4).map(function(r){return (r.kind==='alarma'?'alarma ':'')+(o.to||!o.d?dayText(new Date(r.at))+' ':'')+atText(new Date(r.at))+(r.msg?': '+r.msg:'')});
+  reply((o.d?(o.label.charAt(0).toUpperCase()+o.label.slice(1)):'Tienes')+(o.d?' tienes ':' ')+items.length+(items.length===1?' pendiente: ':' pendientes: ')+l.join('; ')+(items.length>4?'. Los demás están en pantalla.':'.'));
+}
+function calcQuery(q){
+  if(!/(cuanto (es|son|da|seria|sale|queda|vale)|calcula|calculame|resuelve|cual es el resultado|cuanto (es|son)\b)/.test(q)) return null;
+  if(/(cuesta|pesa|mide|falta|tarda|dura|demora)/.test(q)) return null;
+  var t=q.replace(/(dime |puedes |podrias )?(cuanto (es|son|da|seria|sale|queda|vale)|calculame|calcula|resuelve|cual es el resultado de)/g,' ').replace(/,/g,'.').replace(/\s+/g,' ').trim();
+  var NW={cero:0,un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,veinte:20,treinta:30,cuarenta:40,cincuenta:50,sesenta:60,setenta:70,ochenta:80,noventa:90,cien:100,mil:1000};
+  t=t.replace(/\b(cero|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien|mil)\b/g,function(w){return NW[w]});
+  var m=t.match(/(\d+(?:\.\d+)?)\s*(?:por ciento|%)\s*de\s*(\d+(?:\.\d+)?)/); if(m) return +m[1]*+m[2]/100;
+  m=t.match(/raiz cuadrada de (\d+(?:\.\d+)?)/); if(m) return Math.sqrt(+m[1]);
+  t=t.replace(/(\d+(?:\.\d+)?) al cuadrado/g,'($1**2)').replace(/(\d+(?:\.\d+)?) al cubo/g,'($1**3)').replace(/(\d+(?:\.\d+)?) elevado (?:a|a la) (\d+)/g,'($1**$2)')
+     .replace(/\b(mas)\b/g,'+').replace(/\bmenos\b/g,'-').replace(/\b(multiplicado por|multiplicado|veces|por|x)\b/g,'*').replace(/\b(dividido entre|dividido por|dividido|entre|sobre)\b/g,'/').replace(/\s+/g,'');
+  if(!/^[\d+\-*\/().]+$/.test(t)||!/\d/.test(t)||!/[+\-*\/]/.test(t)) return null;
+  try{var v=Function('"use strict";return ('+t+')')(); return (typeof v==='number'&&isFinite(v))?v:null}catch(e){return null}
+}
+function dateTarget(q){
+  var now=new Date(), a=new Date(now.getFullYear(),now.getMonth(),now.getDate()), m, d=null, name='';
+  var y=a.getFullYear();
+  function nth(mo,wd,n,yy){var f=new Date(yy,mo,1), off=(wd-f.getDay()+7)%7; return new Date(yy,mo,1+off+7*(n-1))}
+  function pick(fn){var d0=fn(y); if(d0<a) d0=fn(y+1); return d0}
+  if(/navidad/.test(q)){d=pick(function(yy){return new Date(yy,11,25)}); name='Navidad'}
+  else if(/(ano nuevo|fin de ano|nochevieja)/.test(q)){d=pick(function(yy){return new Date(yy,11,31)}); name=/ano nuevo/.test(q)?'Año Nuevo':'fin de año'; if(/ano nuevo/.test(q)) d=pick(function(yy){return new Date(yy+1,0,1)})}
+  else if(/(halloween|dia de las brujas)/.test(q)){d=pick(function(yy){return new Date(yy,9,31)}); name='Halloween'}
+  else if(/dia de la madre/.test(q)){d=pick(function(yy){return nth(4,0,2,yy)}); name='el Día de la Madre'}
+  else if(/dia del padre/.test(q)){d=pick(function(yy){return nth(5,0,3,yy)}); name='el Día del Padre'}
+  else if(/amor y amistad/.test(q)){d=pick(function(yy){return nth(8,6,3,yy)}); name='Amor y Amistad'}
+  else if(m=q.match(/\b(\d{1,2}) de (\w+)(?: de (\d{4}))?/)){
+    var mi=MESES.indexOf(m[2]); if(mi<0) return null;
+    d=m[3]?new Date(+m[3],mi,+m[1]):pick(function(yy){return new Date(yy,mi,+m[1])}); name='el '+m[1]+' de '+m[2];
+  }
+  if(!d) return null; return {d:d,name:name,a:a};
+}
+function dateSay(q){
+  var t=dateTarget(q), days=Math.round((t.d-t.a)/86400000), dn=DIAS[t.d.getDay()]+' '+t.d.getDate()+' de '+MESES[t.d.getMonth()];
+  if(/que dia (cae|es|sera|fue)/.test(q)){reply(cap(t.name)+' cae un '+DIAS[t.d.getDay()]+'.'); return}
+  if(/semanas/.test(q)){var w=Math.floor(days/7), r=days%7; reply('Faltan '+w+(w===1?' semana':' semanas')+(r?' y '+r+(r===1?' día':' días'):'')+' para '+t.name+', que es el '+dn+'.'); return}
+  if(days===0){reply('¡Es hoy!'); return}
+  reply('Faltan '+days+(days===1?' día':' días')+' para '+t.name+', que cae el '+dn+'.');
+}
 var SHV=/^(?:(?:oye )?(?:chispa )?)?(?:(?:me )?(?:puedes|podrias|podes|puede)|quiero que (?:me )?|quisiera que (?:me )?|haz que (?:me )?|necesito que (?:me )?)?\s*(?:vuelve a )?(?:muestra(?:me|le)?|mostrar(?:me)?|ensena(?:me)?|ensenar(?:me)?|abre(?:me)?|abrir|pon(?:me)?|poner|saca(?:me)?|trae(?:me)?|despliega|dejame ver|quiero ver|puedo ver|a ver|necesito ver|ver|dame|enseñame)\b(.*)$/;
 function showWhat(q){
   q=cleanClose(q); var m=q.match(SHV); if(!m) return null;
   var rest=m[1].trim(); if(!rest||rest.split(' ').length>9) return null;
   if(/\b(una|un|unas|unos)\b|\d|\ba las\b/.test(rest)&&/\b(alarma|alarmas|recordatorio|temporizador|timer)\b/.test(rest)) return null;
+  if(/\b(agenda|calendario)\b/.test(rest)) return 'hub:agenda';
+  if(/\b(recetas|recetario)\b/.test(rest)) return 'hub:recetas';
+  if(/\b(notas|apuntes)\b/.test(rest)) return 'hub:notas';
   if(/\b(alarma|alarmas|recordatorio|recordatorios|pendiente|pendientes)\b/.test(rest)) return 'acard';
   if(/\b(lista|compras|mercado)\b/.test(rest)&&!/\bde la lista\b/.test(rest)) return 'lcard';
   if(/\breceta\b/.test(rest)) return /\breceta\s+(de|del|para|con)\b/.test(rest)?null:'recipe';
@@ -1852,9 +2076,10 @@ function showWhat(q){
   return null;
 }
 function doShow(w){
-  if(w==='last') w=lastShown||'';
+  if(w==='last') w=(lastShown==='hub'?'hub:'+HUBTAB:lastShown)||'';
+  if(w.indexOf('hub:')===0){openHub(w.slice(4)); reply('Aquí tienes.'); return}
   if(!w){reply('Todavía no te he mostrado nada. ¿Qué quieres ver?'); return}
-  if(w==='acard'){renderRems(); popCard('acard',30000); reply(REMS.length?'Aquí están tus pendientes.':'No tienes alarmas ni recordatorios.')}
+  if(w==='acard'){openHub('agenda'); reply(REMS.length?'Aquí están tus pendientes.':'No tienes alarmas ni recordatorios.')}
   else if(w==='lcard'){renderShop(); popCard('lcard',40000); reply(SHOP.length?'Aquí está tu lista.':'Tu lista está vacía.')}
   else if(w==='tcard'){renderTimers(); if(!timers.length) reply('No tienes temporizadores activos.'); else reply('Aquí están.')}
   else if(w==='kcard'){popCard('kcard',20000); reply('Aquí tienes.')}
@@ -1872,6 +2097,21 @@ function doShow(w){
 var INTENTS=[
   [function(q){return closeWhat(q)!==null}, function(q){doClose(closeWhat(q))}],
   [function(q){return showWhat(q)!==null}, function(q){doShow(showWhat(q))}],
+
+  [function(q){return hubQuery(q)!==null}, function(q){var t=hubQuery(q); openHub(t);
+     var msg=t==='recetas'?(RECS.length?'Tienes '+RECS.length+(RECS.length===1?' receta guardada.':' recetas guardadas.'):'Todavía no tienes recetas guardadas.'):t==='notas'?(NOTES.length?'Tienes '+NOTES.length+(NOTES.length===1?' nota.':' notas.'):'No tienes notas.'):t==='lista'?(SHOP.length?'Tienes '+SHOP.length+' cosas en la lista.':'Tu lista está vacía.'):(REMS.length?'Tienes '+REMS.length+(REMS.length===1?' pendiente.':' pendientes.'):'No tienes alarmas ni recordatorios.');
+     reply(msg)}],
+  [function(q){return agendaQuery(q)!==null}, function(q){agendaSay(agendaQuery(q))}],
+  [function(q){return /^(anota|apunta|apuntame|anotame|toma nota|guarda (la )?nota|nueva nota|nota)\b/.test(q)&&!/(lista|compras|alarma|recordatorio|temporizador)/.test(q)},
+   function(q,raw){var n=norm(raw), m=n.match(/^(?:anota|apunta|apuntame|anotame|toma nota|guarda (?:la )?nota|nueva nota|nota)\s*(?:de\s+que\s+|que\s+|de\s+|:\s*)?(.+)$/d);
+     if(!m){reply('¿Qué anoto?'); return} var t=raw.slice(m.indices[1][0],m.indices[1][1]).trim(); t=t.charAt(0).toUpperCase()+t.slice(1); addNote(t); reply('Listo, anoté: '+t)}],
+  [function(q){return /(borra|elimina|vacia|limpia|quita)\s+(todas\s+)?(las\s+|mis\s+)?notas/.test(q)}, function(){NOTES=[]; saveNotes(); if(!$('#hub').hidden) renderHub(); reply('Listo, borré las notas.')}],
+  [function(q){return /(borra|elimina|quita)\s+la\s+(ultima\s+)?nota/.test(q)}, function(){if(NOTES.length){NOTES.shift(); saveNotes(); if(!$('#hub').hidden) renderHub(); reply('Listo, borré la última nota.')}else reply('No tienes notas.')}],
+  [function(q){return /(borra|elimina|vacia|quita)\s+(todas\s+)?(las\s+|mis\s+)recetas(\s+guardadas)?\s*$/.test(q)}, function(){RECS=[]; saveRecs(); if(!$('#hub').hidden) renderHub(); reply('Listo, borré las recetas guardadas.')}],
+  [function(q){return /(borra|elimina|quita)\s+la\s+receta\s+(de|del)\s+\S+/.test(q)&&!recipeOn()}, function(q){var d=q.match(/receta\s+(?:de|del)\s+(.+)$/)[1], r=findRecipe(d);
+     if(r){RECS=RECS.filter(function(x){return x!==r}); saveRecs(); if(!$('#hub').hidden) renderHub(); reply('Listo, borré la receta de '+r.title+'.')}else reply('No encuentro esa receta guardada.')}],
+  [function(q){return calcQuery(q)!==null}, function(q){var r=calcQuery(q); reply('Son '+r.toLocaleString('es-CO',{maximumFractionDigits:6})+'.')}],
+  [function(q){return /(cuantos dias (faltan|quedan|hay) (para|hasta)|cuanto falta para|cuantas semanas (faltan|quedan) para|cuando es|que dia (cae|es|sera|fue) (el )?\d)/.test(q)&&dateTarget(q)!==null}, function(q){dateSay(q)}],
   [function(q){return !!ringing&&/(pospon|posponer|aplaza|cinco minutos mas|5 minutos mas|snooze)/.test(q)}, function(){snoozeRing()}],
   [function(q){return !!ringing}, function(){stopRing(); reply('Listo.')}],
   [function(q){return !!askRem&&askRem.exp>Date.now()}, function(q,raw){if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){askRem=null; reply('Listo, lo dejo.'); return} remFollow(raw)}],
@@ -1938,7 +2178,7 @@ var INTENTS=[
   [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
   [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
   [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
-   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. Si conectas Spotify, pídeme canciones. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, muéstrame una imagen de un gato, dibuja un perro con sombrero, y buenas noches, o ya puedes dormir, para atenuar la pantalla y pasar a modo noche. También te guío con recetas paso a paso, pongo alarmas y recordatorios, y llevo tu lista de compras.')}],
+   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. Si conectas Spotify, pídeme canciones. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, muéstrame una imagen de un gato, dibuja un perro con sombrero, y buenas noches, o ya puedes dormir, para atenuar la pantalla y pasar a modo noche. También te guío con recetas paso a paso y las guardo, pongo alarmas y recordatorios, tengo una agenda con calendario (di abre la agenda o qué tengo mañana), llevo tus notas (anota que…), tu lista de compras, hago cuentas (cuánto es 12 por 8) y cuento días (cuántos días faltan para Navidad).')}],
   [function(q){return /(callate|silencio|no hables|para de hablar)/.test(q)},
    function(){stopSpeaking()}],
   [function(q){return /(me llamo|mi nombre es)\s+[a-z]+/.test(q)},
@@ -2094,7 +2334,7 @@ function aiAsk(prompt,o){
 function cleanAi(t){return t.replace(/[*_#`>]+/g,'').replace(/\n{2,}/g,'\n').trim()}
 var NOAI='Para eso necesito mi cerebro de IA. Pon la llave en Voz y permisos.';
 function askClaude(raw){
-  var fallback='Eso todavía no lo sé hacer. Prueba con la hora, el clima, un chiste, un juego o un temporizador.';
+  var fallback='No te entendí bien. Prueba con: la agenda, mis recetas, mis notas, la lista de compras, una alarma, un temporizador, el clima, un chiste o un juego. Di ayuda para ver todo.';
   if(!aiReady()){reply(fallback+' Para conversar de cualquier cosa, pon la llave de IA en Voz y permisos.'); return}
   setMood('thinking'); el.bubble.textContent='Pensando…';
   aiAsk(raw,{kind:'chat'}).then(function(t){
@@ -2627,7 +2867,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-oido', pendingUpdate=false;
+var APP_VERSION='2026-10-16-agenda', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
