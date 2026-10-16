@@ -611,14 +611,17 @@ function speak(text){
       setTimeout(done,ms);
     }
     if(voiceOn&&azReady()){
-      azureFetch(text).then(function(blob){
+      setTimeout(function(){
         if(id!==speakId) return;
-        var url=URL.createObjectURL(blob), a=new Audio(url); curAudio=a;
-        a.onended=function(){URL.revokeObjectURL(url); done()};
-        a.onerror=function(){URL.revokeObjectURL(url); system()};
-        var pl=a.play(); if(pl&&pl.catch) pl.catch(function(){system()});
-        setTimeout(done,ms*3+8000);
-      }).catch(function(e2){if(id===speakId&&!fell){azNote(e2); system()}});
+        azureFetch(text).then(function(blob){
+          if(id!==speakId) return;
+          var url=URL.createObjectURL(blob), a=new Audio(url); curAudio=a;
+          a.onended=function(){URL.revokeObjectURL(url); done()};
+          a.onerror=function(){URL.revokeObjectURL(url); system()};
+          var pl=a.play(); if(pl&&pl.catch) pl.catch(function(){system()});
+          setTimeout(done,ms*3+8000);
+        }).catch(function(e2){if(id===speakId&&!fell){azNote(e2); system()}});
+      },250);
       return;
     }
     system();
@@ -1365,7 +1368,7 @@ function hiSusana(){
 /* ---------- App instalable (solo en la página publicada) ---------- */
 try{if('serviceWorker' in navigator&&location.protocol==='https:'&&/github\.io$/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(function(){})}catch(e){}
 /* ---------- Truco secreto: 10 toques rápidos a la cara ---------- */
-var secretOn=false;
+var secretOn=false, lastTapAt=0;
 function secretTrick(){
   if(secretOn) return; secretOn=true;
   act(); stopSpeaking(); confetti(7000); beep([523,659,784,1047,1319]);
@@ -2122,7 +2125,9 @@ el.face.addEventListener('click',function(e){
   if(holdMic()){oneShot(); return}
   var now=Date.now(); pokes=pokes.filter(function(t){return now-t<5000}); pokes.push(now);
   if(pokes.length>=10){pokes=[]; secretTrick(); return}
-  if(pokes.length===5){setMood('surprised',1500); reply('¡Ya, ya! Me estás mareando.'); return}
+  if(pokes.length===5){lastTapAt=now; setMood('surprised',1500); reply('¡Ya, ya! Me estás mareando.'); return}
+  if(talking||now-lastTapAt<2500){setMood('surprised',350); return}
+  lastTapAt=now;
   var tg=e.target;
   if(tg&&tg.closest&&tg.closest('#eyeL,#eyeR')){winkUntil=performance.now()+700; reply('¡Ay, mi ojito!'); return}
   if(tg&&tg.id==='mouth'){setMood('happy',1500); reply('¡Jijiji!'); return}
@@ -2151,7 +2156,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-secreto', pendingUpdate=false;
+var APP_VERSION='2026-10-15-ahorro', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
