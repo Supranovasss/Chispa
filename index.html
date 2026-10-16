@@ -117,9 +117,17 @@ ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px
 .ask input{flex:1;min-width:0;min-height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 17px var(--font-body)}
 .ask input::placeholder{color:var(--muted);font-weight:400}
 .row,.chips{display:flex;flex-wrap:wrap;gap:10px}
-.vid{position:fixed;z-index:12;left:50%;top:calc((100dvh - var(--dockh,130px))/2);transform:translate(-50%,-50%);width:min(60vw,calc((100dvh - var(--dockh,130px) - 40px)*1.7778));aspect-ratio:16/9;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.vid{position:fixed;z-index:12;left:50%;top:calc((100dvh - var(--dockh,130px))/2);transform:translate(-50%,-50%);width:min(60vw,calc((100dvh - var(--dockh,130px) - 40px)*1.7778));aspect-ratio:16/9;border-radius:18px;border:1px solid var(--line);background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .vid[hidden]{display:none}
 .vid iframe,.vid #vidBox{width:100%;height:100%;border:0;display:block}
+.vid #vidBox,.vid iframe,.imgv img{border-radius:18px;overflow:hidden}
+.imgv p{border-radius:0 0 18px 18px}
+.mx{position:absolute;top:-19px;right:8px;z-index:3;width:38px;height:38px;padding:0;display:grid;place-items:center;border-radius:50%;cursor:pointer;color:#ff8a8a;
+  background:rgba(19,35,58,.94);border:1px solid color-mix(in srgb,#ff8a8a 55%,var(--line));box-shadow:0 6px 18px rgba(0,0,0,.5);transition:transform .15s ease,box-shadow .2s ease,background .2s ease}
+.mx svg{width:18px;height:18px}
+.mx:hover{transform:scale(1.1) rotate(90deg);box-shadow:0 0 0 2px color-mix(in srgb,#ff8a8a 45%,transparent),0 6px 18px rgba(0,0,0,.5)}
+.mx:active{transform:scale(.92)}
+.mx:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}
 body.vidon .facewrap{position:fixed;left:12px;bottom:calc(var(--dockh,110px) + 16px);width:min(20vw,250px);height:calc(min(20vw,250px)*.725);flex:none;min-height:0;z-index:5}
 body.vidon .stage{justify-content:flex-end}
 body.vidon .info{opacity:.3;transition:opacity .4s}
@@ -278,8 +286,8 @@ body.imgon .info{opacity:.3}
     <p class="heard" id="heard"></p>
   </main>
 
-  <div class="vid" id="vid" hidden><div id="vidBox"></div></div>
-  <div class="vid imgv" id="imgv" hidden><img id="imgEl" alt=""><p id="imgCap"></p></div>
+  <div class="vid" id="vid" hidden><div id="vidBox"></div><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="vid imgv" id="imgv" hidden><img id="imgEl" alt=""><p id="imgCap"></p><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
 
   <section class="dock" id="dock" aria-label="Controles">
     <p class="mst" id="micStat" aria-live="polite"></p>
@@ -1213,6 +1221,16 @@ function hiSusana(){
   act(); confetti(5500); setMood('happy',6000);
   reply('¡Ah, Susana! Tú eres la que molesta tanto a tu hermano, a Juan Pablo. Hola, ¿en qué puedo ayudarte?').then(function(){setMood('happy',2500)});
 }
+/* ---------- Cerrar todo lo que está en pantalla ---------- */
+function closeAll(){
+  var any=!$('#vid').hidden||!$('#imgv').hidden||!$('#kcard').hidden||!$('#xcard').hidden;
+  if(!$('#vid').hidden) closeVideo();
+  if(!$('#imgv').hidden) closeImg();
+  ['kcard','xcard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true});
+  return any;
+}
+document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.mx'); if(b){e.stopPropagation(); closeAll()}});
+addEventListener('keydown',function(e){if(e.key==='Escape') closeAll()});
 /* ---------- Imágenes ---------- */
 var imgList=[], imgI=0, imgT=0;
 function imgOn(){return !$('#imgv').hidden}
@@ -1260,6 +1278,8 @@ function imgPrompt(q){
   return m;
 }
 var INTENTS=[
+  [function(q){return /\b(cierra|cierrala|cierralo|quita|quitala|quitalo|oculta|esconde|apaga|elimina|saca)\b.*\b(todo|eso|esto|imagen|foto|dibujo|video|pantalla|ventana)\b/.test(q)||/^(cierra|cierralo|cierrala|quitalo|quitala|ya|basta)\W*$/.test(q.trim())},
+   function(){if(closeAll()) setMood('happy',900); reply('Listo.')}],
   [function(q){return /\b(soy|me llamo|habla|aqui esta|aqui)\s+(susi|susana)\b/.test(q)||/^(hola\W+)?(susi|susana)\W*$/.test(q.trim())}, function(){hiSusana()}],
   [function(q){return imgOn()&&/(cierra|quita|oculta|esconde|ya esta|listo|gracias|basta|apaga la imagen)/.test(q)}, function(){closeImg(); reply('Listo.')}],
   [function(q){return imgOn()&&imgList.length>1&&/(siguiente|otra|proxima|sigue|adelante)/.test(q)}, function(){imgI=(imgI+1)%imgList.length; showImg()}],
@@ -1975,7 +1995,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-variado', pendingUpdate=false;
+var APP_VERSION='2026-10-15-cerrar', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
