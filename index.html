@@ -285,6 +285,7 @@ body.rsideon .rc{left:calc((100vw - min(34vw,420px) - 14px)/2);width:min(calc(10
 .hit b{color:#8fd0ff;display:block;font-size:13px}
 .hit button{border:0;border-radius:10px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer;background:rgba(255,255,255,.1);color:#fff}
 .hit button.dl{background:rgba(255,120,120,.18);color:#ff9a9a;padding:7px 11px}
+.ylink{display:block;text-align:center;padding:14px 16px;border-radius:14px;background:#ff3d3d;color:#fff;font-weight:700;font-size:17px;text-decoration:none}
 .hhint{color:#8fa9c4;font-size:14px;margin:4px 0 0}
 @media (orientation:portrait),(max-width:760px){.hag{grid-template-columns:1fr}}
 @media (orientation:portrait){body.rsideon .rc{left:50%;width:calc(100vw - 24px);top:30%}.rside{width:calc(100vw - 24px);right:12px;top:auto;height:42dvh;bottom:calc(var(--dockh,130px) + 10px)}}
@@ -316,6 +317,7 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
       <div id="wx" aria-live="polite"><p class="wx-empty">Consultando el clima…</p></div>
     </section>
     <section class="card" id="lcard" hidden aria-label="Lista de compras"><h2 class="lbl">Lista de compras</h2><ul id="llist"></ul></section>
+    <section class="card" id="ycard" hidden aria-label="YouTube"><h2 class="lbl">YouTube</h2><a id="ylink" class="ylink" target="_blank" rel="noopener" href="https://www.youtube.com">▶ Abrir en YouTube</a></section>
     <section class="card" id="acard" hidden aria-label="Alarmas"><h2 class="lbl">Alarmas y recordatorios</h2><ul id="alist"></ul></section>
     <section class="card" id="tcard" hidden aria-label="Temporizadores">
       <h2 class="lbl">Temporizadores</h2>
@@ -1485,7 +1487,7 @@ function closeAll(){
   if(game){any=true; endGame()}
   if(!$('#vid').hidden) closeVideo();
   if(!$('#imgv').hidden) closeImg();
-  ['kcard','xcard','lcard','acard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true});
+  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true});
   return any;
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.mx'); if(b){e.stopPropagation(); closeAll()}});
@@ -2174,7 +2176,7 @@ var INTENTS=[
   [function(q){return !!vidPlayer&&/(pausa|pausar|pon pausa)/.test(q)}, function(){if(resumeMedia) resumeMedia.t=true; try{vidPlayer.pauseVideo()}catch(e){}}],
   [function(q){return !!vidPlayer&&/(reanuda|continua|dale play|sigue el video|sigue con el video)/.test(q)}, function(){try{vidPlayer.playVideo()}catch(e){}}],
   [function(q){return vidQ.length>1&&/(otro video|siguiente video|el siguiente|otro mas|cambia (de )?video)/.test(q)}, function(){vidI=(vidI+1)%vidQ.length; showVideo()}],
-  [function(q){return /\b(pon|ponme|ponga|muestrame|ensename|reproduce|busca|buscame|quiero ver|ver)\b.*\b(video|videos|cancion|canciones|musica|clip|clips|trailer|tutorial)\b/.test(q)}, function(q,raw){playVideo(videoQuery(raw))}],
+  [function(q){return /\b(pon|ponme|ponga|muestrame|ensename|reproduce|busca|buscame|quiero ver|ver)\b.*\b(video|videos|cancion|canciones|musica|clip|clips|trailer|tutorial)\b/.test(q)}, function(q,raw){var vq=videoQuery(raw); if(vq&&/\b(cancion|canciones|musica|tema)\b/.test(q)&&!/\bvideo/.test(q)) vq+=' audio oficial'; playVideo(vq)}],
   [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
   [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
   [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
@@ -2490,7 +2492,10 @@ function spPlayQuery(q){
         return spApi('/me/player/play?device_id='+encodeURIComponent(dev),{method:'PUT',body:JSON.stringify({uris:items.map(function(x){return x.uri})})}).then(function(){setMood('happy',1500)});
       });
     });
-  }).catch(spErr);
+  }).catch(function(e){
+    if(e&&e.status===429) return spErr(e);
+    setMood(baseline()); reply('Spotify no está disponible, la busco en YouTube.'); return playVideo(q+' audio oficial');
+  });
 }
 function spCtl(a){
   var p; if(a==='pause'&&resumeMedia) resumeMedia.t=true;
@@ -2567,14 +2572,39 @@ function showVideo(){
       }});
   }).catch(function(){closeVideo(); reply('No pude cargar el reproductor de YouTube. Hace falta internet y abrirme desde la página.')});
 }
+var YT_INST=['https://pipedapi.kavin.rocks','https://api.piped.private.coffee','https://pipedapi.adminforge.de','https://inv.nadeko.net','https://yewtu.be'];
+function ytKeyless(q){
+  var i=0;
+  function one(){
+    if(i>=YT_INST.length) return Promise.reject(new Error('nokeyless'));
+    var base=YT_INST[i++], inv=base.indexOf('piped')<0, ac=window.AbortController?new AbortController():null, to=setTimeout(function(){if(ac) ac.abort()},3500);
+    var url=inv?base+'/api/v1/search?type=video&q='+encodeURIComponent(q):base+'/search?filter=videos&q='+encodeURIComponent(q);
+    return fetch(url,ac?{signal:ac.signal}:{}).then(function(r){clearTimeout(to); if(!r.ok) throw new Error('h'); return r.json()}).then(function(j){
+      var arr=inv?(Array.isArray(j)?j:[]):(j.items||[]), out=[];
+      arr.forEach(function(x){var id=inv?x.videoId:((x.url||'').split('v=')[1]||'').split('&')[0]; if(id&&/^[\w-]{11}$/.test(id)) out.push({id:id,title:x.title||''})});
+      if(!out.length) throw new Error('empty'); return out.slice(0,8);
+    }).catch(function(){clearTimeout(to); return one()});
+  }
+  return one();
+}
+function ytLinkFallback(q){
+  var url='https://www.youtube.com/results?search_query='+encodeURIComponent(q);
+  $('#ylink').href=url; $('#ylink').textContent='▶ Abrir “'+q+'” en YouTube'; popCard('ycard',90000);
+  setMood(baseline());
+  var w=null; try{w=window.open(url,'_blank')}catch(e){}
+  return reply(w?'Te lo abrí en YouTube.':'Toca el botón rojo para abrirlo en YouTube.');
+}
 function playVideo(q){
-  if(!CFG.ytKey) return reply('Para mostrar videos necesito una llave de YouTube. Mira cómo ponerla en Voz y permisos.');
   if(!q){askVideoNext=Date.now()+20000; return reply('¿Qué video quieres ver?').then(function(){if(askVideoNext) listenNext()})}
   setMood('thinking'); el.bubble.textContent='Buscando “'+q+'”…';
-  return ytSearch(q).then(function(list){
+  var src=CFG.ytKey?ytSearch(q).catch(function(e){return ytKeyless(q).catch(function(){throw e})}):ytKeyless(q);
+  return src.then(function(list){
     if(!list.length){reply('No encontré videos de eso.'); return}
     vidQ=list; vidI=0; return reply('Te lo pongo.').then(showVideo);
-  }).catch(function(e){setMood(baseline()); reply(ytError(e))});
+  }).catch(function(e){
+    if(e&&(e.message==='nokeyless'||!CFG.ytKey)) return ytLinkFallback(q);
+    setMood(baseline()); reply(ytError(e));
+  });
 }
 
 /* ---------- Juegos ---------- */
@@ -2867,7 +2897,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-agenda', pendingUpdate=false;
+var APP_VERSION='2026-10-16-musica', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
