@@ -252,6 +252,16 @@ ul.rci{display:block;columns:2;column-gap:28px;font-size:clamp(18px,2.1vw,26px)}
 .rch{margin:0;text-align:center;color:var(--muted);font-size:13px}
 .ringc{text-align:center;border-color:var(--alert);animation:ringp 1.2s ease-in-out infinite}
 @keyframes ringp{0%,100%{box-shadow:0 0 0 0 rgba(255,107,107,.0),0 18px 50px rgba(0,0,0,.55)}50%{box-shadow:0 0 0 10px rgba(255,107,107,.25),0 18px 50px rgba(0,0,0,.55)}}
+.rside{position:fixed;z-index:12;right:14px;top:14px;bottom:calc(var(--dockh,130px) + 10px);width:min(34vw,420px);padding:16px 16px 12px;border-radius:22px;background:rgba(19,35,58,.94);border:1px solid var(--line);box-shadow:0 14px 40px rgba(0,0,0,.5);overflow:hidden}
+.rside .mx{position:absolute;top:10px;right:10px;z-index:2}
+.rsb{display:flex;flex-direction:column;gap:10px;padding:0 2px 6px 0;height:100%;overflow:auto;-webkit-overflow-scrolling:touch}
+body.rsideon .rc{left:calc((100vw - min(34vw,420px) - 14px)/2);width:min(calc(100vw - min(34vw,420px) - 60px),820px)}
+.rsb .rm{align-self:flex-start;background:rgba(255,255,255,.07);border-radius:16px 16px 16px 4px;padding:10px 13px;font-size:15px;line-height:1.4;color:#e6f0fa}
+.rsb .rm b{display:block;color:#8fd0ff;font-size:13px;letter-spacing:.04em;margin-bottom:3px}
+.rsb .rm.cur{outline:2px solid #5cc8ff;background:rgba(92,200,255,.14)}
+.rsb h3{margin:0;font-size:19px;color:#fff;padding-right:34px}
+.rsb .rm ul{margin:0;padding-left:18px}
+@media (orientation:portrait){body.rsideon .rc{left:50%;width:calc(100vw - 24px);top:30%}.rside{width:calc(100vw - 24px);right:12px;top:auto;height:42dvh;bottom:calc(var(--dockh,130px) + 10px)}}
 @media (orientation:portrait){.rc{width:calc(100vw - 24px)}}
 #llist li,#alist li{font-size:16px}
 /* Truco secreto */
@@ -327,6 +337,7 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
   <div class="vid" id="vid" hidden><div id="vidBox"></div><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="vid imgv" id="imgv" hidden><img id="imgEl" alt=""><p id="imgCap"></p><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
 
+  <div class="rside" id="rside" hidden><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="rsb" id="rsb"></div></div>
   <div class="rc" id="rcard" hidden><div class="rcin"><h2 id="rcT"></h2><p class="rcs" id="rcS"></p><div id="rcB"></div></div><div class="rcbar"><i id="rcP"></i></div><p class="rch">👍 siguiente · 👎 atrás · ✌️ repetir · mano abierta hacia tu derecha = siguiente · o di “siguiente”</p><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="rc ringc" id="ring" hidden><h2 id="ringT"></h2><p class="rct" id="ringM"></p><p class="rch">Toca la pantalla o di “para” para detener · “pospón” para 5 minutos más</p></div>
 
@@ -1655,7 +1666,7 @@ function startRecipe(dish){
     if(!r){setMood(baseline()); reply('No logré armar la receta. Intenta otra vez.'); return}
     closeVideo(); if(!$('#imgv').hidden) closeImg();
     recipe=r; showRecipe(); recipeCam();
-    reply('Receta de '+r.title+'. Necesitas: '+r.ingr.join(', ')+'. Cuando estés listo, di siguiente, o haz pulgar arriba.');
+    reply('Aquí está la receta de '+r.title+'. ¿Quieres que te la lea completa, o te guío paso a paso diciendo siguiente?');
   }).catch(function(e){recipeBusy=false; setMood(baseline()); reply(e&&e.message==='noai'?NOAI:aiError(e))});
 }
 function recipeCam(){
@@ -1669,7 +1680,7 @@ function showRecipe(){
   $('#rcT').textContent=r.title;
   var S=$('#rcS'), B=$('#rcB'); B.textContent='';
   if(r.i<0){
-    S.textContent='Ingredientes'; var ul=document.createElement('ul'); ul.className='rci';
+    $('#rcard').hidden=true; S.textContent='Ingredientes'; var ul=document.createElement('ul'); ul.className='rci';
     r.ingr.forEach(function(x){var li=document.createElement('li'); li.textContent=x; ul.appendChild(li)}); B.appendChild(ul);
   } else {
     var st=r.steps[r.i]; S.textContent='Paso '+(r.i+1)+' de '+r.steps.length;
@@ -1677,12 +1688,28 @@ function showRecipe(){
     if(st.m){var c=document.createElement('span'); c.className='rcm'; c.textContent='⏱ '+st.m+' min'; B.appendChild(c)}
   }
   $('#rcP').style.width=((r.i+1)/(r.steps.length)*100)+'%';
-  $('#rcard').hidden=false; document.body.classList.add('imgon');
+  if(r.i>=0) $('#rcard').hidden=false;
+  document.body.classList.add('imgon'); renderSide();
+}
+function renderSide(){
+  var r=recipe; if(!r) return; var sb=$('#rsb'); sb.textContent='';
+  var h=document.createElement('h3'); h.textContent=r.title; sb.appendChild(h);
+  var m=document.createElement('div'); m.className='rm'+(r.i<0?' cur':''); var b=document.createElement('b'); b.textContent='INGREDIENTES'; m.appendChild(b);
+  var ul=document.createElement('ul'); r.ingr.forEach(function(x){var li=document.createElement('li'); li.textContent=x; ul.appendChild(li)}); m.appendChild(ul); sb.appendChild(m);
+  r.steps.forEach(function(st,k){var d=document.createElement('div'); d.className='rm'+(k===r.i?' cur':''); var bb=document.createElement('b'); bb.textContent='PASO '+(k+1)+(st.m?'  ·  ⏱ '+st.m+' min':''); d.appendChild(bb); d.appendChild(document.createTextNode(st.t)); sb.appendChild(d)});
+  $('#rside').hidden=false; document.body.classList.add('rsideon');
+  var cur=sb.querySelector('.cur'); if(cur&&cur.scrollIntoView) cur.scrollIntoView({block:'nearest'});
+}
+function recipeReadAll(){
+  var r=recipe; if(!r) return; stopSpeaking();
+  var t='Receta de '+r.title+'. Ingredientes: '+r.ingr.join(', ')+'. ';
+  r.steps.forEach(function(st,k){t+='Paso '+(k+1)+'. '+st.t+' '});
+  reply(t);
 }
 function recipeSay(){
   var r=recipe; if(!r) return;
   stopSpeaking(); showRecipe();
-  if(r.i<0){reply('Necesitas: '+r.ingr.join(', ')+'.'); return}
+  if(r.i<0){reply('Los ingredientes están en el texto de la derecha. Cuando quieras, di siguiente.'); return}
   var st=r.steps[r.i], t='Paso '+(r.i+1)+'. '+st.t;
   if(st.m){silentTimer(st.m*60,'terminó el paso '+(r.i+1)+' de la receta'); t+=' Puse un temporizador de '+st.m+(st.m===1?' minuto.':' minutos.')}
   reply(t);
@@ -1695,13 +1722,14 @@ function recipeNext(){
 function recipePrev(){var r=recipe; if(!r) return; if(r.i<0){reply('Ya estamos al principio.'); return} r.i--; recipeSay()}
 function recipeGo(n){var r=recipe; if(!r) return; if(n<1||n>r.steps.length){reply('Esta receta tiene '+r.steps.length+' pasos.'); return} r.i=n-1; recipeSay()}
 function closeRecipe(){
-  if(!recipe&&$('#rcard').hidden) return false;
-  recipe=null; $('#rcard').hidden=true; if($('#imgv').hidden) document.body.classList.remove('imgon');
+  if(!recipe&&$('#rcard').hidden&&$('#rside').hidden) return false;
+  recipe=null; $('#rcard').hidden=true; $('#rside').hidden=true; document.body.classList.remove('rsideon'); if($('#imgv').hidden) document.body.classList.remove('imgon');
   if(camMode==='gestures') camStop(false);
   return true;
 }
+$('#rside').addEventListener('click',function(e){if(e.target.closest('.mx')) closeRecipe()});
 $('#rcard').addEventListener('click',function(e){if(e.target.closest('.mx')){closeRecipe(); return} recipeNext()});
-var RCMD=/^(?:siguiente|sigue|continua|continuemos|adelante|listo|ya (?:termine|esta|lo hice|acabe|quedo)|el siguiente|siguiente paso|vamos|atras|anterior|paso anterior|regresa|repite|repiteme|repetir|otra vez|de nuevo|ingredientes|cierra la receta|terminar receta)$/;
+var RCMD=/^(?:siguiente|sigue|continua|continuemos|adelante|listo|ya (?:termine|esta|lo hice|acabe|quedo)|el siguiente|siguiente paso|vamos|atras|anterior|paso anterior|regresa|repite|repiteme|repetir|otra vez|de nuevo|ingredientes|cierra la receta|terminar receta|(?:si )?(?:lee|leeme|leela|leemela) (?:la )?(?:receta )?(?:completa|entera|toda)|(?:si )?(?:completa|entera))$/;
 
 var rgC={};
 function recipeGesture(){
@@ -1733,6 +1761,7 @@ var INTENTS=[
   [function(q){return askDish>Date.now()}, function(q,raw){askDish=0; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo.'); return} startRecipe(raw.replace(/^(?:una?|el|la)\s+/i,'').trim())}],
   [function(q){return recipeOn()&&(/(cierra|termina|cancela|deja|salir|detener|apaga).*(receta|cocina)/.test(q)||/^(cierra|termina|ya no|cancela)\W*$/.test(q.trim()))}, function(){closeRecipe(); reply('Listo, cerré la receta.')}],
   [function(q){return recipeOn()&&/(agrega|anade|pon|mete|apunta).*ingredientes.*lista/.test(q)}, function(){addShop(recipe.ingr.map(function(x){return x.replace(/^[\d.,\/]+\s*(?:gramos?|gr|g|kilos?|kg|mililitros?|ml|litros?|l|libras?|lb|onzas?|oz|cucharadas?|cucharaditas?|tazas?|vasos?|unidades?|dientes?|pizcas?|latas?|paquetes?)?\s*(?:de\s+)?/i,'').trim()}).filter(Boolean))}],
+  [function(q){return recipeOn()&&/\b(lee|leeme|leela|leelo|lea|leerla|lees)\b.*(complet|toda|entera|todo)|\b(completa|completo)\b.*\b(lee|leeme|leela|lea)\b|^(si|sí|dale|ok|claro)\W*(lee|leela|leeme|lea)/.test(q)}, function(){recipeReadAll()}],
   [function(q){return recipeOn()&&/(ingredientes|que (necesito|llevo|ocupo|me falta))/.test(q)&&!/lista/.test(q)}, function(){recipe.i=-1; recipeSay()}],
   [function(q){return recipeOn()&&/^(repite|repiteme|repetir|otra vez|de nuevo|dilo otra vez|que dijiste)/.test(q)}, function(){recipeSay()}],
   [function(q){return recipeOn()&&/^(atras|anterior|paso anterior|regresa|vuelve|vuelve atras)/.test(q)}, function(){recipePrev()}],
@@ -2481,7 +2510,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-recetas', pendingUpdate=false;
+var APP_VERSION='2026-10-16-recetas2', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
