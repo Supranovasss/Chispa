@@ -2100,6 +2100,12 @@ var INTENTS=[
   [function(q){return closeWhat(q)!==null}, function(q){doClose(closeWhat(q))}],
   [function(q){return showWhat(q)!==null}, function(q){doShow(showWhat(q))}],
 
+  [function(q){return ctxCmd(q)!==null}, function(q){ctxCmd(q)()}],
+  [function(q){return /(que (tienes|hay|esta) (abierto|en pantalla|mostrando)|que estas mostrando|que tienes ahi|que esta abierto)/.test(q)}, function(){
+     var o=openThings(), N={recipe:'una receta',video:'un video',img:'una imagen',timers:'temporizadores',lista:'la lista de compras',alarm:'las alarmas',clock:'el reloj',wx:'el clima',game:'un juego',hub:'tu '+(HUBTAB==='recetas'?'recetario':HUBTAB==='notas'?'cuaderno de notas':HUBTAB==='lista'?'lista':'agenda')}, l=[];
+     for(var k in o) if(o[k]&&N[k]) l.push(N[k]);
+     reply(l.length?'Tengo abierto: '+l.join(', ')+'.':'No tengo nada abierto.')}],
+  [function(q){return spOn()&&!spPlaying&&!vidPlayer&&/^(continua|reanuda|sigue|dale play|play|dale)$/.test(q)}, function(){spCtl('play')}],
   [function(q){return hubQuery(q)!==null}, function(q){var t=hubQuery(q); openHub(t);
      var msg=t==='recetas'?(RECS.length?'Tienes '+RECS.length+(RECS.length===1?' receta guardada.':' recetas guardadas.'):'Todavía no tienes recetas guardadas.'):t==='notas'?(NOTES.length?'Tienes '+NOTES.length+(NOTES.length===1?' nota.':' notas.'):'No tienes notas.'):t==='lista'?(SHOP.length?'Tienes '+SHOP.length+' cosas en la lista.':'Tu lista está vacía.'):(REMS.length?'Tienes '+REMS.length+(REMS.length===1?' pendiente.':' pendientes.'):'No tienes alarmas ni recordatorios.');
      reply(msg)}],
@@ -2181,7 +2187,7 @@ var INTENTS=[
   [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
   [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
   [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
-   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. Si conectas Spotify, pídeme canciones. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, muéstrame una imagen de un gato, dibuja un perro con sombrero, y buenas noches, o ya puedes dormir, para atenuar la pantalla y pasar a modo noche. También te guío con recetas paso a paso y las guardo, pongo alarmas y recordatorios, tengo una agenda con calendario (di abre la agenda o qué tengo mañana), llevo tus notas (anota que…), tu lista de compras, hago cuentas (cuánto es 12 por 8) y cuento días (cuántos días faltan para Navidad).')}],
+   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. Si conectas Spotify, pídeme canciones. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, muéstrame una imagen de un gato, dibuja un perro con sombrero, y buenas noches, o ya puedes dormir, para atenuar la pantalla y pasar a modo noche. También te guío con recetas paso a paso y las guardo, pongo alarmas y recordatorios, tengo una agenda con calendario (di abre la agenda o qué tengo mañana), llevo tus notas (anota que…), tu lista de compras, hago cuentas (cuánto es 12 por 8) y cuento días (cuántos días faltan para Navidad). Lo que tengo abierto lo controlas hablando: siguiente, anterior, repite, sube el volumen, adelanta diez segundos, mes siguiente, borra la número dos o qué tienes abierto.')}],
   [function(q){return /(callate|silencio|no hables|para de hablar)/.test(q)},
    function(){stopSpeaking()}],
   [function(q){return /(me llamo|mi nombre es)\s+[a-z]+/.test(q)},
@@ -2486,6 +2492,100 @@ function spDevice(){
       return a.id;
     });
   });
+}
+
+/* ---------- Control por voz de lo que está abierto (siguiente, anterior, borra el 2, mes siguiente…) ---------- */
+function ctxName(){
+  if(recipe) return 'recipe';
+  if(!$('#hub').hidden) return 'hub';
+  if(!$('#vid').hidden&&vidPlayer) return 'video';
+  if(imgOn()) return 'img';
+  if(spOn()&&spPlaying) return 'music';
+  if(timers.length) return 'timers';
+  return '';
+}
+var NEXTRE=/^(?:(?:el|la|lo)\s+)?(siguiente|sigue|otro|otra|proximo|proxima|adelante|salta|saltalo|saltala|pasa|pasalo|pasala|cambia|cambialo|cambiala|cambia de (?:video|cancion|tema|imagen|foto)|otro mas|otra mas|next)\b/;
+var PREVRE=/^(?:(?:el|la|lo)\s+)?(anterior|atras|regresa|regresalo|vuelve|devuelve|devuelvete|el de antes|la de antes|retrocede|previo|previa)\b/;
+var ORD={uno:1,una:1,primero:1,primer:1,primera:1,dos:2,segundo:2,segunda:2,tres:3,tercero:3,tercer:3,tercera:3,cuatro:4,cuarto:4,cuarta:4,cinco:5,quinto:5,quinta:5,seis:6,sexto:6,sexta:6,siete:7,ocho:8,nueve:9,diez:10,ultimo:-1,ultima:-1};
+function ordNum(t){t=(t||'').trim(); if(/^\d+$/.test(t)) return +t; return ORD[t]!==undefined?ORD[t]:null}
+function agendaItems(){
+  var items=REMS.slice().sort(function(a,b){return a.at-b.at}), now=Date.now()-3600000;
+  return hubSel?items.filter(function(r){return dkey(new Date(r.at))===hubSel}):items.filter(function(r){return r.at>=now});
+}
+function isNav(re,q){var m=q.match(re); if(!m) return false; var rest=q.slice(m[0].length).trim(); return rest===''||/^(video|cancion|tema|imagen|foto|pestana|mes|dia|mas|vez|de nuevo|por favor|nota|receta|uno|pagina)$/.test(rest)}
+function ctxCmd(q){
+  q=cleanClose(q); if(!q||q.split(' ').length>8) return null;
+  var ctx=ctxName(), m;
+  if(!ctx||ctx==='recipe') return null;
+  if(ctx==='video'){
+    var d=parseDur(q);
+    if(/^(adelanta|avanza|salta|pasa|sube)\w*\b.*\b(segundo|segundos|minuto|minutos)\b/.test(q)&&d>0) return function(){var t=0; try{t=vidPlayer.getCurrentTime()}catch(e){} try{vidPlayer.seekTo(t+d,true)}catch(e){} setMood('happy',600)};
+    if(/^(retrocede|atrasa|devuelve|regresa|vuelve|baja|atras)\w*\b.*\b(segundo|segundos|minuto|minutos)\b/.test(q)&&d>0) return function(){var t=0; try{t=vidPlayer.getCurrentTime()}catch(e){} try{vidPlayer.seekTo(Math.max(0,t-d),true)}catch(e){} setMood('happy',600)};
+    if(/^(repite|repitelo|otra vez|de nuevo|desde el principio|reinicia|reiniciar|empieza de nuevo|desde cero)\b/.test(q)) return function(){try{vidPlayer.seekTo(0,true); vidPlayer.playVideo()}catch(e){}};
+    if(/^(sigue|continua|reanuda|dale|play)$/.test(q)&&ytState===2) return function(){try{vidPlayer.playVideo()}catch(e){}};
+    if(isNav(NEXTRE,q)) return function(){if(vidQ.length>1){vidI=(vidI+1)%vidQ.length; showVideo()}else reply('Ese es el único video. Pídeme otro.')};
+    if(isNav(PREVRE,q)) return function(){if(vidQ.length>1){vidI=(vidI-1+vidQ.length)%vidQ.length; showVideo()}else{try{vidPlayer.seekTo(0,true)}catch(e){}}};
+    if(/^(sube|subir|aumenta|mas alto|mas fuerte|mas volumen|subele)\b/.test(q)||/\bvolumen (mas )?(alto|arriba)\b/.test(q)) return function(){try{vidPlayer.unMute(); vidPlayer.setVolume(Math.min(100,vidPlayer.getVolume()+20))}catch(e){}};
+    if(/^(baja|bajar|disminuye|mas bajo|menos volumen|bajale)\b/.test(q)||/\bvolumen (mas )?(bajo|abajo)\b/.test(q)) return function(){try{vidPlayer.setVolume(Math.max(0,vidPlayer.getVolume()-20))}catch(e){}};
+    if(/^(silencia|silencialo|mutea|mutealo|sin sonido|quita el sonido|calla el video)/.test(q)) return function(){try{vidPlayer.mute()}catch(e){}};
+    if(/^(activa|pon|devuelve|restablece) (el )?sonido|^quita el silencio|^con sonido/.test(q)) return function(){try{vidPlayer.unMute()}catch(e){}};
+    return null;
+  }
+  if(ctx==='music'){
+    if(isNav(NEXTRE,q)) return function(){spCtl('next')};
+    if(isNav(PREVRE,q)) return function(){spCtl('prev')};
+    if(/^(sube|subir|aumenta|mas alto|mas fuerte|mas volumen)\b/.test(q)) return function(){spCtl('volup')};
+    if(/^(baja|bajar|disminuye|mas bajo|menos volumen)\b/.test(q)) return function(){spCtl('voldown')};
+    if(/^(pausa|pausar|para|detente|deten)$/.test(q)) return function(){spCtl('pause')};
+    return null;
+  }
+  if(ctx==='img'){
+    if(isNav(NEXTRE,q)) return function(){if(imgList.length>1){imgI=(imgI+1)%imgList.length; showImg()}else reply('Es la única que tengo. Pídeme otra imagen.')};
+    if(isNav(PREVRE,q)) return function(){if(imgList.length>1){imgI=(imgI-1+imgList.length)%imgList.length; showImg()}else reply('Es la única que tengo.')};
+    return null;
+  }
+  if(ctx==='timers'){
+    var dd=parseDur(q);
+    if(/^(agrega|agregale|anade|anadele|suma|sumale|ponle|dale|mas)\b.*\b(segundo|segundos|minuto|minutos|hora|horas)\b/.test(q)&&dd>0) return function(){var t=timers[timers.length-1]; t.end+=dd*1000; renderTimers(); reply('Listo, le sumé '+durText(dd)+'.')};
+    if(/^(cuanto (falta|queda)|que tiempo (falta|queda))\b/.test(q)) return function(){var t=timers.slice().sort(function(a,b){return a.end-b.end})[0]; reply('Faltan '+durText(Math.max(1,Math.round((t.end-Date.now())/1000)))+'.')};
+    return null;
+  }
+  if(ctx==='hub'){
+    var tabs=['agenda','recetas','notas','lista'];
+    if(m=q.match(/^(?:ve a |ir a |abre |muestra |muestrame |pasa a |cambia a |ponme |la |las |los |mis |mi )*(?:pestana de |pestana |seccion de |seccion |parte de )?(agenda|calendario|recetas|notas|lista|lista de compras|compras)$/)){
+      var tb=/calendario|agenda/.test(m[1])?'agenda':/receta/.test(m[1])?'recetas':/nota/.test(m[1])?'notas':'lista';
+      return function(){HUBTAB=tb; if(tb==='agenda') hubSel=null; renderHub()};
+    }
+    if(/^(mes siguiente|proximo mes|el mes que viene|siguiente mes|adelanta el mes)$/.test(q)||(HUBTAB==='agenda'&&isNav(NEXTRE,q))) return function(){hubMon=new Date(hubMon.getFullYear(),hubMon.getMonth()+1,1); renderHub()};
+    if(/^(mes anterior|mes pasado|el mes pasado|atras un mes|anterior mes)$/.test(q)||(HUBTAB==='agenda'&&isNav(PREVRE,q))) return function(){hubMon=new Date(hubMon.getFullYear(),hubMon.getMonth()-1,1); renderHub()};
+    if(HUBTAB!=='agenda'&&isNav(NEXTRE,q)) return function(){HUBTAB=tabs[(tabs.indexOf(HUBTAB)+1)%4]; renderHub()};
+    if(HUBTAB!=='agenda'&&isNav(PREVRE,q)) return function(){HUBTAB=tabs[(tabs.indexOf(HUBTAB)+3)%4]; renderHub()};
+    if(HUBTAB==='agenda'){
+      if(/^(hoy|ir a hoy|ve a hoy|ver hoy|vuelve a hoy)$/.test(q)) return function(){var n=new Date(); hubSel=dkey(n); hubMon=new Date(n.getFullYear(),n.getMonth(),1); renderHub()};
+      if(/^(ver todo|todo|quita el filtro|sin filtro|todos los dias|muestra todo)$/.test(q)) return function(){hubSel=null; renderHub()};
+      if(m=q.match(/^(?:el |dia |el dia )*(\d{1,2})(?: de (\w+))?$/)){
+        var dn=+m[1], mi=m[2]?MESES.indexOf(m[2]):hubMon.getMonth();
+        if(dn>=1&&dn<=31&&mi>=0) return function(){var y=hubMon.getFullYear(), dt=new Date(y,mi,dn); hubSel=dkey(dt); hubMon=new Date(y,mi,1); renderHub(); var n=agendaItems().length; reply(n?(n===1?'Hay 1 cosa ese día.':'Hay '+n+' cosas ese día.'):'No hay nada ese día.')};
+      }
+    }
+    if(m=q.match(/^(?:abre|abrir|cocina|cocinar|pon|ponme|muestrame|usa|quiero|vamos con)?\s*(?:la )?(?:receta )?(?:numero |nro |#)?(\d+|primera|segunda|tercera|cuarta|quinta|ultima)$/)){
+      if(HUBTAB==='recetas'){var n1=ordNum(m[1]); return function(){var r=n1===-1?RECS[RECS.length-1]:RECS[n1-1]; if(r) openSavedRecipe(r); else reply('No tengo esa receta. Tienes '+RECS.length+'.')}}
+    }
+    if(m=q.match(/^(?:borra|borrar|elimina|eliminar|quita|quitar)(?:me)?\s*(?:la |el |lo |las |los )?(?:receta |nota |alarma |recordatorio |numero |nro |#)*(\d+|primer[oa]|segund[oa]|tercer[oa]|cuart[oa]|quint[oa]|ultim[oa])$/)){
+      var n2=ordNum(m[1]); if(n2!==null) return function(){
+        var arr=HUBTAB==='recetas'?RECS:HUBTAB==='notas'?NOTES:HUBTAB==='lista'?SHOP:agendaItems(), idx=n2===-1?arr.length-1:n2-1, it=arr[idx];
+        if(!it){reply('No tengo el número '+n2+'. Hay '+arr.length+'.'); return}
+        if(HUBTAB==='recetas'){RECS.splice(idx,1); saveRecs()} else if(HUBTAB==='notas'){NOTES.splice(idx,1); saveNotes()} else if(HUBTAB==='lista'){SHOP.splice(idx,1); saveShop(); renderShop()} else {REMS=REMS.filter(function(r){return r!==it}); saveRem(); renderRems()}
+        renderHub(); reply('Listo, borré el número '+(idx+1)+'.');
+      };
+    }
+    if(HUBTAB==='lista'&&(m=q.match(/^(?:quita|quitale|borra|elimina|saca)\s+(?:el |la |los |las )?(.+)$/))){
+      var t=m[1].trim(); var hit=SHOP.filter(function(x){return norm(x).indexOf(t)>=0});
+      if(hit.length) return function(){SHOP=SHOP.filter(function(x){return hit.indexOf(x)<0}); saveShop(); renderShop(); renderHub(); reply('Listo, quité '+hit[0]+'.')};
+    }
+    return null;
+  }
+  return null;
 }
 var SONG_V=/\b(pon|ponme|pone|pones|poner|ponerme|pongo|ponla|ponle|ponga|pongas|reproduce|reproduceme|reproducir|toca|tocame|tocar|coloca|colocame|escuchar|oir|busca|buscame|buscar|quiero escuchar|quiero oir|quisiera escuchar|quisiera oir|me gustaria escuchar|me gustaria oir|puedes poner|puedes tocar|puedes reproducir|dame)\b/;
 var SONG_N=/\b(cancion|canciones|cancioncita|musica|tema|temas|rola|rolas|disco|album|playlist|spotify)\b/;
@@ -2931,7 +3031,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-estable', pendingUpdate=false;
+var APP_VERSION='2026-10-16-control', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
