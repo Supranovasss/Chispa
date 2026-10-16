@@ -1223,13 +1223,12 @@ function startListen(continuous){
         if(n.length>3&&Date.now()-lastSaidEnd<6000&&lastSaid.indexOf(n)>=0){dlog('  ignorado: parece eco de lo que dijo Chispa'); continue}
         if(wm){
           var rest=wm.m[1].trim();
-          act(); armedUntil=0; lastInterim=null; wakeBlue(rest?3200:25000);
-          if(rest&&HEADONLY.test(rest)){pendHead={t:rest,exp:Date.now()+15000}; arm()}
-          else if(rest) handle(rest); else arm();
+          act(); lastInterim=null;
+          if(rest){armedUntil=Date.now()+25000; wakeBlue(25000); lastInterim={t:rest,at:Date.now()}; dlog('  espero a que termine de hablar: «'+rest+'»')}
+          else {armedUntil=0; wakeBlue(25000); arm()}
         }else if(Date.now()<armedUntil){
           if(n.length<2) continue;
-          if(HEADONLY.test(n)&&!headPending()){pendHead={t:n,exp:Date.now()+15000}; armedUntil=Date.now()+25000; lastInterim=null; wakeBlue(20000); continue}
-          armedUntil=0; lastInterim=null; handle(headMerge(n));
+          lastInterim={t:n,at:Date.now()}; armedUntil=Math.max(armedUntil,Date.now()+9000); dlog('  espero a que termine de hablar: «'+n+'»'); continue
         }
         else if(recipe&&RCMD.test(n.trim())){handle(n)}
         else if(lastIntH&&Date.now()-lastIntH.at<12000&&n.indexOf(lastIntH.t)===0&&n.length>lastIntH.t.length+2){lastIntH=null; stopSpeaking(); handle(n)}
@@ -1285,7 +1284,7 @@ function oneShot(){
   })();
 }
 setInterval(function(){
-  var li=lastInterim, nw=li?String(li.t).trim().split(/\s+/).length:0, need=nw<2?4200:nw<3?2800:1700;
+  var li=lastInterim, nw=li?String(li.t).trim().split(/\s+/).length:0, need=nw<2?2200:nw<3?2000:1700;
   if(li&&Date.now()-li.at>need){
     if(li.one&&rec&&!recCont){if(!HEADONLY.test(norm(li.t).trim())){lastInterim=null; lastIntH={t:norm(li.t).trim(),at:Date.now()}; stopListen(); handle(li.t)} else if(Date.now()-li.at>8000) lastInterim=null}
     else if(!li.one&&Date.now()<armedUntil&&!talking){if(HEADONLY.test(li.t)){if(Date.now()-li.at>8000) lastInterim=null} else {lastInterim=null; armedUntil=0; lastIntH={t:norm(li.t).trim(),at:Date.now()}; handle(headMerge(li.t))}}
@@ -3071,7 +3070,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-registro2', pendingUpdate=false;
+var APP_VERSION='2026-10-16-termina', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
