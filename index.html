@@ -713,8 +713,9 @@ function beep(freqs){
 
 /* ---------- Tarjetas que aparecen al pedirlas ---------- */
 var popT={};
+var lastShown='', lastRecipe=null, lastImg=null;
 function popCard(id,ms){
-  var c=document.getElementById(id); if(!c) return;
+  var c=document.getElementById(id); if(!c) return; lastShown=id;
   c.hidden=false; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
   clearTimeout(popT[id]); popT[id]=setTimeout(function(){c.hidden=true},ms||15000);
 }
@@ -1438,7 +1439,7 @@ addEventListener('keydown',function(e){if(e.key==='Escape') closeAll()});
 /* ---------- Imágenes ---------- */
 var imgList=[], imgI=0, imgT=0;
 function imgOn(){return !$('#imgv').hidden}
-function closeImg(){clearTimeout(imgT); imgList=[]; $('#imgv').hidden=true; $('#imgEl').removeAttribute('src'); document.body.classList.remove('imgon')}
+function closeImg(){clearTimeout(imgT); if(imgList.length){lastImg={l:imgList,i:imgI}; lastShown='img'} imgList=[]; $('#imgv').hidden=true; $('#imgEl').removeAttribute('src'); document.body.classList.remove('imgon')}
 function showImg(){
   var it=imgList[imgI]; if(!it) return;
   var dk=document.querySelector('.dock'); if(dk) document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px');
@@ -1724,6 +1725,7 @@ function recipePrev(){var r=recipe; if(!r) return; if(r.i<0){reply('Ya estamos a
 function recipeGo(n){var r=recipe; if(!r) return; if(n<1||n>r.steps.length){reply('Esta receta tiene '+r.steps.length+' pasos.'); return} r.i=n-1; recipeSay()}
 function closeRecipe(){
   if(!recipe&&$('#rcard').hidden&&$('#rside').hidden) return false;
+  if(recipe){lastRecipe=recipe; lastShown='recipe'}
   recipe=null; $('#rcard').hidden=true; $('#rside').hidden=true; document.body.classList.remove('rsideon'); if($('#imgv').hidden) document.body.classList.remove('imgon');
   if(camMode==='gestures') camStop(false);
   return true;
@@ -1804,8 +1806,45 @@ function doClose(w){
   if(!anyOpen()) document.body.classList.remove('imgon','rsideon');
   setMood('happy',900); reply('Listo.');
 }
+
+/* ---------- Mostrar por voz: alarmas, lista, receta, imagen, lo último ---------- */
+var SHV=/^(?:(?:oye )?(?:chispa )?)?(?:(?:me )?(?:puedes|podrias|podes|puede)|quiero que (?:me )?|quisiera que (?:me )?|haz que (?:me )?|necesito que (?:me )?)?\s*(?:vuelve a )?(?:muestra(?:me|le)?|mostrar(?:me)?|ensena(?:me)?|ensenar(?:me)?|abre(?:me)?|abrir|pon(?:me)?|poner|saca(?:me)?|trae(?:me)?|despliega|dejame ver|quiero ver|puedo ver|a ver|necesito ver|ver|dame|enseñame)\b(.*)$/;
+function showWhat(q){
+  q=cleanClose(q); var m=q.match(SHV); if(!m) return null;
+  var rest=m[1].trim(); if(!rest||rest.split(' ').length>9) return null;
+  if(/\b(una|un|unas|unos)\b|\d|\ba las\b/.test(rest)&&/\b(alarma|alarmas|recordatorio|temporizador|timer)\b/.test(rest)) return null;
+  if(/\b(alarma|alarmas|recordatorio|recordatorios|pendiente|pendientes)\b/.test(rest)) return 'acard';
+  if(/\b(lista|compras|mercado)\b/.test(rest)&&!/\bde la lista\b/.test(rest)) return 'lcard';
+  if(/\breceta\b/.test(rest)) return /\breceta\s+(de|del|para|con)\b/.test(rest)?null:'recipe';
+  if(/\b(ingredientes|pasos)\b/.test(rest)) return 'recipe';
+  if(/\b(temporizador|temporizadores|cronometro|timer|cuenta regresiva)\b/.test(rest)) return 'tcard';
+  if(/\b(reloj|hora|fecha|calendario)\b/.test(rest)) return 'kcard';
+  if(/\b(imagen|foto|dibujo|ilustracion)\b/.test(rest)) return /\b(de|del|sobre|con)\b/.test(rest)?null:'img';
+  if(/(lo que (te )?(pedi|dije|habias|tenias|estaba|mostraste|abriste)|lo ultimo|lo anterior|lo de antes|otra vez|de nuevo|lo mismo)/.test(rest)) return 'last';
+  if(/^(?:la |el |esa |ese |eso |esta |este |lo |los |las )?(?:menu|ventana|tabla|tarjeta|panel|cuadro|texto|chat|eso)(?: de la derecha| otra vez| de nuevo)?$/.test(rest)) return 'last';
+  return null;
+}
+function doShow(w){
+  if(w==='last') w=lastShown||'';
+  if(!w){reply('Todavía no te he mostrado nada. ¿Qué quieres ver?'); return}
+  if(w==='acard'){renderRems(); popCard('acard',30000); reply(REMS.length?'Aquí están tus pendientes.':'No tienes alarmas ni recordatorios.')}
+  else if(w==='lcard'){renderShop(); popCard('lcard',40000); reply(SHOP.length?'Aquí está tu lista.':'Tu lista está vacía.')}
+  else if(w==='tcard'){renderTimers(); if(!timers.length) reply('No tienes temporizadores activos.'); else reply('Aquí están.')}
+  else if(w==='kcard'){popCard('kcard',20000); reply('Aquí tienes.')}
+  else if(w==='xcard'){if(WX){popCard('xcard',20000); reply('Aquí está el clima.')} else reply('Pídeme el clima y te lo muestro.')}
+  else if(w==='recipe'){
+    if(recipe){showRecipe(); reply('Aquí está la receta.')}
+    else if(lastRecipe){recipe=lastRecipe; showRecipe(); recipeCam(); reply('Aquí está la receta otra vez.')}
+    else reply('No tengo ninguna receta reciente. Dime cuál quieres.')}
+  else if(w==='img'){
+    if(imgOn()) reply('Ya está en pantalla.');
+    else if(lastImg){imgList=lastImg.l; imgI=lastImg.i; showImg(); reply('Aquí está otra vez.')}
+    else reply('No tengo ninguna imagen reciente. Pídeme una.')}
+  else reply('¿Qué quieres ver?');
+}
 var INTENTS=[
   [function(q){return closeWhat(q)!==null}, function(q){doClose(closeWhat(q))}],
+  [function(q){return showWhat(q)!==null}, function(q){doShow(showWhat(q))}],
   [function(q){return !!ringing&&/(pospon|posponer|aplaza|cinco minutos mas|5 minutos mas|snooze)/.test(q)}, function(){snoozeRing()}],
   [function(q){return !!ringing}, function(){stopRing(); reply('Listo.')}],
   [function(q){return !!askRem&&askRem.exp>Date.now()}, function(q,raw){if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){askRem=null; reply('Listo, lo dejo.'); return} remFollow(raw)}],
@@ -2561,7 +2600,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-cierra', pendingUpdate=false;
+var APP_VERSION='2026-10-16-muestra', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
