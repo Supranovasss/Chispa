@@ -195,14 +195,39 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
   .info .card{display:none}
   #wcard:not([hidden]),#tcard:not([hidden]){display:block}
 }
+/* Cara al centro; datos solo cuando se piden */
+.app{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"stage"!important;grid-template-rows:minmax(0,1fr)!important}
+.info{position:fixed;z-index:8;top:16px;right:16px;width:min(340px,38vw);max-height:calc(100dvh - var(--dockh,130px) - 32px);pointer-events:none;overflow:visible}
+.info>*{pointer-events:auto}
+.info .card{background:rgba(19,35,58,.92);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 12px 34px rgba(0,0,0,.45)}
+.pop{animation:popin .4s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes popin{from{opacity:0;transform:translateX(30px) scale(.92)}to{opacity:1;transform:none}}
+#kcard #clock{font-size:clamp(44px,7vw,84px)}
+#kcard #ampm{font-size:clamp(14px,2vw,22px)}
+#xcard .wx-ico{width:84px;height:84px}
+#xcard .wx-t{font-size:56px}
+.wx-ico[data-k=sun]{color:#ffd36b}.wx-ico[data-k=sun] svg{animation:spin 24s linear infinite}
+.wx-ico[data-k=part]{color:#ffd9a0}
+.wx-ico[data-k=cloud]{color:#b8c7d9}.wx-ico[data-k=cloud] svg{animation:float 4s ease-in-out infinite}
+.wx-ico[data-k=rain]{color:#9ad1ff}.wx-ico[data-k=rain] svg{animation:float 3s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#kcard:not([hidden]),#xcard:not([hidden]){display:block!important}
+body.asleep::before{content:"";position:fixed;inset:0;background:#000;opacity:.62;pointer-events:none;z-index:40}
+body.asleep .info{display:none}
+body.asleep .dock{opacity:.12}
+body.asleep .bubble,body.asleep .heard{opacity:.25}
+body.asleep .app{filter:brightness(.4)}
+@media (orientation:portrait){.info{width:calc(100vw - 32px)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 
 <div class="app" id="app">
   <aside class="info">
-    <div class="clock"><span id="clock">0:00</span><span id="ampm"></span></div>
-    <p class="date" id="date"></p>
-    <section class="card" aria-label="Clima">
+    <section class="card" id="kcard" hidden aria-label="Reloj">
+      <div class="clock"><span id="clock">0:00</span><span id="ampm"></span></div>
+      <p class="date" id="date"></p>
+    </section>
+    <section class="card" id="xcard" hidden aria-label="Clima">
       <h2 class="lbl">Clima · Medellín</h2>
       <div id="wx" aria-live="polite"><p class="wx-empty">Consultando el clima…</p></div>
     </section>
@@ -259,7 +284,7 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
       <button class="tb" id="fs" type="button" style="--c:#d6b8ff"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg><span class="lb">Pantalla completa</span></button>
       <button class="tb" id="cfg" type="button" style="--c:#ffd36b"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg><span class="lb">Voz y permisos</span></button>
     </nav>
-    <p class="tip" id="tip">Di “Oye Chispa” y pide: hora · clima · chiste · dato curioso · historia · video · canción · temporizador · jugar · bailar · ayuda<span id="verTag"></span></p>
+    <p class="tip" id="tip">Di “Oye Chispa” y pide: hora · clima · chiste · dato curioso · historia · video · canción · temporizador · jugar · bailar · dormir · ayuda<span id="verTag"></span></p>
   </section>
 </div>
 
@@ -321,6 +346,15 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
       <button class="btn" id="spClear" type="button">Desconectar</button>
     </div>
     <p class="help" id="spUse"></p>
+  </section>
+  <section>
+    <h3 class="lbl">Alerta en tu celular (vigilar)</h3>
+    <label>Código de tu alerta<input id="ntTopic" type="text" placeholder="toca “Crear código”" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+    <div class="row">
+      <button class="btn" id="ntNew" type="button">Crear código</button>
+      <button class="btn" id="ntTest" type="button">Enviar prueba</button>
+    </div>
+    <p class="help" id="ntUse">Instala la app gratis “ntfy” en tu celular, toca + y escribe este mismo código. Cuando vigile y vea movimiento, te llega una notificación. Quien conozca el código puede leer los avisos, así que no lo compartas.</p>
   </section>
   <section>
     <h3 class="lbl">Micrófono y cámara</h3>
@@ -433,7 +467,7 @@ setInterval(function(){
 },5000);
 
 /* ---------- Voz de salida ---------- */
-var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false};
+var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false,ntTopic:''};
 try{var sv=JSON.parse(localStorage.getItem('chispa.cfg')||'{}'); for(var kk in sv) if(kk in CFG) CFG[kk]=sv[kk]}catch(e){}
 function saveCfg(){try{localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}catch(e){}}
 var speakId=0, lastSaid='', lastSaidEnd=0, storyId=0, storyOn=false;
@@ -583,11 +617,18 @@ function beep(freqs){
   });
 }
 
+/* ---------- Tarjetas que aparecen al pedirlas ---------- */
+var popT={};
+function popCard(id,ms){
+  var c=document.getElementById(id); if(!c) return;
+  c.hidden=false; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+  clearTimeout(popT[id]); popT[id]=setTimeout(function(){c.hidden=true},ms||15000);
+}
 /* ---------- Reloj ---------- */
 var dateFmt=new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long'});
 function tick(){
   var d=new Date(), h=d.getHours();
-  $('#clock').textContent=(h%12||12)+':'+String(d.getMinutes()).padStart(2,'0');
+  $('#clock').textContent=(h%12||12)+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
   $('#ampm').textContent=h<12?'a. m.':'p. m.';
   $('#date').textContent=cap(dateFmt.format(d));
   var now=Date.now(), fired=false;
@@ -681,10 +722,11 @@ function wxIcon(c){
   if(c>=95) return a+'<path d="'+cloud+'" transform="translate(0 -4)"/><path d="M25 30l-5 8h6l-3 8"/></svg>';
   return a+'<path d="'+cloud+'" transform="translate(0 -4)"/><path d="M16 36l-2 6M25 36l-2 6M34 36l-2 6"/></svg>';
 }
+function wxKind(c){return c===0?'sun':c<=2?'part':c===3||c===45||c===48?'cloud':'rain'}
 function renderWx(){
   var box=$('#wx');
   if(!WX){box.innerHTML='<p class="wx-empty">'+(wxErr||'Consultando el clima…')+'</p>'; return}
-  box.innerHTML='<div class="wx-main"><span class="wx-ico">'+wxIcon(WX.code)+'</span><div><div class="wx-t">'+Math.round(WX.t)+'°</div><div class="wx-d">'+cap(WX.desc)+'</div></div></div>'+
+  box.innerHTML='<div class="wx-main"><span class="wx-ico" data-k="'+wxKind(WX.code)+'">'+wxIcon(WX.code)+'</span><div><div class="wx-t">'+Math.round(WX.t)+'°</div><div class="wx-d">'+cap(WX.desc)+'</div></div></div>'+
     '<p class="wx-s">Sensación '+Math.round(WX.feel)+'° · Humedad '+Math.round(WX.hum)+'%</p>'+
     '<p class="wx-s">Hoy '+Math.round(WX.min)+'° a '+Math.round(WX.max)+'° · Lluvia en las próximas horas '+Math.round(WX.rain)+'%</p>';
 }
@@ -720,10 +762,10 @@ function wxAi(){
     .then(function(t){return reply(cleanAi(t))}).catch(function(){setMood(baseline()); return reply(wxSpeech())});
 }
 function askWeather(){
-  if(WX) return wxAi();
+  if(WX){popCard('xcard',20000); return wxAi()}
   setMood('thinking'); el.bubble.textContent='Mirando el cielo…';
   return loadWeather().then(function(ok){
-    if(ok&&WX) wxAi();
+    if(ok&&WX){popCard('xcard',20000); wxAi()}
     else reply('No puedo consultar el clima desde aquí. Ábreme directamente en Chrome y lo hago.');
   });
 }
@@ -742,8 +784,17 @@ function logWatch(txt,isMotion){
   el.wlog.insertBefore(li,el.wlog.firstChild);
   while(el.wlog.children.length>20) el.wlog.removeChild(el.wlog.lastChild);
 }
+var lastPush=0;
+function pushAlert(msg,force){
+  var t=(CFG.ntTopic||'').trim(); if(!t) return Promise.resolve(false);
+  if(!force&&Date.now()-lastPush<60000) return Promise.resolve(false);
+  lastPush=Date.now();
+  return fetch('https://ntfy.sh/'+encodeURIComponent(t),{method:'POST',body:msg,headers:{'Title':'Chispa','Priority':'high','Tags':'warning'}})
+    .then(function(r){return r.ok}).catch(function(){return false});
+}
 function motion(){
   act(); logWatch('Movimiento detectado',true);
+  pushAlert('Chispa detecto movimiento a las '+new Date().toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'}));
   document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
   setMood('alert',4000); beep([660,880]);
   if(voiceOn) setTimeout(function(){reply('Detecté movimiento.'); setMood('alert',4000)},700);
@@ -1126,7 +1177,7 @@ var INTENTS=[
   [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
   [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
   [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
-   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. Si conectas Spotify, pídeme canciones. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, y buenas noches para dormirme.')}],
+   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. Si conectas Spotify, pídeme canciones. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, y buenas noches, o ya puedes dormir, para atenuar la pantalla y pasar a modo noche.')}],
   [function(q){return /(callate|silencio|no hables|para de hablar)/.test(q)},
    function(){stopSpeaking()}],
   [function(q){return /(me llamo|mi nombre es)\s+[a-z]+/.test(q)},
@@ -1153,12 +1204,15 @@ var INTENTS=[
    function(){stopWatch(true)}],
   [function(q){return /(vigila|vigilancia|modo seguridad|activa.*(camara|seguridad)|cuida la casa)/.test(q)},
    function(){startWatch()}],
-  [function(q){return /(duerme|buenas noches|a dormir|descansa|modo noche)/.test(q)},
-   function(){reply('Buenas noches. Di Oye Chispa cuando me necesites.').then(goSleep)}],
+  [function(q){return /(ya puedes (dormir|descansar)|hora de (dormir|la siesta|descansar|acostarse)|a dormir|duermete|duerme|vamos a dormir|me voy a dormir|buenas noches|siesta|modo noche|descansa|apaga.*pantalla|atenua|oscurece|baja.*(luz|brillo))/.test(q)},
+   function(q){
+     var m=/siesta/.test(q)?'Que tengas una linda siesta. Di Oye Chispa cuando me necesites.':/(pantalla|atenua|oscurece|luz|brillo)/.test(q)?'Listo, atenúo la pantalla. Di Oye Chispa y despierto.':'Buenas noches, que descanses. Di Oye Chispa cuando me necesites.';
+     if(!$('#vid').hidden) closeVideo();
+     reply(m).then(goSleep)}],
   [function(q){return /(que hora|la hora|hora es)/.test(q)},
-   function(){reply(horaHablada()+'.')}],
+   function(){popCard('kcard',15000); reply(horaHablada()+'.')}],
   [function(q){return /(que dia|fecha|a cuanto estamos)/.test(q)},
-   function(){reply('Hoy es '+new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date())+'.')}],
+   function(){popCard('kcard',15000); reply('Hoy es '+new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date())+'.')}],
   [function(q){return /(clima|tiempo (hace|va)|llover|llueve|lluvia|temperatura|paraguas|hace (calor|frio))/.test(q)},
    function(){askWeather()}],
   [function(q){return /(chiste|hazme reir|algo gracioso|algo divertido)/.test(q)},
@@ -1657,8 +1711,20 @@ function showSp(){
   $('#spUri').value=spRedirect(); $('#spId').value=CFG.spId||'';
   $('#spUse').textContent=spOn()?'Spotify conectado. Pídeme una canción.':(CFG.spId?'Toca Conectar Spotify.':'1) Entra a developer.spotify.com/dashboard y crea una app marcando Web API y Web Playback SDK. 2) Copia la dirección de arriba en Redirect URIs. 3) Pega aquí el Client ID y toca Conectar. Hace falta Spotify Premium.');
 }
-function fillAi(){$('#listenDuring').checked=!!CFG.listenDuring; $('#aiProv').value=CFG.aiProv||'gemini'; $('#aiKey').value=CFG.aiKey; $('#ytKey').value=CFG.ytKey; showAiUse(); showSp()}
+function fillAi(){$('#ntTopic').value=CFG.ntTopic||''; $('#listenDuring').checked=!!CFG.listenDuring; $('#aiProv').value=CFG.aiProv||'gemini'; $('#aiKey').value=CFG.aiKey; $('#ytKey').value=CFG.ytKey; showAiUse(); showSp()}
 $('#listenDuring').addEventListener('change',function(){CFG.listenDuring=$('#listenDuring').checked; saveCfg()});
+$('#ntTopic').addEventListener('change',function(){CFG.ntTopic=$('#ntTopic').value.trim(); saveCfg()});
+$('#ntNew').addEventListener('click',function(){
+  var a='abcdefghijkmnpqrstuvwxyz23456789', r=new Uint8Array(14); crypto.getRandomValues(r);
+  var c='chispa-'; for(var i=0;i<14;i++) c+=a[r[i]%a.length];
+  CFG.ntTopic=c; $('#ntTopic').value=c; saveCfg(); $('#ntUse').textContent='Código creado. En la app ntfy toca + y escribe: '+c+'. Luego toca “Enviar prueba”.';
+});
+$('#ntTest').addEventListener('click',function(){
+  CFG.ntTopic=$('#ntTopic').value.trim(); saveCfg();
+  if(!CFG.ntTopic){$('#ntUse').textContent='Primero toca “Crear código”.'; return}
+  $('#ntUse').textContent='Enviando…';
+  pushAlert('Prueba de Chispa: si ves esto, las alertas funcionan.',true).then(function(ok){$('#ntUse').textContent=ok?'Enviada. Debe llegarte a la app ntfy en unos segundos.':'No pude enviarla. Revisa la conexión.'});
+});
 $('#spConnect').addEventListener('click',function(){CFG.spId=$('#spId').value.trim(); saveCfg(); spLogin()});
 $('#spClear').addEventListener('click',function(){
   CFG.spTok=null; saveCfg();
@@ -1765,7 +1831,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-video', pendingUpdate=false;
+var APP_VERSION='2026-10-15-alerta', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
