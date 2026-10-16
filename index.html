@@ -1176,7 +1176,7 @@ function camMenu(){
 $('#camBtn').addEventListener('click',function(){if(camMode==='gestures'||camMode==='rps') camStop(true); else startGestures()});
 
 /* ---------- Voz de entrada ---------- */
-var SILENCE_MS=4000; /* silencio que se espera antes de dar por terminada la frase */
+var SILENCE_MS=2800; /* silencio que se espera antes de dar por terminada la frase */
 var DLOG=[], dT0=Date.now();
 function dlog(m){try{DLOG.push(((Date.now()-dT0)/1000).toFixed(1)+'s '+m); if(DLOG.length>40) DLOG.shift(); var b=document.getElementById('dlogBox'); if(b){b.textContent='REGISTRO v'+APP_VERSION+' (toca para cerrar)\n'+DLOG.slice(-28).join('\n'); b.scrollTop=b.scrollHeight}}catch(e){}}
 function dlogToggle(){var b=document.getElementById('dlogBox'); if(b){b.remove(); return} b=document.createElement('div'); b.id='dlogBox'; b.style.cssText='position:fixed;left:3%;right:3%;top:4%;bottom:4%;z-index:99999;background:#0d1722f5;color:#cfe4ff;border:2px solid #2b7fff;border-radius:14px;padding:14px;font:15px/1.45 ui-monospace,monospace;overflow:auto;white-space:pre-wrap'; b.onclick=function(){b.remove()}; document.body.appendChild(b); dlog('registro abierto')}
@@ -3071,7 +3071,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-silencio4', pendingUpdate=false;
+var APP_VERSION='2026-10-16-silencio28', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
