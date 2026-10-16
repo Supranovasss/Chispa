@@ -26,15 +26,16 @@ body{
 .app{
   min-height:100%;display:grid;gap:14px;
   grid-template-columns:minmax(0,1fr);
-  grid-template-areas:"info" "stage" "dock";
-  grid-template-rows:auto 1fr auto;
+  grid-template-areas:"info" "stage";
+  grid-template-rows:auto 1fr;
+  padding-bottom:var(--dockh,130px);
   transition:filter 1.2s;
 }
 @media (min-width:820px) and (orientation:landscape){
   .app{
     grid-template-columns:minmax(280px,32%) minmax(0,1fr);
-    grid-template-rows:minmax(0,1fr) auto;
-    grid-template-areas:"info stage" "dock dock";
+    grid-template-rows:minmax(0,1fr);
+    grid-template-areas:"info stage";
   }
 }
 body.asleep .app{filter:brightness(.5)}
@@ -87,7 +88,31 @@ ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
 /* Controles */
-.dock{grid-area:dock;display:flex;flex-direction:column;gap:10px;min-width:0}
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:15;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 12px max(10px,env(safe-area-inset-bottom,0px));background:linear-gradient(to top,rgba(13,23,34,.97) 60%,rgba(13,23,34,0));pointer-events:none}
+.dock>*{pointer-events:auto}
+.mst{margin:0;min-height:1.3em;font-size:13px;font-weight:700;color:var(--muted);text-align:center}
+.bar{display:flex;gap:10px;padding:8px 10px;max-width:100%;overflow-x:auto;scrollbar-width:none;border-radius:28px;background:rgba(19,35,58,.85);border:1px solid var(--line);box-shadow:0 12px 34px rgba(0,0,0,.45);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.bar::-webkit-scrollbar{display:none}
+.bar>:first-child{margin-left:auto}
+.bar>:last-child{margin-right:auto}
+.tb{--c:#ffc78f;position:relative;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:94px;min-height:78px;padding:8px 6px;border-radius:20px;cursor:pointer;
+  font-family:var(--font-body);font-weight:700;font-size:12px;line-height:1.1;text-align:center;color:var(--ink);
+  background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));
+  border:1px solid color-mix(in srgb,var(--c) 38%,var(--line));
+  transition:transform .15s ease,box-shadow .2s ease,background .2s ease}
+.tb .ic{width:27px;height:27px;color:var(--c);transition:transform .2s ease}
+.tb:hover .ic{transform:scale(1.12) rotate(-4deg)}
+.tb:active{transform:scale(.93)}
+.tb.primary{background:linear-gradient(145deg,var(--glow),var(--glow2));color:#2a1620;border-color:transparent}
+.tb.primary .ic{color:#2a1620}
+.tb.primary.on{animation:pulse 1.2s ease-in-out infinite}
+.tb[aria-pressed=true]{background:color-mix(in srgb,var(--c) 18%,transparent);border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 55%,transparent),0 0 22px color-mix(in srgb,var(--c) 40%,transparent)}
+.tb:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}
+.dot{position:absolute;top:8px;right:10px;width:10px;height:10px;border-radius:50%;background:#6b7c90;box-shadow:0 0 0 2px rgba(13,23,34,.9)}
+#wake[data-st=listen] .dot{background:#8be0b5;animation:pulse 1.6s ease-in-out infinite}
+#wake[data-st=wait] .dot{background:#ffd36b}
+#wake[data-st=talk] .dot,#wake[data-st=media] .dot{background:#9ad1ff}
+#wake[data-st=err] .dot,#wake[data-st=block] .dot{background:#ff6b6b}
 .ask{display:flex;gap:10px}
 .ask input{flex:1;min-width:0;min-height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 17px var(--font-body)}
 .ask input::placeholder{color:var(--muted);font-weight:400}
@@ -99,7 +124,7 @@ body.vidon .facewrap{position:fixed;left:12px;bottom:calc(var(--dockh,110px) + 1
 body.vidon .stage{justify-content:flex-end}
 @media (orientation:portrait){.vid{width:calc(100vw - 24px)}}
 .card.ghost{position:fixed;right:0;bottom:0;width:80px;opacity:.01;pointer-events:none;z-index:-1}
-.tip{margin:0;text-align:center;color:var(--muted);font-size:14px;line-height:1.35}
+.tip{margin:0;text-align:center;color:var(--muted);font-size:13px;line-height:1.3;max-width:1100px}
 .choices .hint{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:999px;border:1px dashed var(--line);background:var(--panel);color:var(--ink);font:700 18px var(--font-body);pointer-events:none}
 .btn,.chip{font-family:var(--font-body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;cursor:pointer}
 .btn{min-height:52px;padding:0 22px;font-size:16px}
@@ -155,7 +180,9 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
   .choices .btn{min-height:44px;font-size:16px;padding:0 16px}
   .choices .hint{min-height:38px;font-size:16px;padding:0 14px}
   .tip{font-size:12px}
-  .dock{gap:6px}
+  .dock{gap:4px;padding-top:8px}
+  .tb{width:88px;min-height:70px;gap:3px}
+  .tb .ic{width:24px;height:24px}
   .ask input,.btn{min-height:44px}
   .btn{padding:0 16px;font-size:15px}
   .row{gap:8px}
@@ -221,16 +248,17 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
 
   <div class="vid" id="vid" hidden><div id="vidBox"></div></div>
 
-  <section class="dock" aria-label="Controles">
-    <div class="row">
-      <button class="btn primary" id="mic" type="button">Hablar</button>
-      <button class="btn" id="wake" type="button" aria-pressed="false">Decir “Oye Chispa”</button>
-      <button class="btn" id="watch" type="button" aria-pressed="false">Vigilar</button>
-      <button class="btn" id="camBtn" type="button" aria-pressed="false">Juegos con cámara</button>
-      <button class="btn" id="fs" type="button">Pantalla completa</button>
-      <button class="btn" id="cfg" type="button">Voz y permisos</button>
-    </div>
-    <p class="tip" id="tip">Di “Oye Chispa” y pide: la hora · el clima · un chiste · un dato curioso · una historia · un video de… · una canción · un temporizador · jugar · bailar · vigila · reconoce mis gestos · ayuda</p>
+  <section class="dock" id="dock" aria-label="Controles">
+    <p class="mst" id="micStat" aria-live="polite"></p>
+    <nav class="bar" aria-label="Botones">
+      <button class="tb primary" id="mic" type="button" style="--c:#ffc78f"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg><span class="lb">Hablar</span></button>
+      <button class="tb" id="wake" type="button" aria-pressed="false" data-st="off" style="--c:#8be0b5"><i class="dot"></i><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg><span class="lb">Oye Chispa</span></button>
+      <button class="tb" id="watch" type="button" aria-pressed="false" style="--c:#ff8a8a"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span class="lb">Vigilar</span></button>
+      <button class="tb" id="camBtn" type="button" aria-pressed="false" style="--c:#9ad1ff"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h4M8 10v4"/><path d="M17.3 6H6.7a4 4 0 0 0-3.9 3.2l-1 5.1a2.7 2.7 0 0 0 4.6 2.3L8 15h8l1.6 1.6a2.7 2.7 0 0 0 4.6-2.3l-1-5.1A4 4 0 0 0 17.3 6z"/><circle cx="15.5" cy="11" r=".6"/><circle cx="17.5" cy="13" r=".6"/></svg><span class="lb">Juegos con cámara</span></button>
+      <button class="tb" id="fs" type="button" style="--c:#d6b8ff"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg><span class="lb">Pantalla completa</span></button>
+      <button class="tb" id="cfg" type="button" style="--c:#ffd36b"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg><span class="lb">Voz y permisos</span></button>
+    </nav>
+    <p class="tip" id="tip">Di “Oye Chispa” y pide: hora · clima · chiste · dato curioso · historia · video · canción · temporizador · jugar · bailar · ayuda<span id="verTag"></span></p>
   </section>
 </div>
 
@@ -325,6 +353,9 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function norm(s){return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function note(t){el.heard.textContent=t}
+function setLbl(b,t){var l=b.querySelector('.lb'); if(l) l.textContent=t}
+var lastMicErr='';
+function micState(st,txt){var w=document.getElementById('wake'); if(w) w.dataset.st=st; var m=document.getElementById('micStat'); if(m) m.textContent=txt||''}
 
 /* ---------- Cara ---------- */
 var MOODS={
@@ -464,8 +495,8 @@ function speak(text){
       talking=false; lastSaidEnd=Date.now(); setMood('happy',1200); if(!storyOn) spDuck(false); res();
       if(wakeOn&&!storyOn) setTimeout(function(){if(wakeOn&&!listening&&!talking&&!storyOn) startListen(true)},600);
     }
-    talking=true; setMood('talking'); spDuck(true);
-    if(wakeOn&&rec){rec.onend=null; rec.onerror=null; rec.onresult=null; try{rec.abort()}catch(e0){} rec=null; listening=false; el.mic.classList.remove('on'); el.mic.textContent='Hablar'}
+    talking=true; setMood('talking'); spDuck(true); if(wakeOn) micState('talk','Chispa está hablando…');
+    if(wakeOn&&rec){rec.onend=null; rec.onerror=null; rec.onresult=null; try{rec.abort()}catch(e0){} rec=null; listening=false; el.mic.classList.remove('on'); setLbl(el.mic,'Hablar')}
     var ms=Math.max(1200,text.length*62);
     function system(){
       if(id!==speakId||fell) return;
@@ -717,10 +748,10 @@ function motion(){
 }
 function syncCam(){
   var on=!!stream, titles={watch:'Vigilancia',rps:'Piedra, papel o tijera',follow:'Seguimiento',gestures:'Gestos'};
-  el.watch.setAttribute('aria-pressed',camMode==='watch'); el.watch.textContent=camMode==='watch'?'Vigilando':'Vigilar';
+  el.watch.setAttribute('aria-pressed',camMode==='watch'); setLbl(el.watch,camMode==='watch'?'Vigilando':'Vigilar');
   el.stage.classList.toggle('watching',on);
   $('#recTxt').textContent=camMode==='watch'?'Vigilando':camMode==='follow'?'Te veo':'Cámara activa';
-  var gm=camMode==='gestures'||camMode==='rps'; $('#camBtn').setAttribute('aria-pressed',gm); $('#camBtn').textContent=gm?'Cerrar juegos':'Juegos con cámara';
+  var gm=camMode==='gestures'||camMode==='rps'; $('#camBtn').setAttribute('aria-pressed',gm); setLbl($('#camBtn'),gm?'Cerrar juegos':'Juegos con cámara');
   el.wcard.hidden=!on; el.wcard.classList.toggle('ghost',camMode==='follow');
   $('#camTitle').textContent=titles[camMode]||'Cámara';
   el.wlog.hidden=camMode!=='watch';
@@ -941,23 +972,24 @@ function camMenu(){
 $('#camBtn').addEventListener('click',function(){if(camMode==='gestures'||camMode==='rps') camStop(true); else startGestures()});
 
 /* ---------- Voz de entrada ---------- */
-var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, armedUntil=0;
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, armedUntil=0, LANGS=['es-CO','es-US','es-MX','es-419','es-ES'], langI=0;
 var startedAt=0, wfails=0, gestureSeen=false, autoBlocked=false, recCont=false, resumeMedia=null;
 function mediaOn(){return !$('#vid').hidden||spPlaying}
 function stopListen(){
   if(rec){rec.onend=null; rec.onerror=null; rec.onresult=null; try{rec.abort()}catch(e){} rec=null}
-  listening=false; el.mic.classList.remove('on'); el.mic.textContent='Hablar';
+  listening=false; el.mic.classList.remove('on'); setLbl(el.mic,'Hablar');
   if(mood==='listening') setMood(baseline());
 }
 function startListen(continuous){
   if(!SR){note('Este navegador no tiene reconocimiento de voz. Prueba con Chrome.'); wakeOn=false; syncWake(); return false}
   if(continuous&&(talking||mediaOn())) return true;
   stopListen(); startedAt=Date.now(); recCont=continuous;
-  var r=new SR(); r.lang='es-CO'; r.continuous=continuous; r.interimResults=!continuous;
-  r.onstart=function(){listening=true; if(!continuous) el.mic.classList.add('on'); el.mic.textContent=continuous?'Hablar':'Escuchando…'; if(!talking&&!continuous) setMood('listening')};
+  var r=new SR(); r.lang=LANGS[langI]; r.continuous=continuous; r.interimResults=!continuous;
+  r.onstart=function(){listening=true; micState('listen',continuous?'Escuchando “Oye Chispa”…':'Te escucho…'); if(!continuous) el.mic.classList.add('on'); setLbl(el.mic,continuous?'Hablar':'Escuchando…'); if(!talking&&!continuous) setMood('listening')};
   r.onresult=function(e){
     for(var i=e.resultIndex;i<e.results.length;i++){
       var res=e.results[i], txt=res[0].transcript;
+      if(res.isFinal){lastMicErr=''; if(continuous) note('Oí: '+txt)}
       if(continuous){
         if(!res.isFinal||talking||Date.now()-lastSaidEnd<1800) continue;
         var n=norm(txt).trim();
@@ -972,16 +1004,23 @@ function startListen(continuous){
     }
   };
   r.onerror=function(e){
+    var er=e&&e.error;
+    if(er==='language-not-supported'){langI=(langI+1)%LANGS.length; lastMicErr='Idioma no disponible, probando '+LANGS[langI]}
+    else if(er==='network') lastMicErr='El servicio de voz no logra conectarse (network). Revisa el internet';
+    else if(er==='audio-capture') lastMicErr='No puedo usar el micrófono: otra app lo usa o no hay micrófono (audio-capture)';
+    if(lastMicErr) micState('err',lastMicErr+'…');
     if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      micState('block','Sin permiso para el micrófono o el servicio de voz ('+er+'). Mira “Voz y permisos”.');
       wakeOn=false; syncWake(); stopListen();
       if(!gestureSeen){note('Toca la pantalla una vez para activar “Oye Chispa”.'); return}
       autoBlocked=true; note('No tengo permiso para el micrófono. Aquí te ayudo a arreglarlo.'); openSheet();
     }else if(e.error==='no-speech'&&!continuous) note('No te escuché. Intenta otra vez.');
   };
   r.onend=function(){
-    listening=false; el.mic.classList.remove('on'); el.mic.textContent='Hablar';
+    listening=false; el.mic.classList.remove('on'); setLbl(el.mic,'Hablar');
     if(!talking&&mood==='listening') setMood(baseline());
     if(wakeOn){
+      micState(lastMicErr?'err':'wait',lastMicErr?lastMicErr+' · reintentando…':'Reiniciando el micrófono…');
       wfails=(Date.now()-startedAt<1500)?Math.min(wfails+1,6):0;
       setTimeout(function(){if(wakeOn&&!listening&&!talking) startListen(true)},400+wfails*600);
     }
@@ -1011,10 +1050,10 @@ function oneShot(){
 setInterval(function(){
   if(!wakeOn||resumeMedia) return;
   var m=mediaOn();
-  if(m&&rec&&recCont){stopListen(); note('Mientras suena el video o la música, toca a Chispa o “Hablar” para pedirme algo.')}
+  if(m&&rec&&recCont){stopListen(); micState('media','En pausa mientras suena el video o la música. Toca a Chispa o “Hablar”.'); note('Mientras suena el video o la música, toca a Chispa o “Hablar” para pedirme algo.')}
   else if(!m&&!rec&&!listening&&!talking&&!storyOn) startListen(true);
 },1000);
-function syncWake(){el.wake.setAttribute('aria-pressed',wakeOn); el.wake.textContent=wakeOn?'Escucho “Oye Chispa”':'Activar “Oye Chispa”'}
+function syncWake(){el.wake.setAttribute('aria-pressed',wakeOn); if(!wakeOn) micState('off','Micrófono apagado. Toca “Oye Chispa” para activarlo.')}
 function arm(){
   armedUntil=Date.now()+8000; beep([880,1320]); setMood('listening',8000);
   el.bubble.textContent='Te escucho…'; note('Dime qué necesitas.');
@@ -1722,7 +1761,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-oye', pendingUpdate=false;
+var APP_VERSION='2026-10-15-botones', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
@@ -1734,6 +1773,8 @@ setInterval(function(){
 },30000);
 
 /* ---------- Arranque ---------- */
+(function(){var dk=document.getElementById('dock'); function f(){document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px')} f(); if(window.ResizeObserver) new ResizeObserver(f).observe(dk); addEventListener('resize',f)})();
+$('#verTag').textContent=' · v'+APP_VERSION;
 tick(); setInterval(tick,1000);
 autoWake();
 if(CFG.follow){setTimeout(function(){startFollow(true)},1500); addEventListener('pointerdown',function(){if(CFG.follow&&!stream&&!camMode) startFollow(true)},{once:true,passive:true})}
