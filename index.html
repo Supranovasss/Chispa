@@ -235,6 +235,11 @@ body.asleep .app{filter:brightness(.4)}
 body.imgon .facewrap{position:fixed;left:12px;bottom:calc(var(--dockh,110px) + 16px);width:min(20vw,250px);height:calc(min(20vw,250px)*.725);flex:none;min-height:0;z-index:5}
 body.imgon .stage{justify-content:flex-end}
 body.imgon .info{opacity:.3}
+/* Sin recuadro al tocar la cara */
+*{-webkit-tap-highlight-color:transparent}
+#face,#face:focus,#face:focus-visible,#face:active,.facewrap,.stage{outline:none!important;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#face *{outline:none!important}
+#face{-webkit-tap-highlight-color:rgba(0,0,0,0)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 
@@ -2123,7 +2128,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-app', pendingUpdate=false;
+var APP_VERSION='2026-10-15-sinmarco', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
