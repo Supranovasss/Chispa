@@ -479,9 +479,7 @@ function wakeUp(){asleep=false; document.body.classList.remove('asleep'); setMoo
 function act(){lastAct=Date.now(); if(asleep) wakeUp()}
 addEventListener('pointerdown',act,{passive:true});
 addEventListener('keydown',act);
-setInterval(function(){
-  if(!asleep&&Date.now()-lastAct>120000&&!talking&&!(listening&&!wakeOn)&&camMode!=='rps'&&camMode!=='gestures'&&!storyOn&&$('#vid').hidden) goSleep();
-},5000);
+/* La pantalla solo se atenúa cuando se le ordena dormir; no hay modo dormir automático. */
 
 /* ---------- Voz de salida ---------- */
 var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false,ntTopic:''};
@@ -1935,7 +1933,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-susana', pendingUpdate=false;
+var APP_VERSION='2026-10-15-siempre', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
