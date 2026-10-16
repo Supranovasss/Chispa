@@ -213,8 +213,9 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
 .info .card{background:rgba(19,35,58,.92);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 12px 34px rgba(0,0,0,.45)}
 .pop{animation:popin .4s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes popin{from{opacity:0;transform:translateX(30px) scale(.92)}to{opacity:1;transform:none}}
-#kcard #clock{font-size:clamp(44px,7vw,84px)}
-#kcard #ampm{font-size:clamp(14px,2vw,22px)}
+#kcard{width:fit-content;max-width:100%;margin-left:auto}
+#kcard #clock{font-size:clamp(36px,min(5.2vw,10vh),64px);white-space:nowrap}
+#kcard #ampm{font-size:clamp(14px,2vw,22px);white-space:nowrap}
 #xcard .wx-ico{width:84px;height:84px}
 #xcard .wx-t{font-size:56px}
 .wx-ico[data-k=sun]{color:#ffd36b}.wx-ico[data-k=sun] svg{animation:spin 24s linear infinite}
@@ -235,6 +236,8 @@ body.asleep .app{filter:brightness(.4)}
 body.imgon .facewrap{position:fixed;left:12px;bottom:calc(var(--dockh,110px) + 16px);width:min(20vw,250px);height:calc(min(20vw,250px)*.725);flex:none;min-height:0;z-index:5}
 body.imgon .stage{justify-content:flex-end}
 body.imgon .info{opacity:.3}
+/* Al oír “Oye Chispa”: ojos y boca azul celeste */
+body.wakeblue #face{--eye:#bfe9ff;--eyeglow:rgba(150,220,255,.55);--mouth:#bfe9ff}
 /* Truco secreto */
 body.rainbow .eye{animation:rb 2.4s linear infinite}
 body.rainbow .mouth{animation:rbs 2.4s linear infinite}
@@ -1129,7 +1132,7 @@ function startListen(continuous){
         if(n.length>3&&lastSaid.indexOf(n)>=0) continue;
         var m=n.match(/(?:(?:oye|oie|oiga|hoy|hey|ey)[,\s]+)?(?:chis\s?p\w*|chipa|chizpa)[,\s]*(.*)$/);
         if(m){
-          act(); armedUntil=0;
+          act(); armedUntil=0; wakeBlue(m[1].trim()?3200:8000);
           if(m[1].trim()) handle(m[1].trim()); else arm();
         }else if(Date.now()<armedUntil){armedUntil=0; handle(n)}
       }else if(res.isFinal){stopListen(); handle(txt)}
@@ -1187,6 +1190,8 @@ setInterval(function(){
   else if(!m&&!rec&&!listening&&!talking&&!storyOn) startListen(true);
 },1000);
 function syncWake(){el.wake.setAttribute('aria-pressed',wakeOn); if(!wakeOn) micState('off','Micrófono apagado. Toca “Oye Chispa” para activarlo.')}
+var wbT=0;
+function wakeBlue(ms){document.body.classList.add('wakeblue'); clearTimeout(wbT); wbT=setTimeout(function(){document.body.classList.remove('wakeblue')},ms)}
 function arm(){
   armedUntil=Date.now()+8000; beep([880,1320]); setMood('listening',8000);
   el.bubble.textContent='Te escucho…'; note('Dime qué necesitas.');
@@ -2156,7 +2161,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-rapida', pendingUpdate=false;
+var APP_VERSION='2026-10-15-azul', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
