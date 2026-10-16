@@ -517,11 +517,26 @@ function azMonthKey(){var d=new Date(); return d.getFullYear()+'-'+(d.getMonth()
 function azUsed(){return CFG.azMonth===azMonthKey()?CFG.azChars:0}
 function azReady(){return !!(CFG.azOn&&CFG.azKey&&CFG.azRegion&&azUsed()<azLimit)}
 function xmlEsc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
+/* Risas y símbolos: que se lean como las diría una persona, no letra por letra */
+var LAUGH=/\b([jh])([aeiou])(?:\1\2)+\b/gi;
+var EMOJI=/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu;
+function cleanSpeech(t){return t.replace(EMOJI,'').replace(/&/g,' y ').replace(/%/g,' por ciento').replace(/\s{2,}/g,' ').trim()}
+function laughParts(m){var v=m.charAt(1).toLowerCase(), n=Math.round(m.length/2), a=[]; for(var i=0;i<n;i++) a.push('j'+v); return a}
+function sysSpeech(t){return cleanSpeech(t).replace(LAUGH,function(m){return laughParts(m).join(', ')})}
+function ssmlSpeech(t){
+  t=cleanSpeech(t); var out='', last=0, m; LAUGH.lastIndex=0;
+  while((m=LAUGH.exec(t))){
+    out+=xmlEsc(t.slice(last,m.index));
+    out+=laughParts(m[0]).map(function(sy){return "<phoneme alphabet='ipa' ph='x"+sy.charAt(1)+"'>"+sy+"</phoneme>"}).join("<break time='90ms'/>");
+    last=m.index+m[0].length;
+  }
+  return out+xmlEsc(t.slice(last));
+}
 function azureFetch(text){
   if(azCache[text]) return Promise.resolve(azCache[text]);
   if(azPend[text]) return azPend[text];
   var voice=CFG.azVoice||'es-VE-PaolaNeural', loc=voice.split('-').slice(0,2).join('-');
-  var ssml="<speak version='1.0' xml:lang='"+loc+"'><voice xml:lang='"+loc+"' name='"+voice+"'>"+xmlEsc(text)+"</voice></speak>";
+  var ssml="<speak version='1.0' xml:lang='"+loc+"'><voice xml:lang='"+loc+"' name='"+voice+"'>"+ssmlSpeech(text)+"</voice></speak>";
   var pr=fetch('https://'+CFG.azRegion.trim().toLowerCase()+'.tts.speech.microsoft.com/cognitiveservices/v1',{
     method:'POST',
     headers:{'Ocp-Apim-Subscription-Key':CFG.azKey.trim(),'Content-Type':'application/ssml+xml','X-Microsoft-OutputFormat':'audio-24khz-48kbitrate-mono-mp3'},
@@ -564,7 +579,7 @@ function speak(text){
       if(voiceOn&&('speechSynthesis' in window)){
         try{
           speechSynthesis.cancel();
-          var parts=(text.match(/[^.!?…:]+[.!?…:]*/g)||[text]).map(function(x){return x.trim()}).filter(Boolean), v=pickVoice();
+          var stext=sysSpeech(text), parts=(stext.match(/[^.!?…:]+[.!?…:]*/g)||[stext]).map(function(x){return x.trim()}).filter(Boolean), v=pickVoice();
           parts.forEach(function(x,i){
             var u=new SpeechSynthesisUtterance(x);
             u.lang=v?v.lang:'es-US'; if(v) u.voice=v;
@@ -1995,7 +2010,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-cerrar', pendingUpdate=false;
+var APP_VERSION='2026-10-15-risas', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
