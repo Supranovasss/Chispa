@@ -235,6 +235,13 @@ body.asleep .app{filter:brightness(.4)}
 body.imgon .facewrap{position:fixed;left:12px;bottom:calc(var(--dockh,110px) + 16px);width:min(20vw,250px);height:calc(min(20vw,250px)*.725);flex:none;min-height:0;z-index:5}
 body.imgon .stage{justify-content:flex-end}
 body.imgon .info{opacity:.3}
+/* Truco secreto */
+body.rainbow .eye{animation:rb 2.4s linear infinite}
+body.rainbow .mouth{animation:rbs 2.4s linear infinite}
+@keyframes rb{0%,100%{fill:#ff6b6b}17%{fill:#ffd36b}33%{fill:#8be0b5}50%{fill:#9ad1ff}67%{fill:#d6b8ff}83%{fill:#ff8fd0}}
+@keyframes rbs{0%,100%{stroke:#ff6b6b}17%{stroke:#ffd36b}33%{stroke:#8be0b5}50%{stroke:#9ad1ff}67%{stroke:#d6b8ff}83%{stroke:#ff8fd0}}
+body.spin #face{animation:spin360 1.3s ease-in-out 2}
+@keyframes spin360{to{transform:rotate(360deg)}}
 /* Sin recuadro al tocar la cara */
 *{-webkit-tap-highlight-color:transparent}
 #face,#face:focus,#face:focus-visible,#face:active,.facewrap,.stage{outline:none!important;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -1343,6 +1350,9 @@ function hiSusana(){
     if(document.hidden||ts-last<33) return; last=ts;
     draw(ts,false);
   }
+  document.addEventListener('chispa-burst',function(){
+    for(var i=0;i<140;i++){var a=R(0,6.3), v=R(1,5), cx=R(W*.2,W*.8), cy=R(H*.2,H*.7); burst.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,r:R(3,8),life:R(.8,1.4),cy:Math.random()<.45})}
+  });
   addEventListener('resize',resize);
   addEventListener('pointermove',function(e){px=e.clientX; py=e.clientY},{passive:true});
   addEventListener('pointerup',function(){px=-999; py=-999},{passive:true});
@@ -1354,6 +1364,18 @@ function hiSusana(){
 })();
 /* ---------- App instalable (solo en la página publicada) ---------- */
 try{if('serviceWorker' in navigator&&location.protocol==='https:'&&/github\.io$/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(function(){})}catch(e){}
+/* ---------- Truco secreto: 10 toques rápidos a la cara ---------- */
+var secretOn=false;
+function secretTrick(){
+  if(secretOn) return; secretOn=true;
+  act(); stopSpeaking(); confetti(7000); beep([523,659,784,1047,1319]);
+  document.dispatchEvent(new CustomEvent('chispa-burst'));
+  document.body.classList.add('rainbow','spin','dancing'); setMood('happy',9000);
+  var l=['¡Descubriste mi truco secreto! Modo arcoíris activado. ¡Fiesta de chispas!','¡Ooh, me encontraste! Este es mi truco secreto. ¡Que empiece la fiesta!','¡Truco secreto desbloqueado! Mírame brillar todos los colores.'];
+  reply(l[(Math.random()*l.length)|0]);
+  setTimeout(function(){document.body.classList.remove('spin')},2600);
+  setTimeout(function(){document.body.classList.remove('rainbow','dancing'); secretOn=false; setMood(baseline())},9000);
+}
 /* ---------- Cerrar todo lo que está en pantalla ---------- */
 function closeAll(){
   var any=!$('#vid').hidden||!$('#imgv').hidden||!$('#kcard').hidden||!$('#xcard').hidden;
@@ -2098,8 +2120,9 @@ el.face.addEventListener('click',function(e){
   if(dist>40) return;
   if(storyOn){stopSpeaking(); return}
   if(holdMic()){oneShot(); return}
-  var now=Date.now(); pokes=pokes.filter(function(t){return now-t<4000}); pokes.push(now);
-  if(pokes.length>=5){pokes=[]; setMood('surprised',1500); reply('¡Ya, ya! Me estás mareando.'); return}
+  var now=Date.now(); pokes=pokes.filter(function(t){return now-t<5000}); pokes.push(now);
+  if(pokes.length>=10){pokes=[]; secretTrick(); return}
+  if(pokes.length===5){setMood('surprised',1500); reply('¡Ya, ya! Me estás mareando.'); return}
   var tg=e.target;
   if(tg&&tg.closest&&tg.closest('#eyeL,#eyeR')){winkUntil=performance.now()+700; reply('¡Ay, mi ojito!'); return}
   if(tg&&tg.id==='mouth'){setMood('happy',1500); reply('¡Jijiji!'); return}
@@ -2128,7 +2151,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-sinmarco', pendingUpdate=false;
+var APP_VERSION='2026-10-15-secreto', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
