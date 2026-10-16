@@ -117,11 +117,12 @@ ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px
 .ask input{flex:1;min-width:0;min-height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 17px var(--font-body)}
 .ask input::placeholder{color:var(--muted);font-weight:400}
 .row,.chips{display:flex;flex-wrap:wrap;gap:10px}
-.vid{position:fixed;z-index:20;top:12px;right:12px;width:min(46vw,720px);aspect-ratio:16/9;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.vid{position:fixed;z-index:12;left:50%;top:calc((100dvh - var(--dockh,130px))/2);transform:translate(-50%,-50%);width:min(60vw,calc((100dvh - var(--dockh,130px) - 40px)*1.7778));aspect-ratio:16/9;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .vid[hidden]{display:none}
 .vid iframe,.vid #vidBox{width:100%;height:100%;border:0;display:block}
-body.vidon .facewrap{position:fixed;left:12px;bottom:calc(var(--dockh,110px) + 16px);width:min(30vw,340px);height:calc(min(30vw,340px)*.725);flex:none;min-height:0;z-index:5}
+body.vidon .facewrap{position:fixed;left:12px;bottom:calc(var(--dockh,110px) + 16px);width:min(20vw,250px);height:calc(min(20vw,250px)*.725);flex:none;min-height:0;z-index:5}
 body.vidon .stage{justify-content:flex-end}
+body.vidon .info{opacity:.3;transition:opacity .4s}
 @media (orientation:portrait){.vid{width:calc(100vw - 24px)}}
 .card.ghost{position:fixed;right:0;bottom:0;width:80px;opacity:.01;pointer-events:none;z-index:-1}
 .tip{margin:0;text-align:center;color:var(--muted);font-size:13px;line-height:1.3;max-width:1100px}
@@ -323,6 +324,7 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
   </section>
   <section>
     <h3 class="lbl">Micrófono y cámara</h3>
+    <label class="check"><input id="listenDuring" type="checkbox">Escuchar “Oye Chispa” aunque suene un video o música (puede pausarlos)</label>
     <dl class="diag" id="diag"></dl>
     <div class="row">
       <button class="btn" id="askMic" type="button">Permitir micrófono</button>
@@ -431,7 +433,7 @@ setInterval(function(){
 },5000);
 
 /* ---------- Voz de salida ---------- */
-var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null};
+var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false};
 try{var sv=JSON.parse(localStorage.getItem('chispa.cfg')||'{}'); for(var kk in sv) if(kk in CFG) CFG[kk]=sv[kk]}catch(e){}
 function saveCfg(){try{localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}catch(e){}}
 var speakId=0, lastSaid='', lastSaidEnd=0, storyId=0, storyOn=false;
@@ -974,7 +976,8 @@ $('#camBtn').addEventListener('click',function(){if(camMode==='gestures'||camMod
 /* ---------- Voz de entrada ---------- */
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, armedUntil=0, LANGS=['es-CO','es-US','es-MX','es-419','es-ES'], langI=0;
 var startedAt=0, wfails=0, gestureSeen=false, autoBlocked=false, recCont=false, resumeMedia=null;
-function mediaOn(){return !$('#vid').hidden||spPlaying}
+function mediaOn(){return vidPlaying||spPlaying}
+function holdMic(){return mediaOn()&&!CFG.listenDuring}
 function stopListen(){
   if(rec){rec.onend=null; rec.onerror=null; rec.onresult=null; try{rec.abort()}catch(e){} rec=null}
   listening=false; el.mic.classList.remove('on'); setLbl(el.mic,'Hablar');
@@ -982,7 +985,7 @@ function stopListen(){
 }
 function startListen(continuous){
   if(!SR){note('Este navegador no tiene reconocimiento de voz. Prueba con Chrome.'); wakeOn=false; syncWake(); return false}
-  if(continuous&&(talking||mediaOn())) return true;
+  if(continuous&&(talking||holdMic())) return true;
   stopListen(); startedAt=Date.now(); recCont=continuous;
   var r=new SR(); r.lang=LANGS[langI]; r.continuous=continuous; r.interimResults=!continuous;
   r.onstart=function(){listening=true; micState('listen',continuous?'Escuchando “Oye Chispa”…':'Te escucho…'); if(!continuous) el.mic.classList.add('on'); setLbl(el.mic,continuous?'Hablar':'Escuchando…'); if(!talking&&!continuous) setMood('listening')};
@@ -1031,7 +1034,7 @@ function startListen(continuous){
 function oneShot(){
   act();
   var rm={v:false,s:false,t:false};
-  if(!$('#vid').hidden&&vidPlayer){try{vidPlayer.pauseVideo(); rm.v=true}catch(e){}}
+  if(vidPlaying&&vidPlayer){try{vidPlayer.pauseVideo(); rm.v=true}catch(e){}}
   if(spOn()&&spPlaying){rm.s=true; spApi('/me/player/pause',{method:'PUT'}).catch(function(){})}
   resumeMedia=rm;
   beep([880,1320]); setMood('listening',6000); el.bubble.textContent='Te escucho…';
@@ -1049,8 +1052,8 @@ function oneShot(){
 }
 setInterval(function(){
   if(!wakeOn||resumeMedia) return;
-  var m=mediaOn();
-  if(m&&rec&&recCont){stopListen(); micState('media','En pausa mientras suena el video o la música. Toca a Chispa o “Hablar”.'); note('Mientras suena el video o la música, toca a Chispa o “Hablar” para pedirme algo.')}
+  var m=holdMic();
+  if(m&&rec&&recCont){stopListen(); micState('media','Mientras suena, no escucho. Pausa el video y di “Oye Chispa”, o toca a Chispa.'); note('Pausa el video y di “Oye Chispa”, o toca a Chispa o “Hablar” para pedirme algo.')}
   else if(!m&&!rec&&!listening&&!talking&&!storyOn) startListen(true);
 },1000);
 function syncWake(){el.wake.setAttribute('aria-pressed',wakeOn); if(!wakeOn) micState('off','Micrófono apagado. Toca “Oye Chispa” para activarlo.')}
@@ -1059,7 +1062,7 @@ function arm(){
   el.bubble.textContent='Te escucho…'; note('Dime qué necesitas.');
 }
 el.mic.addEventListener('click',function(){
-  if(mediaOn()){oneShot(); return}
+  if(holdMic()){oneShot(); return}
   if(wakeOn){arm(); return}
   if(listening) stopListen(); else startListen(false);
 });
@@ -1424,7 +1427,7 @@ function spCtl(a){
 }
 
 /* ---------- Videos de YouTube ---------- */
-var vidPlayer=null, vidQ=[], vidI=0, ytP=null, askVideoNext=false;
+var vidPlayer=null, vidQ=[], vidI=0, ytP=null, askVideoNext=false, vidPlaying=false;
 function ytApi(){
   if(window.YT&&window.YT.Player) return Promise.resolve();
   if(ytP) return ytP;
@@ -1458,7 +1461,7 @@ function listenNext(){if(wakeOn) arm(); else startListen(false)}
 function closeVideo(){
   if(resumeMedia) resumeMedia.t=true;
   try{if(vidPlayer) vidPlayer.destroy()}catch(e){}
-  vidPlayer=null; $('#vidBox').textContent=''; $('#vid').hidden=true; document.body.classList.remove('vidon');
+  vidPlayer=null; vidPlaying=false; $('#vidBox').textContent=''; $('#vid').hidden=true; document.body.classList.remove('vidon');
 }
 function showVideo(){
   var it=vidQ[vidI]; if(!it) return;
@@ -1471,7 +1474,7 @@ function showVideo(){
       playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1},
       events:{
         onReady:function(e){try{e.target.playVideo()}catch(x){}},
-        onStateChange:function(e){if(e.data===0){closeVideo(); setMood('happy',1200)}},
+        onStateChange:function(e){vidPlaying=(e.data===1||e.data===3); if(e.data===0){closeVideo(); setMood('happy',1200)}},
         onError:function(){vidI++; if(vidQ[vidI]) showVideo(); else {closeVideo(); reply('Ese video no se deja reproducir aquí. Pídeme otro.')}}
       }});
   }).catch(function(){closeVideo(); reply('No pude cargar el reproductor de YouTube. Hace falta internet y abrirme desde la página.')});
@@ -1654,7 +1657,8 @@ function showSp(){
   $('#spUri').value=spRedirect(); $('#spId').value=CFG.spId||'';
   $('#spUse').textContent=spOn()?'Spotify conectado. Pídeme una canción.':(CFG.spId?'Toca Conectar Spotify.':'1) Entra a developer.spotify.com/dashboard y crea una app marcando Web API y Web Playback SDK. 2) Copia la dirección de arriba en Redirect URIs. 3) Pega aquí el Client ID y toca Conectar. Hace falta Spotify Premium.');
 }
-function fillAi(){$('#aiProv').value=CFG.aiProv||'gemini'; $('#aiKey').value=CFG.aiKey; $('#ytKey').value=CFG.ytKey; showAiUse(); showSp()}
+function fillAi(){$('#listenDuring').checked=!!CFG.listenDuring; $('#aiProv').value=CFG.aiProv||'gemini'; $('#aiKey').value=CFG.aiKey; $('#ytKey').value=CFG.ytKey; showAiUse(); showSp()}
+$('#listenDuring').addEventListener('change',function(){CFG.listenDuring=$('#listenDuring').checked; saveCfg()});
 $('#spConnect').addEventListener('click',function(){CFG.spId=$('#spId').value.trim(); saveCfg(); spLogin()});
 $('#spClear').addEventListener('click',function(){
   CFG.spTok=null; saveCfg();
@@ -1729,7 +1733,7 @@ addEventListener('pointercancel',function(){down=false},{passive:true});
 el.face.addEventListener('click',function(e){
   if(dist>40) return;
   if(storyOn){stopSpeaking(); return}
-  if(mediaOn()){oneShot(); return}
+  if(holdMic()){oneShot(); return}
   var now=Date.now(); pokes=pokes.filter(function(t){return now-t<4000}); pokes.push(now);
   if(pokes.length>=5){pokes=[]; setMood('surprised',1500); reply('¡Ya, ya! Me estás mareando.'); return}
   var tg=e.target;
@@ -1761,7 +1765,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-botones', pendingUpdate=false;
+var APP_VERSION='2026-10-15-video', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
