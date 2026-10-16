@@ -2259,6 +2259,9 @@ var INTENTS=[
   [function(q){return /(como te llamas|quien eres|tu nombre)/.test(q)}, function(){reply('Soy Chispa, tu compañero de mesón.')}],
   [function(q){return q.length<24&&/^(hola|buenas|buenos dias|buenas tardes|hey|ey|oye)/.test(q)},
    function(){reply(pickLine('hola',saludo()+(CFG.name?', '+CFG.name:'')+'. ¿En qué te ayudo?'))}]
+  /* Último recurso: “pon …” sin más contexto se trata como pedido de video/canción */
+  ,[function(q){return /^(chispa\s+)?(pon|ponme|ponga|reproduce|colocame|coloca)(\s+(algo|alguna cosa|eso|por favor))*\s*$/.test(q.trim())}, function(){askNext('¿Qué quieres que ponga?',function(raw2,q2){handle('pon '+raw2)})}]
+  ,[function(q){return /^(chispa\s+)?(pon|ponme|reproduce|colocame)\s+(?!el volumen|la alarma|un temporizador|temporizador|una alarma|alarma|pausa|musica|la musica)\S+/.test(q.trim())&&!/\b(hora|clima|tiempo|receta|lista|nota|luz|volumen|fuerte|bajo|alto)\b/.test(q)}, function(q,raw){playVideo(videoQuery(raw))}]
 ];
 function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return;
@@ -3076,7 +3079,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-escucha', pendingUpdate=false;
+var APP_VERSION='2026-10-16-pon', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
