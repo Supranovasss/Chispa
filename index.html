@@ -218,6 +218,12 @@ body.asleep .dock{opacity:.12}
 body.asleep .bubble,body.asleep .heard{opacity:.25}
 body.asleep .app{filter:brightness(.4)}
 @media (orientation:portrait){.info{width:calc(100vw - 32px)}}
+.imgv{background:#0b1320}
+.imgv img{width:100%;height:100%;object-fit:contain;display:block;cursor:pointer}
+.imgv p{position:absolute;left:0;right:0;bottom:0;margin:0;padding:22px 16px 10px;font-size:14px;color:#fff;background:linear-gradient(to top,rgba(0,0,0,.7),transparent);pointer-events:none}
+body.imgon .facewrap{position:fixed;left:12px;bottom:calc(var(--dockh,110px) + 16px);width:min(20vw,250px);height:calc(min(20vw,250px)*.725);flex:none;min-height:0;z-index:5}
+body.imgon .stage{justify-content:flex-end}
+body.imgon .info{opacity:.3}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 
@@ -273,6 +279,7 @@ body.asleep .app{filter:brightness(.4)}
   </main>
 
   <div class="vid" id="vid" hidden><div id="vidBox"></div></div>
+  <div class="vid imgv" id="imgv" hidden><img id="imgEl" alt=""><p id="imgCap"></p></div>
 
   <section class="dock" id="dock" aria-label="Controles">
     <p class="mst" id="micStat" aria-live="polite"></p>
@@ -408,7 +415,7 @@ var GAZE={listening:{x:0,y:0},thinking:{x:14,y:-10},sleepy:{x:0,y:10},alert:{x:0
 var S={curve:20,open:0,lid:0,smile:0,blush:0,sc:1,mw:38,gx:0,gy:0};
 var mood='idle', moodTimer=0, gaze={x:0,y:0}, pointerAt=0;
 var asleep=false, talking=false, listening=false, wakeOn=false, voiceOn=true, lastAct=Date.now();
-var blinkEnd=0, nextBlink=2000, winkUntil=0;
+var blinkEnd=0, nextBlink=2000, winkUntil=0, fwrap=null;
 
 function baseline(){return asleep?'sleepy':((listening&&!wakeOn)?'listening':'idle')}
 function setMood(m,ms){
@@ -422,14 +429,24 @@ function frame(t){
   if(mood==='talking') op=6+(Math.sin(t/85)*.5+Math.sin(t/41)*.3+.8)*12;
   S.curve+=(M.curve-S.curve)*k; S.open+=(op-S.open)*.35; S.lid+=(M.lid-S.lid)*k;
   S.smile+=(M.smile-S.smile)*k; S.blush+=(M.blush-S.blush)*k; S.sc+=(M.sc-S.sc)*k; S.mw+=(M.mw-S.mw)*k;
-  var gz=document.body.classList.contains('vidon')?{x:18,y:-10}:gaze;
-  S.gx+=(gz.x-S.gx)*.12; S.gy+=(gz.y-S.gy)*.12;
+  var gz=(document.body.classList.contains('vidon')||document.body.classList.contains('imgon'))?{x:18,y:-10}:gaze;
+  S.gx+=(gz.x-S.gx)*.14; S.gy+=(gz.y-S.gy)*.14;
+  var tx=clamp(gz.x/34,-1,1), ty=clamp(gz.y/18,-1,1);
+  S.hx=(S.hx||0)+(tx-(S.hx||0))*.07; S.hy=(S.hy||0)+(ty-(S.hy||0))*.07;
+  if(!fwrap) fwrap=document.querySelector('.facewrap');
+  if(fwrap&&!reduce){
+    var small=document.body.classList.contains('vidon')||document.body.classList.contains('imgon')?.25:1;
+    fwrap.style.transform=asleep?'none':'perspective(900px) translate3d('+(S.hx*7*small)+'vw,'+(S.hy*4*small)+'vh,0) rotateY('+(S.hx*20*small)+'deg) rotateX('+(-S.hy*12*small)+'deg)';
+  }
+  var turn=1-Math.abs(S.hx)*.12;
   var by=1;
-  if(t<blinkEnd){var p=1-(blinkEnd-t)/150; by=1-Math.sin(Math.PI*p)*.92}
-  else if(t>nextBlink){blinkEnd=t+150; nextBlink=t+2500+Math.random()*3500}
+  if(t<blinkEnd){var p=1-(blinkEnd-t)/200; by=1-Math.sin(Math.PI*p)*.96}
+  else if(t>nextBlink){blinkEnd=t+200; nextBlink=t+(Math.random()<.22?420:1800+Math.random()*2800)}
   var sy=S.sc*by, syR=t<winkUntil?S.sc*.08:sy;
-  el.eyeL.setAttribute('transform','translate('+(130+S.gx)+' '+(120+S.gy)+') scale('+S.sc+' '+sy+')');
-  el.eyeR.setAttribute('transform','translate('+(270+S.gx)+' '+(120+S.gy)+') scale('+S.sc+' '+syR+')');
+  el.eyeL.setAttribute('transform','translate('+(130+S.gx)+' '+(120+S.gy)+') scale('+(S.sc*turn)+' '+sy+')');
+  el.eyeR.setAttribute('transform','translate('+(270+S.gx)+' '+(120+S.gy)+') scale('+(S.sc*turn)+' '+syR+')');
+  el.mouth.setAttribute('transform','translate('+(S.hx*14)+' '+(S.hy*6)+')');
+  el.bL.setAttribute('transform','translate('+(S.hx*20)+' '+(S.hy*8)+')'); el.bR.setAttribute('transform','translate('+(S.hx*20)+' '+(S.hy*8)+')');
   var lh=Math.max(0,S.lid*98), sc=62+(1-S.smile)*60;
   el.lidL.setAttribute('height',lh); el.lidR.setAttribute('height',lh);
   el.smL.setAttribute('cy',sc); el.smR.setAttribute('cy',sc);
@@ -445,7 +462,7 @@ addEventListener('pointermove',function(e){
   if(mood!=='idle'&&mood!=='happy') return;
   var r=el.face.getBoundingClientRect();
   var dx=(e.clientX-(r.left+r.width/2))/r.width, dy=(e.clientY-(r.top+r.height/2))/r.height;
-  gaze={x:clamp(dx*60,-18,18),y:clamp(dy*40,-10,10)}; pointerAt=Date.now();
+  gaze={x:clamp(dx*60,-34,34),y:clamp(dy*40,-18,18)}; pointerAt=Date.now();
 },{passive:true});
 setInterval(function(){
   if(reduce||asleep||Date.now()-pointerAt<4000) return;
@@ -872,7 +889,8 @@ function motionTick(){
     if(asleep){if(frac>.03){presence++; if(presence>=3){presence=0; act()}}else presence=0}
     if(frac>.012){
       var x=sx/ch/64, y=sy/ch/48;
-      gaze={x:clamp((.5-x)*36,-20,20),y:clamp((y-.5)*20,-10,10)};
+      gaze={x:clamp((.5-x)*2*1.5*34,-34,34),y:clamp((y-.5)*2*1.4*18,-18,18)};
+      if(Date.now()-lastFollow>25000&&!asleep&&!talking&&(mood==='idle'||mood==='happy')){setMood('happy',3200); winkUntil=0; nextBlink=0}
       lastFollow=Date.now(); pointerAt=Date.now();
       if(frac>.2&&!talking&&mood==='idle'&&Date.now()-lastSurprise>6000){lastSurprise=Date.now(); setMood('surprised',900)}
     }else if(Date.now()-lastFollow>4000&&(gaze.x!==0||gaze.y!==0)){gaze={x:0,y:0}}
@@ -918,7 +936,7 @@ function recogTick(){
   $('#camStat').textContent=lm?'Veo: '+(GLAB[curGesture]||curGesture):'No veo tu mano';
   if(lm){
     var px=lm[9].x, py=lm[9].y;
-    gaze={x:clamp((.5-px)*36,-20,20),y:clamp((py-.5)*18,-10,10)}; pointerAt=Date.now(); trackWave(px);
+    gaze={x:clamp((.5-px)*2*1.5*34,-34,34),y:clamp((py-.5)*2*1.4*18,-18,18)}; pointerAt=Date.now(); trackWave(px);
   }else palm.length=0;
   if(rpsSamples) rpsSamples.push(curGesture);
   if(camMode==='gestures') reactGesture();
@@ -1154,7 +1172,60 @@ function calc(q){
   else{ if(b===0) return 'No se puede dividir entre cero.'; r=a/b }
   return 'Eso da '+new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(r)+'.';
 }
+/* ---------- Imágenes ---------- */
+var imgList=[], imgI=0, imgT=0;
+function imgOn(){return !$('#imgv').hidden}
+function closeImg(){clearTimeout(imgT); imgList=[]; $('#imgv').hidden=true; $('#imgEl').removeAttribute('src'); document.body.classList.remove('imgon')}
+function showImg(){
+  var it=imgList[imgI]; if(!it) return;
+  var dk=document.querySelector('.dock'); if(dk) document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px');
+  if(!$('#vid').hidden) closeVideo();
+  $('#imgCap').textContent=it.cap+(imgList.length>1?'  ·  '+(imgI+1)+' de '+imgList.length:'');
+  $('#imgEl').src=it.src; $('#imgv').hidden=false; document.body.classList.add('imgon');
+  clearTimeout(imgT); imgT=setTimeout(closeImg,120000);
+}
+$('#imgEl').addEventListener('error',function(){
+  if(!imgOn()) return;
+  var it=imgList[imgI]; if(it&&it.gen){closeImg(); reply('El servicio que dibuja imágenes no respondió. Prueba otra vez en un rato.'); return}
+  if(imgI<imgList.length-1){imgI++; showImg()} else {closeImg(); reply('No pude cargar esas imágenes.')}
+});
+$('#imgEl').addEventListener('click',function(){if(imgList.length>1){imgI=(imgI+1)%imgList.length; showImg()}});
+function imgCommons(q){
+  var u='https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=20&gsrsearch='+encodeURIComponent(q+' filetype:bitmap')+'&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*';
+  return fetch(u).then(function(r){if(!r.ok) throw 0; return r.json()}).then(function(j){
+    var pg=j&&j.query&&j.query.pages?Object.keys(j.query.pages).map(function(k){return j.query.pages[k]}):[];
+    pg.sort(function(a,b){return a.index-b.index});
+    return pg.filter(function(p){return p.imageinfo&&p.imageinfo[0]&&p.imageinfo[0].thumburl}).map(function(p){
+      return {src:p.imageinfo[0].thumburl,cap:p.title.replace(/^File:/,'').replace(/\.[a-z]+$/i,'').replace(/_/g,' ')+' · Wikimedia Commons'}});
+  });
+}
+function imgSearch(q){
+  setMood('thinking'); el.bubble.textContent='Buscando imágenes…';
+  return imgCommons(q).then(function(l){
+    setMood(baseline());
+    if(!l.length){reply('No encontré imágenes de '+q+'. Prueba con otra palabra.'); return}
+    imgList=l; imgI=0; showImg(); reply('Aquí tienes. Di siguiente para ver otra, o cierra para quitarla.');
+  }).catch(function(){setMood(baseline()); reply('No pude buscar imágenes ahora. Hace falta internet y abrirme desde la página.')});
+}
+function imgGen(prompt){
+  setMood('thinking'); el.bubble.textContent='Dibujando…';
+  imgList=[{src:'https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=896&height=504&nologo=true&seed='+((Math.random()*1e6)|0),cap:'Imagen creada para: '+prompt,gen:true}]; imgI=0;
+  showImg(); setTimeout(function(){setMood(baseline())},400);
+  reply('Te la estoy dibujando, puede tardar unos segundos.');
+}
+function imgPrompt(q){
+  var m=q.replace(/\bchispa\b[,\s]*/g,' ').replace(/^.*?(como se veria|como se vera|como seria|dibujame|dibuja|imagina|genera|crea|hazme|haz|inventa)\s*/,'')
+    .replace(/^(me\s+)?(una|un)?\s*(imagen|foto|ilustracion|dibujo)?\s*(de|del)?\s*/,'').trim();
+  return m;
+}
 var INTENTS=[
+  [function(q){return imgOn()&&/(cierra|quita|oculta|esconde|ya esta|listo|gracias|basta|apaga la imagen)/.test(q)}, function(){closeImg(); reply('Listo.')}],
+  [function(q){return imgOn()&&imgList.length>1&&/(siguiente|otra|proxima|sigue|adelante)/.test(q)}, function(){imgI=(imgI+1)%imgList.length; showImg()}],
+  [function(q){return imgOn()&&imgList.length>1&&/(anterior|atras|vuelve|regresa)/.test(q)}, function(){imgI=(imgI-1+imgList.length)%imgList.length; showImg()}],
+  [function(q){return /(como se veria|como se vera|como seria|dibujame|dibuja|imagina|genera (una )?(imagen|foto|ilustracion)|crea (una )?(imagen|foto|ilustracion)|hazme (una )?(imagen|foto|ilustracion|dibujo)|inventa (una )?(imagen|foto|ilustracion))/.test(q)},
+   function(q){var pr=imgPrompt(q); if(pr.length<3){reply('¿Qué quieres que dibuje?'); return} imgGen(pr)}],
+  [function(q){return /(muestrame|ensename|ensena|ponme|busca|buscame|quiero ver|ver)\s+(en google\s+)?(una\s+|unas\s+|unos\s+)?(imagen|imagenes|foto|fotos|fotografia|fotografias)\s+(de|del)\s+.+/.test(q)},
+   function(q){var m=q.match(/(?:imagen|imagenes|foto|fotos|fotografia|fotografias)\s+(?:de|del)\s+(.+)$/); imgSearch(m[1].replace(/\bchispa\b/g,'').trim())}],
   [function(q){return /(modos? de camara|juegos? con (la )?camara|que (puedo|podemos) hacer con la camara)/.test(q)}, function(){camMenu()}],
   [function(q){return /((camara|mano|gesto).*(piedra|papel|tijera))|((piedra|papel|tijera).*(camara|mano|gesto))/.test(q)}, function(){startCamRps()}],
   [function(q){return /(sigueme|mirame|sigue mi|seguirme|siguenos)/.test(q)}, function(){startFollow()}],
@@ -1177,7 +1248,7 @@ var INTENTS=[
   [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
   [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
   [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
-   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. Si conectas Spotify, pídeme canciones. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, y buenas noches, o ya puedes dormir, para atenuar la pantalla y pasar a modo noche.')}],
+   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. Si conectas Spotify, pídeme canciones. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, muéstrame una imagen de un gato, dibuja un perro con sombrero, y buenas noches, o ya puedes dormir, para atenuar la pantalla y pasar a modo noche.')}],
   [function(q){return /(callate|silencio|no hables|para de hablar)/.test(q)},
    function(){stopSpeaking()}],
   [function(q){return /(me llamo|mi nombre es)\s+[a-z]+/.test(q)},
@@ -1481,7 +1552,7 @@ function spCtl(a){
 }
 
 /* ---------- Videos de YouTube ---------- */
-var vidPlayer=null, vidQ=[], vidI=0, ytP=null, askVideoNext=false, vidPlaying=false;
+var vidPlayer=null, vidQ=[], vidI=0, ytP=null, askVideoNext=false, vidPlaying=false, ytState=-1, ytSince=0;
 function ytApi(){
   if(window.YT&&window.YT.Player) return Promise.resolve();
   if(ytP) return ytP;
@@ -1512,6 +1583,14 @@ function videoQuery(raw){
   return /^(v[ií]deos?|clips?)$/i.test(r)?'':r;
 }
 function listenNext(){if(wakeOn) arm(); else startListen(false)}
+/* Anuncios: YouTube no avisa de ellos; todo lo que no sea “en pausa” se trata como sonido */
+setInterval(function(){
+  if(!vidPlayer||$('#vid').hidden) return;
+  if((ytState===-1||ytState===5)&&Date.now()-ytSince>15000) vidPlaying=false;
+  try{var vd=vidPlayer.getVideoData&&vidPlayer.getVideoData(), it=vidQ[vidI];
+    if(vd&&vd.video_id&&it&&vd.video_id!==it.id&&ytState!==2) vidPlaying=true;
+  }catch(e){}
+},1500);
 function closeVideo(){
   if(resumeMedia) resumeMedia.t=true;
   try{if(vidPlayer) vidPlayer.destroy()}catch(e){}
@@ -1520,6 +1599,7 @@ function closeVideo(){
 function showVideo(){
   var it=vidQ[vidI]; if(!it) return;
   var dk=document.querySelector('.dock'); if(dk) document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px');
+  vidPlaying=true; ytState=-1; ytSince=Date.now();
   $('#vid').hidden=false; document.body.classList.add('vidon');
   ytApi().then(function(){
     if(vidPlayer){vidPlayer.loadVideoById(it.id); return}
@@ -1528,7 +1608,7 @@ function showVideo(){
       playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1},
       events:{
         onReady:function(e){try{e.target.playVideo()}catch(x){}},
-        onStateChange:function(e){vidPlaying=(e.data===1||e.data===3); if(e.data===0){closeVideo(); setMood('happy',1200)}},
+        onStateChange:function(e){ytState=e.data; ytSince=Date.now(); vidPlaying=(e.data!==2&&e.data!==0&&e.data!==5); if(e.data===0){closeVideo(); setMood('happy',1200)}},
         onError:function(){vidI++; if(vidQ[vidI]) showVideo(); else {closeVideo(); reply('Ese video no se deja reproducir aquí. Pídeme otro.')}}
       }});
   }).catch(function(){closeVideo(); reply('No pude cargar el reproductor de YouTube. Hace falta internet y abrirme desde la página.')});
@@ -1831,7 +1911,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-alerta', pendingUpdate=false;
+var APP_VERSION='2026-10-15-imagenes', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
