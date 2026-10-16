@@ -721,20 +721,7 @@ function stopSpeaking(){
   if(curAudio){try{curAudio.pause()}catch(e){} curAudio=null}
   talking=false; spDuck(false); setMood(baseline()); resumeWake();
 }
-var lastExpect=0, askGen=null;
-function expectReply(){
-  if(Date.now()-lastExpect<1500) return; lastExpect=Date.now();
-  wakeBlue(10000);
-  if(wakeOn){armedUntil=Date.now()+10000; lastInterim=null; beep([880,1320]); setMood('listening',9000)}
-  else startListen(false);
-}
-function askNext(prompt,fn){askGen={fn:fn,exp:Date.now()+25000}; return reply(prompt)}
-function reply(text){
-  var p;
-  if(text.length>420) p=speakLong(text); else {el.bubble.textContent=text; p=speak(text)}
-  if(/\?\s*$/.test(String(text).trim())&&text.length<400) p.then(function(){expectReply()});
-  return p;
-}
+function reply(text){if(text.length>420) return speakLong(text); el.bubble.textContent=text; return speak(text)}
 
 var ac=null;
 function audio(){
@@ -1198,9 +1185,7 @@ function stopListen(){
   listening=false; el.mic.classList.remove('on'); setLbl(el.mic,'Hablar');
   if(mood==='listening') setMood(baseline());
 }
-var wakeEarly=false, lastInterim=null, oneRetry=0, gotRes=false, pendHead=null;
-var HEADONLY=/^(pon|ponme|pone|ponga|ponle|reproduce|coloca|colocame|abre|abreme|muestra|muestrame|ensename|busca|buscame|dibuja|dibujame|anota|apunta|agrega|agregame|anade|crea|programa|dime|cuentame|quiero ver|quiero escuchar|quiero|necesito|hazme|dame|traeme)(\s+(un|una|unos|unas|el|la|los|las|de|del|algo|por favor|me|mi|mis))*$/;
-function headMerge(t){var h=pendHead; pendHead=null; return (h&&h.exp>Date.now())?h.t+' '+t:t}
+var wakeEarly=false, lastInterim=null, oneRetry=0, gotRes=false;
 var WAKE=/(?:(?:oye|oie|oiga|hoy|hey|ey|ola|hola)[,\s]+)?(?:chis\s?p\w*|chiz\s?p\w*|ches\s?p\w*|chipas?|sis\s?pa|chis\s?ba|chizpa)[,\s]*(.*)$/;
 function wakeMatch(alts){
   for(var i=0;i<alts.length;i++){var n=norm(alts[i]).trim(), m=n.match(WAKE); if(m) return {n:n,m:m}}
@@ -1231,16 +1216,13 @@ function startListen(continuous){
         if(wm){
           var rest=wm.m[1].trim();
           act(); armedUntil=0; lastInterim=null; wakeBlue(rest?3200:8000);
-          if(rest&&!HEADONLY.test(rest)){askGen=null;askMusicNext=false;askVideoNext=false}
-          if(rest&&HEADONLY.test(rest)){pendHead={t:rest,exp:Date.now()+9000}; arm()}
-          else if(rest) handle(rest); else arm();
+          if(rest) handle(rest); else arm();
         }else if(Date.now()<armedUntil){
           if(n.length<2) continue;
-          if(HEADONLY.test(n)&&!(pendHead&&pendHead.exp>Date.now())){pendHead={t:n,exp:Date.now()+9000}; armedUntil=Date.now()+10000; lastInterim=null; wakeBlue(9000); continue}
-          armedUntil=0; lastInterim=null; handle(headMerge(n));
+          armedUntil=0; lastInterim=null; handle(n);
         }
         else if(recipe&&RCMD.test(n.trim())){handle(n)}
-      }else if(res.isFinal){lastInterim=null; stopListen(); var nn=norm(txt).trim(); if(HEADONLY.test(nn)&&!(pendHead&&pendHead.exp>Date.now())){pendHead={t:nn,exp:Date.now()+9000}; wakeBlue(9000); setTimeout(function(){startListen(false)},200)} else handle(headMerge(txt))}
+      }else if(res.isFinal){lastInterim=null; stopListen(); handle(txt)}
       else{note('Escuchando: '+txt); lastInterim={t:txt,at:Date.now(),one:true}}
     }
   };
@@ -1293,7 +1275,7 @@ setInterval(function(){
   var li=lastInterim;
   if(li&&Date.now()-li.at>1700){
     if(li.one&&rec&&!recCont){lastInterim=null; stopListen(); handle(li.t)}
-    else if(!li.one&&Date.now()<armedUntil&&!talking){if(HEADONLY.test(li.t)){if(Date.now()-li.at>5000){lastInterim=null; armedUntil=0; handle(headMerge(li.t))}} else {lastInterim=null; armedUntil=0; handle(headMerge(li.t))}}
+    else if(!li.one&&Date.now()<armedUntil&&!talking){lastInterim=null; armedUntil=0; handle(li.t)}
     else if(Date.now()-li.at>6000) lastInterim=null;
   }
 },400);
@@ -1501,7 +1483,7 @@ function secretTrick(){
 /* ---------- Cerrar todo lo que está en pantalla ---------- */
 function closeAll(){
   var any=!$('#vid').hidden||!$('#imgv').hidden||!$('#kcard').hidden||!$('#xcard').hidden||!$('#lcard').hidden||!$('#acard').hidden||!!recipe||!$('#hub').hidden;
-  closeRecipe(); stopRing(); closeHub(); askRem=null; askGen=null; askMusicNext=false; askVideoNext=false;
+  closeRecipe(); stopRing(); closeHub();
   if(game){any=true; endGame()}
   if(!$('#vid').hidden) closeVideo();
   if(!$('#imgv').hidden) closeImg();
@@ -1677,7 +1659,7 @@ function remFollow(raw){
   if(a.at){addRem(a.kind,a.at,raw.replace(/^(que\s+)/i,'').trim()); return}
   var q=a.off!=null?'a las '+raw.replace(/^a\s+(las?\s+)?/i,''):raw; if(!/\ba\s+la/i.test(q)&&!/^a\s+las/i.test(q)) q='a las '+q.replace(/^a\s+/,'');
   var p=whenParse((a.off===1?'mañana ':a.off===0?'hoy ':'')+q,a.kind);
-  if(!p.at){if(a.fail){reply('No logro entender la hora, lo dejamos así.'); return} reply('No entendí la hora. Dime por ejemplo: a las 7 y media de la mañana.'); askRem=a; askRem.fail=1; askRem.exp=Date.now()+30000; return}
+  if(!p.at){reply('No entendí la hora. Dime por ejemplo: a las 7 y media de la mañana.'); askRem=a; askRem.exp=Date.now()+30000; return}
   if(a.kind==='recordatorio'&&!a.msg){askRem={kind:a.kind,at:p.at,exp:Date.now()+30000}; reply('¿Qué quieres que te recuerde '+dayText(p.at)+' '+atText(p.at)+'?'); return}
   addRem(a.kind,p.at,a.msg);
 }
@@ -2090,7 +2072,7 @@ function showWhat(q){
   if(/\b(ingredientes|pasos)\b/.test(rest)) return 'recipe';
   if(/\b(temporizador|temporizadores|cronometro|timer|cuenta regresiva)\b/.test(rest)) return 'tcard';
   if(/\b(reloj|hora|fecha|calendario)\b/.test(rest)) return 'kcard';
-  if(/\b(imagen|foto|dibujo|ilustracion)\b/.test(rest)) return (/\b(de|del|sobre|con)\b/.test(rest)||/\b(una|un|unas|unos|alguna)\b/.test(rest))?null:'img';
+  if(/\b(imagen|foto|dibujo|ilustracion)\b/.test(rest)) return /\b(de|del|sobre|con)\b/.test(rest)?null:'img';
   if(/(lo que (te )?(pedi|dije|habias|tenias|estaba|mostraste|abriste)|lo ultimo|lo anterior|lo de antes|otra vez|de nuevo|lo mismo)/.test(rest)) return 'last';
   if(/^(?:la |el |esa |ese |eso |esta |este |lo |los |las )?(?:menu|ventana|tabla|tarjeta|panel|cuadro|texto|chat|eso)(?: de la derecha| otra vez| de nuevo)?$/.test(rest)) return 'last';
   return null;
@@ -2111,7 +2093,7 @@ function doShow(w){
   else if(w==='img'){
     if(imgOn()) reply('Ya está en pantalla.');
     else if(lastImg){imgList=lastImg.l; imgI=lastImg.i; showImg(); reply('Aquí está otra vez.')}
-    else askNext('No tengo ninguna imagen reciente. ¿De qué la quieres?',function(raw){var t=raw.replace(/chispa[,\s]*/ig,' ').replace(/^(de|del|sobre|una|un)\s+/i,'').trim(); if(t) imgSearch(t)})}
+    else reply('No tengo ninguna imagen reciente. Pídeme una.')}
   else reply('¿Qué quieres ver?');
 }
 var INTENTS=[
@@ -2124,19 +2106,13 @@ var INTENTS=[
      for(var k in o) if(o[k]&&N[k]) l.push(N[k]);
      reply(l.length?'Tengo abierto: '+l.join(', ')+'.':'No tengo nada abierto.')}],
   [function(q){return spOn()&&!spPlaying&&!vidPlayer&&/^(continua|reanuda|sigue|dale play|play|dale)$/.test(q)}, function(){spCtl('play')}],
-  [function(q){return /\b(muestrame|ensename|ponme|pon|busca|buscame|quiero ver|abre|abreme|dame|trae|traeme)\b/.test(q)&&/\b(una|unas|alguna)?\s*(imagen|imagenes|foto|fotos|fotografia)\b/.test(q)&&!/\b(de|del|sobre)\b/.test(q)&&!/\b(la|esa|esta|otra)\s+(imagen|foto)\b/.test(q)&&!/\b(cierra|quita|oculta)\b/.test(q)},
-   function(q){askNext('¿De qué quieres ver imágenes?',function(raw){var t=raw.replace(/chispa[,\s]*/ig,' ').replace(/^(de|del|sobre|una|un|unas|unos)\s+/i,'').trim(); if(t) imgSearch(t)})}],
-  [function(q){return /\b(pon|ponme|programa|activa|crea|inicia|empieza|arranca)\b.*\b(temporizador|cronometro|timer|cuenta regresiva)\b/.test(q)&&!(parseDur(q)>0)},
-   function(){askNext('¿De cuánto tiempo?',function(raw){var d=parseDur(raw); if(d>0) addTimer(d); else reply('No entendí el tiempo. Prueba, por ejemplo, con diez minutos.')})}],
-  [function(q){return /^(agrega|agregame|agregar|anade|anademe|apunta|apuntame|pon|ponme|mete|suma)\b.*\b(a|en)\s+(la\s+|mi\s+)?(lista|compras|mercado)(\s+de\s+(compras|mercado))?\s*$/.test(q)&&!/\b(cancion|musica|playlist|reproduccion)\b/.test(q)&&splitItems(q.replace(/^(agrega|agregame|agregar|anade|anademe|apunta|apuntame|pon|ponme|mete|suma)\b/,'').replace(/\b(a|en)\s+(la\s+|mi\s+)?(lista|compras|mercado)(\s+de\s+(compras|mercado))?\s*$/,'')).length===0},
-   function(){askNext('¿Qué agrego a la lista?',function(raw){var l=splitItems(raw); if(l.length) addShop(l); else reply('No entendí qué agregar.')})}],
   [function(q){return hubQuery(q)!==null}, function(q){var t=hubQuery(q); openHub(t);
      var msg=t==='recetas'?(RECS.length?'Tienes '+RECS.length+(RECS.length===1?' receta guardada.':' recetas guardadas.'):'Todavía no tienes recetas guardadas.'):t==='notas'?(NOTES.length?'Tienes '+NOTES.length+(NOTES.length===1?' nota.':' notas.'):'No tienes notas.'):t==='lista'?(SHOP.length?'Tienes '+SHOP.length+' cosas en la lista.':'Tu lista está vacía.'):(REMS.length?'Tienes '+REMS.length+(REMS.length===1?' pendiente.':' pendientes.'):'No tienes alarmas ni recordatorios.');
      reply(msg)}],
   [function(q){return agendaQuery(q)!==null}, function(q){agendaSay(agendaQuery(q))}],
   [function(q){return /^(anota|apunta|apuntame|anotame|toma nota|guarda (la )?nota|nueva nota|nota)\b/.test(q)&&!/(lista|compras|alarma|recordatorio|temporizador)/.test(q)},
    function(q,raw){var n=norm(raw), m=n.match(/^(?:anota|apunta|apuntame|anotame|toma nota|guarda (?:la )?nota|nueva nota|nota)\s*(?:de\s+que\s+|que\s+|de\s+|:\s*)?(.+)$/d);
-     if(!m){askNext('¿Qué anoto?',function(raw){var t0=raw.trim(); t0=t0.charAt(0).toUpperCase()+t0.slice(1); addNote(t0); reply('Listo, anoté: '+t0)}); return} var t=raw.slice(m.indices[1][0],m.indices[1][1]).trim(); t=t.charAt(0).toUpperCase()+t.slice(1); addNote(t); reply('Listo, anoté: '+t)}],
+     if(!m){reply('¿Qué anoto?'); return} var t=raw.slice(m.indices[1][0],m.indices[1][1]).trim(); t=t.charAt(0).toUpperCase()+t.slice(1); addNote(t); reply('Listo, anoté: '+t)}],
   [function(q){return /(borra|elimina|vacia|limpia|quita)\s+(todas\s+)?(las\s+|mis\s+)?notas/.test(q)}, function(){NOTES=[]; saveNotes(); if(!$('#hub').hidden) renderHub(); reply('Listo, borré las notas.')}],
   [function(q){return /(borra|elimina|quita)\s+la\s+(ultima\s+)?nota/.test(q)}, function(){if(NOTES.length){NOTES.shift(); saveNotes(); if(!$('#hub').hidden) renderHub(); reply('Listo, borré la última nota.')}else reply('No tienes notas.')}],
   [function(q){return /(borra|elimina|vacia|quita)\s+(todas\s+)?(las\s+|mis\s+)recetas(\s+guardadas)?\s*$/.test(q)}, function(){RECS=[]; saveRecs(); if(!$('#hub').hidden) renderHub(); reply('Listo, borré las recetas guardadas.')}],
@@ -2185,7 +2161,7 @@ var INTENTS=[
   [function(q){return imgOn()&&imgList.length>1&&/(siguiente|otra|proxima|sigue|adelante)/.test(q)}, function(){imgI=(imgI+1)%imgList.length; showImg()}],
   [function(q){return imgOn()&&imgList.length>1&&/(anterior|atras|vuelve|regresa)/.test(q)}, function(){imgI=(imgI-1+imgList.length)%imgList.length; showImg()}],
   [function(q){return /(como se veria|como se vera|como seria|dibujame|dibuja|imagina|genera (una )?(imagen|foto|ilustracion)|crea (una )?(imagen|foto|ilustracion)|hazme (una )?(imagen|foto|ilustracion|dibujo)|inventa (una )?(imagen|foto|ilustracion))/.test(q)},
-   function(q){var pr=imgPrompt(q); if(pr.length<3){askNext('¿Qué quieres que dibuje?',function(raw,q2){var p2=imgPrompt('dibuja '+q2); imgGen(p2.length<3?q2:p2)}); return} imgGen(pr)}],
+   function(q){var pr=imgPrompt(q); if(pr.length<3){reply('¿Qué quieres que dibuje?'); return} imgGen(pr)}],
   [function(q){return /\b(imagen|imagenes|foto|fotos|fotografia|fotografias|ilustracion|ilustraciones)\s+(de|del|sobre)\s+\S+/.test(q)&&!/\b(cierra|quita|oculta|apaga|borra|elimina|video|videos|youtube|cancion|musica)\b/.test(q)},
    function(q){var m=q.match(/(?:imagen|imagenes|foto|fotos|fotografia|fotografias|ilustracion|ilustraciones)\s+(?:de|del|sobre)\s+(.+)$/); imgSearch(m[1].replace(/\bchispa\b/g,'').trim())}],
   [function(q){return /(modos? de camara|juegos? con (la )?camara|que (puedo|podemos) hacer con la camara)/.test(q)}, function(){camMenu()}],
@@ -2264,19 +2240,12 @@ var INTENTS=[
   [function(q){return /(como te llamas|quien eres|tu nombre)/.test(q)}, function(){reply('Soy Chispa, tu compañero de mesón.')}],
   [function(q){return q.length<24&&/^(hola|buenas|buenos dias|buenas tardes|hey|ey|oye)/.test(q)},
    function(){reply(pickLine('hola',saludo()+(CFG.name?', '+CFG.name:'')+'. ¿En qué te ayudo?'))}]
-  /* Último recurso: “pon …” sin más contexto se trata como pedido de video/canción */
-  ,[function(q){return /\b(diagnostico|diagnosticar|revisa (la )?conexion|por que no (funciona|abre))\b/.test(q)}, function(){runDiag()}]
-  ,[function(q){return /^(chispa\s+)?(pon|ponme|ponga|reproduce|colocame|coloca)(\s+(algo|alguna cosa|eso|por favor))*\s*$/.test(q.trim())}, function(){askNext('¿Qué quieres que ponga?',function(raw2,q2){handle('pon '+raw2)})}]
-  ,[function(q){return /^(chispa\s+)?(pon|ponme|reproduce|colocame)\s+(?!el volumen|la alarma|un temporizador|temporizador|una alarma|alarma|pausa|musica|la musica)\S+/.test(q.trim())&&!/\b(hora|clima|tiempo|receta|lista|nota|luz|volumen|fuerte|bajo|alto)\b/.test(q)}, function(q,raw){playVideo(videoQuery(raw))}]
 ];
 function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return;
   note('Tú: '+raw);
   var q=norm(raw);
   if(q.replace(/[^a-z0-9]/g,'').length<2||/^(e+h+|m+|a+h+|u+m+|e+m+|hm+)$/.test(q.trim())){reAsk('',true); return}
-  if(/^(pon|ponme|abre|abreme|cierra|anota|agrega|agregame|muestra|muestrame|dibuja|crea|programa)\b.*\b(temporizador|alarma|video|videos|cancion|musica|imagen|imagenes|foto|fotos|lista|nota|receta|recordatorio|clima|calendario|agenda|cronometro)\b/.test(q)){askGen=null;askMusicNext=false;askVideoNext=false;askRem=null}
-  if(/\b(que hora|la hora|hora es|clima|temperatura|pronostico|que dia|que fecha|chiste|dato curioso|ayuda|llueve|va a llover)\b/.test(q)){askGen=null;askMusicNext=false;askVideoNext=false;askRem=null}
-  if(askGen&&askGen.exp>Date.now()){var g=askGen; askGen=null; if(/^(no|nada|cancela|olvidalo|ya no|deja|dejalo)\b/.test(q)){reply('Listo, lo dejo.'); return} g.fn(raw,q); return}
   if(askMusicNext&&askMusicNext<Date.now()) askMusicNext=false;
   if(askVideoNext&&askVideoNext<Date.now()) askVideoNext=false;
   if(askMusicNext){askMusicNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} spPlayQuery(musicQuery('pon '+raw),isPlaylistReq(q)); return}
@@ -2718,12 +2687,13 @@ function videoQuery(raw){
   if(!r.replace(/\b(qu[eé]|pongo|ponemos|pongamos|pon|ponme|quiero|ver|un|una|el|v[ií]deos?|clips?|algo|por favor)\b|[,.¿?¡!]/ig,'').trim()) return '';
   return /^(v[ií]deos?|clips?)$/i.test(r)?'':r;
 }
-function listenNext(){expectReply()}
+function listenNext(){if(wakeOn) arm(); else startListen(false)}
 var misses=0;
 function reAsk(msg,silent){
   function go(){
-    if(silent){wakeBlue(10000); if(wakeOn){armedUntil=Date.now()+10000; lastInterim=null; setMood('listening',9000)} else startListen(false)}
-    else expectReply();
+    wakeBlue(10000);
+    if(wakeOn){armedUntil=Date.now()+10000; lastInterim=null; if(!silent) beep([880,1320]); setMood('listening',9000)}
+    else startListen(false);
   }
   if(msg) return reply(msg).then(go);
   go();
@@ -3086,7 +3056,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-oracion2', pendingUpdate=false;
+var APP_VERSION='2026-10-16-aviso', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
@@ -3097,26 +3067,6 @@ setInterval(function(){
   if(pendingUpdate&&!talking&&!(listening&&!wakeOn)&&!game&&!storyOn&&$('#vid').hidden&&camMode!=='rps'&&camMode!=='gestures'&&Date.now()-lastAct>60000) location.reload();
 },30000);
 
-
-/* ---------- Diagnóstico ---------- */
-function runDiag(){
-  var box=document.getElementById('diag');
-  if(!box){box=document.createElement('div'); box.id='diag'; box.style.cssText='position:fixed;inset:6% 8%;z-index:99999;background:#0d1722f2;color:#eaf2ff;border:2px solid #2b7fff;border-radius:18px;padding:22px;font:18px/1.6 system-ui,sans-serif;overflow:auto;white-space:pre-wrap'; box.onclick=function(){box.remove()}; document.body.appendChild(box)}
-  var out=['DIAGNÓSTICO · v'+APP_VERSION+'  (toca para cerrar)','Dirección: '+location.href.slice(0,60),'Internet: '+(navigator.onLine?'sí':'NO'),'Reconocimiento de voz: '+(SR?'sí':'NO'),'Cámara disponible: '+((navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)?'sí':'NO'),'Llave IA: '+(CFG.aiKey?'puesta':'falta')+' · YouTube: '+(CFG.ytKey?'puesta':'falta')+' · Azure: '+(CFG.azKey?'puesta':'falta'),''];
-  function show(){box.textContent=out.join('\n')}
-  function t(name,p){var i=out.length; out.push(name+': probando…'); show(); return p.then(function(m){out[i]=name+': OK'+(m?' · '+m:''); show()}).catch(function(e){out[i]=name+': FALLA · '+String((e&&e.message)||e).slice(0,70); show()})}
-  function ft(u){return fetch(u).then(function(r){if(!r.ok) throw new Error('http '+r.status); return r.text()}).then(function(){return ''})}
-  function im(u){return new Promise(function(ok,no){var x=new Image(); x.onload=function(){ok()}; x.onerror=function(){no(new Error('no cargó'))}; x.src=u; setTimeout(function(){no(new Error('tardó mucho'))},12000)})}
-  show();
-  var q=[t('Clima (open-meteo)',ft('https://api.open-meteo.com/v1/forecast?latitude=6.24&longitude=-75.58&current=temperature_2m')),
-   t('Imágenes (Wikimedia)',ft('https://commons.wikimedia.org/w/api.php?action=query&meta=siteinfo&format=json&origin=*')),
-   t('Dibujar (Pollinations)',im('https://image.pollinations.ai/prompt/gato?width=64&height=64&nologo=true')),
-   t('YouTube (script)',ft('https://www.youtube.com/iframe_api')),
-   t('Cámara',(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia?navigator.mediaDevices.getUserMedia({video:true}).then(function(st){st.getTracks().forEach(function(x){x.stop()}); return 'permiso concedido'}):Promise.reject(new Error('no disponible'))))];
-  if(CFG.ytKey) q.push(t('Llave de YouTube',ft('https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&type=video&q=gato&key='+encodeURIComponent(CFG.ytKey))));
-  return Promise.all(q).then(function(){var bad=out.filter(function(l){return /FALLA/.test(l)}).length; return reply(bad?'Encontré '+bad+' problemas. Mira la pantalla.':'Todo está bien por aquí.')});
-}
-document.getElementById('verTag').onclick=function(){runDiag()};
 /* ---------- Arranque ---------- */
 (function(){var dk=document.getElementById('dock'); function f(){document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px')} f(); if(window.ResizeObserver) new ResizeObserver(f).observe(dk); addEventListener('resize',f)})();
 $('#verTag').textContent=' · v'+APP_VERSION;
