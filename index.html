@@ -2290,7 +2290,9 @@ function persona(kind){
   if(kind==='recipe') return 'Eres un chef latinoamericano. Respondes únicamente con el JSON pedido, sin explicaciones ni texto adicional.';
   if(kind==='lines') return base+' Responde solo con la lista pedida, una frase por línea, sin numeración, sin comillas y sin explicaciones.';
   if(kind==='wx') return base+' Usa solamente los datos del clima que te den, sin inventar nada. Responde en dos o tres frases.';
-  return base+' Responde en máximo tres frases cortas.';
+  var ctx=' Hoy es '+new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date())+' en Medellín, Colombia.';
+  if(typeof WX!=='undefined'&&WX) ctx+=' Clima ahora: '+Math.round(WX.t)+' grados, sensación '+Math.round(WX.feel)+', '+WX.desc+', mínima de hoy '+Math.round(WX.min)+', máxima '+Math.round(WX.max)+', probabilidad de lluvia en las próximas horas '+Math.round(WX.rain)+' por ciento.';
+  return base+ctx+' Contesta directo a lo que te preguntan, sin saludar ni preguntar qué quieren si ya te lo dijeron. No inventes datos en tiempo real que no tengas: si no sabes algo, dilo. Responde en máximo tres frases cortas.';
 }
 function aiError(e){
   var st=e&&e.status;
@@ -3053,7 +3055,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-imagenes', pendingUpdate=false;
+var APP_VERSION='2026-10-16-contexto', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
