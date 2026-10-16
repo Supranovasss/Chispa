@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Limpiar Chispa</title>
+<style>body{background:#0d1722;color:#eaf2ff;font:20px/1.5 system-ui,sans-serif;padding:32px;max-width:640px;margin:auto}a,button{display:inline-block;margin:10px 8px 0 0;padding:14px 22px;border-radius:14px;border:0;background:#2b7fff;color:#fff;font-size:18px;text-decoration:none}button.r{background:#c0392b}#log{white-space:pre-wrap;opacity:.85;margin-top:18px}</style></head><body>
+<h2>Limpiar Chispa</h2>
+<p>Esto borra la copia guardada de la app (caché y service worker) y deja bajar la versión nueva. <b>Tus llaves se conservan.</b></p>
+<button id="a">Limpiar caché y abrir Chispa</button>
+<p>Si aun así falla, esto borra además toda la configuración (tendrás que volver a poner las llaves):</p>
+<button id="b" class="r">Borrar todo y empezar de cero</button>
+<div id="log"></div>
+<script>
+var L=document.getElementById('log');function say(t){L.textContent+=t+'\n'}
+async function clean(all){
+  try{var rs=await navigator.serviceWorker.getRegistrations();for(var r of rs){await r.unregister()}say('Service worker quitado: '+rs.length)}catch(e){say('SW: '+e.message)}
+  try{var ks=await caches.keys();for(var k of ks){await caches.delete(k)}say('Cachés borrados: '+ks.length)}catch(e){say('Caché: '+e.message)}
+  if(all){try{localStorage.clear();sessionStorage.clear();say('Configuración borrada')}catch(e){}}
+  else{try{['chispa.rem','chispa.shop','chispa.rec','chispa.notes'].forEach(function(k){});}catch(e){}}
+  say('Listo. Abriendo Chispa…');
+  setTimeout(function(){location.href='./?v='+Date.now()},1200);
+}
+document.getElementById('a').onclick=function(){clean(false)};
+document.getElementById('b').onclick=function(){if(confirm('¿Borrar también las llaves?'))clean(true)};
+</script></body></html>
