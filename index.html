@@ -1220,7 +1220,7 @@ function startListen(continuous){
           continue;
         }
         wakeEarly=false;
-        if(n.length>3&&lastSaid.indexOf(n)>=0) continue;
+        if(n.length>3&&Date.now()-lastSaidEnd<6000&&lastSaid.indexOf(n)>=0){dlog('  ignorado: parece eco de lo que dijo Chispa'); continue}
         if(wm){
           var rest=wm.m[1].trim();
           act(); armedUntil=0; lastInterim=null; wakeBlue(rest?3200:25000);
@@ -3071,7 +3071,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-registro', pendingUpdate=false;
+var APP_VERSION='2026-10-16-registro2', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
