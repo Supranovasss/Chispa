@@ -92,6 +92,12 @@ ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px
 .ask input{flex:1;min-width:0;min-height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 17px var(--font-body)}
 .ask input::placeholder{color:var(--muted);font-weight:400}
 .row,.chips{display:flex;flex-wrap:wrap;gap:10px}
+.vid{position:fixed;z-index:20;top:12px;right:12px;width:min(46vw,720px);aspect-ratio:16/9;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.vid[hidden]{display:none}
+.vid iframe,.vid #vidBox{width:100%;height:100%;border:0;display:block}
+body.vidon .facewrap{visibility:hidden}
+@media (orientation:portrait){.vid{width:calc(100vw - 24px)}}
+.card.ghost{position:fixed;right:0;bottom:0;width:80px;opacity:.01;pointer-events:none;z-index:-1}
 .tip{margin:0;text-align:center;color:var(--muted);font-size:14px;line-height:1.35}
 .choices .hint{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:999px;border:1px dashed var(--line);background:var(--panel);color:var(--ink);font:700 18px var(--font-body);pointer-events:none}
 .btn,.chip{font-family:var(--font-body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;cursor:pointer}
@@ -212,15 +218,18 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
     <p class="heard" id="heard"></p>
   </main>
 
+  <div class="vid" id="vid" hidden><div id="vidBox"></div></div>
+
   <section class="dock" aria-label="Controles">
     <div class="row">
       <button class="btn primary" id="mic" type="button">Hablar</button>
       <button class="btn" id="wake" type="button" aria-pressed="false">Decir “Chispa”</button>
       <button class="btn" id="watch" type="button" aria-pressed="false">Vigilar</button>
+      <button class="btn" id="camBtn" type="button" aria-pressed="false">Juegos con cámara</button>
       <button class="btn" id="fs" type="button">Pantalla completa</button>
       <button class="btn" id="cfg" type="button">Voz y permisos</button>
     </div>
-    <p class="tip" id="tip">Di “Chispa” y pide: la hora · el clima · un chiste · un dato curioso · un temporizador · jugar · bailar · sígueme · vigila · reconoce mis gestos · ayuda</p>
+    <p class="tip" id="tip">Di “Chispa” y pide: la hora · el clima · un chiste · un dato curioso · una historia · un video de… · un temporizador · jugar · bailar · vigila · reconoce mis gestos · ayuda</p>
   </section>
 </div>
 
@@ -253,6 +262,25 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
     </div>
     <p class="help" id="azUse"></p>
     <p class="help" id="azHelp"></p>
+  </section>
+  <section>
+    <h3 class="lbl">Cerebro de Chispa (IA)</h3>
+    <label>Servicio<select id="aiProv"><option value="gemini">Gemini de Google (gratis)</option><option value="claude">Claude (de pago)</option></select></label>
+    <label>Llave (se guarda solo en esta tablet)<input id="aiKey" type="password" placeholder="pega aquí tu llave" autocomplete="off"></label>
+    <div class="row">
+      <button class="btn" id="aiSave" type="button">Guardar y probar</button>
+      <button class="btn" id="aiClear" type="button">Quitar llave</button>
+    </div>
+    <p class="help" id="aiUse"></p>
+  </section>
+  <section>
+    <h3 class="lbl">Videos (YouTube)</h3>
+    <label>Llave de YouTube Data API<input id="ytKey" type="password" placeholder="pega aquí tu llave" autocomplete="off"></label>
+    <div class="row">
+      <button class="btn" id="ytSave" type="button">Guardar y probar</button>
+      <button class="btn" id="ytClear" type="button">Quitar llave</button>
+    </div>
+    <p class="help" id="ytUse"></p>
   </section>
   <section>
     <h3 class="lbl">Micrófono y cámara</h3>
@@ -356,14 +384,14 @@ function act(){lastAct=Date.now(); if(asleep) wakeUp()}
 addEventListener('pointerdown',act,{passive:true});
 addEventListener('keydown',act);
 setInterval(function(){
-  if(!asleep&&Date.now()-lastAct>120000&&!talking&&!(listening&&!wakeOn)&&camMode!=='rps'&&camMode!=='gestures'&&camMode!=='follow') goSleep();
+  if(!asleep&&Date.now()-lastAct>120000&&!talking&&!(listening&&!wakeOn)&&camMode!=='rps'&&camMode!=='gestures'&&!storyOn&&$('#vid').hidden) goSleep();
 },5000);
 
 /* ---------- Voz de salida ---------- */
-var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0};
+var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true};
 try{var sv=JSON.parse(localStorage.getItem('chispa.cfg')||'{}'); for(var kk in sv) if(kk in CFG) CFG[kk]=sv[kk]}catch(e){}
 function saveCfg(){try{localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}catch(e){}}
-var speakId=0, lastSaid='', lastSaidEnd=0;
+var speakId=0, lastSaid='', lastSaidEnd=0, storyId=0, storyOn=false;
 function voiceScore(v){
   var n=v.name||'', l=(v.lang||'').replace('_','-'), sc=0;
   if(!/^es/i.test(l)) return -99;
@@ -381,16 +409,17 @@ function pickVoice(){
   vs.forEach(function(v){var sc=voiceScore(v); if(sc>bs){bs=sc; best=v}});
   return best;
 }
-var curAudio=null, azCache={}, azKeys=[], azLimit=480000;
+var curAudio=null, azCache={}, azPend={}, azKeys=[], azLimit=480000;
 function azMonthKey(){var d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)}
 function azUsed(){return CFG.azMonth===azMonthKey()?CFG.azChars:0}
 function azReady(){return !!(CFG.azOn&&CFG.azKey&&CFG.azRegion&&azUsed()<azLimit)}
 function xmlEsc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
 function azureFetch(text){
   if(azCache[text]) return Promise.resolve(azCache[text]);
+  if(azPend[text]) return azPend[text];
   var voice=CFG.azVoice||'es-VE-PaolaNeural', loc=voice.split('-').slice(0,2).join('-');
   var ssml="<speak version='1.0' xml:lang='"+loc+"'><voice xml:lang='"+loc+"' name='"+voice+"'>"+xmlEsc(text)+"</voice></speak>";
-  return fetch('https://'+CFG.azRegion.trim().toLowerCase()+'.tts.speech.microsoft.com/cognitiveservices/v1',{
+  var pr=fetch('https://'+CFG.azRegion.trim().toLowerCase()+'.tts.speech.microsoft.com/cognitiveservices/v1',{
     method:'POST',
     headers:{'Ocp-Apim-Subscription-Key':CFG.azKey.trim(),'Content-Type':'application/ssml+xml','X-Microsoft-OutputFormat':'audio-24khz-48kbitrate-mono-mp3'},
     body:ssml
@@ -403,6 +432,8 @@ function azureFetch(text){
     azCache[text]=blob; azKeys.push(text); if(azKeys.length>40) delete azCache[azKeys.shift()];
     return blob;
   });
+  azPend[text]=pr; pr.then(function(){delete azPend[text]},function(){delete azPend[text]});
+  return pr;
 }
 function azError(e){
   if(e&&(e.status===401||e.status===403)) return 'Azure rechazó la llave o la región. Revísalas.';
@@ -419,7 +450,7 @@ function speak(text){
     function done(){
       if(id!==speakId||!talking) return;
       talking=false; lastSaidEnd=Date.now(); setMood('happy',1200); res();
-      if(wakeOn) setTimeout(function(){if(wakeOn&&!listening&&!talking) startListen(true)},600);
+      if(wakeOn&&!storyOn) setTimeout(function(){if(wakeOn&&!listening&&!talking&&!storyOn) startListen(true)},600);
     }
     talking=true; setMood('talking');
     if(wakeOn&&rec){rec.onend=null; rec.onerror=null; rec.onresult=null; try{rec.abort()}catch(e0){} rec=null; listening=false; el.mic.classList.remove('on'); el.mic.textContent='Hablar'}
@@ -458,7 +489,37 @@ function speak(text){
     system();
   });
 }
-function reply(text){el.bubble.textContent=text; return speak(text)}
+function chunkText(t,max){
+  var sents=t.replace(/\s+/g,' ').trim().match(/[^.!?…]+[.!?…]*\s*/g)||[t], out=[], cur='';
+  sents.forEach(function(x){
+    if(cur&&(cur+x).length>max){out.push(cur.trim()); cur=''}
+    cur+=x;
+    while(cur.length>max*1.5){var k=cur.lastIndexOf(',',max); if(k<40) k=max; out.push(cur.slice(0,k+1).trim()); cur=cur.slice(k+1)}
+  });
+  if(cur.trim()) out.push(cur.trim());
+  return out;
+}
+function resumeWake(){setTimeout(function(){if(wakeOn&&!listening&&!talking&&!storyOn) startListen(true)},600)}
+function speakLong(text){
+  var id=++storyId, parts=chunkText(text,280), i=0; storyOn=true;
+  return new Promise(function(res){
+    (function next(){
+      if(id!==storyId) {res(); return}
+      if(i>=parts.length){storyOn=false; res(); resumeWake(); return}
+      var part=parts[i++];
+      if(voiceOn&&azReady()&&i<parts.length) azureFetch(parts[i]).catch(function(){});
+      el.bubble.textContent=part;
+      speak(part).then(next);
+    })();
+  });
+}
+function stopSpeaking(){
+  storyId++; storyOn=false; speakId++;
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  if(curAudio){try{curAudio.pause()}catch(e){} curAudio=null}
+  talking=false; setMood(baseline()); resumeWake();
+}
+function reply(text){if(text.length>420) return speakLong(text); el.bubble.textContent=text; return speak(text)}
 
 var ac=null;
 function audio(){
@@ -606,17 +667,24 @@ function wxSpeech(){
   else s+=' No se espera lluvia en las próximas horas.';
   return s;
 }
+function wxAi(){
+  if(!aiReady()) return reply(wxSpeech());
+  setMood('thinking'); el.bubble.textContent='Mirando el cielo…';
+  var w=WX;
+  return aiAsk('Datos reales del clima en Medellín en este momento: temperatura '+Math.round(w.t)+' grados, sensación térmica '+Math.round(w.feel)+', humedad '+Math.round(w.hum)+' por ciento, cielo: '+w.desc+', mínima de hoy '+Math.round(w.min)+', máxima de hoy '+Math.round(w.max)+', probabilidad de lluvia en las próximas 6 horas '+Math.round(w.rain)+' por ciento. Cuéntaselo a la persona con calidez y dale un consejo práctico (ropa, paraguas, si es buen momento para salir).',{kind:'wx',hist:false})
+    .then(function(t){return reply(cleanAi(t))}).catch(function(){setMood(baseline()); return reply(wxSpeech())});
+}
 function askWeather(){
-  if(WX) return reply(wxSpeech());
+  if(WX) return wxAi();
   setMood('thinking'); el.bubble.textContent='Mirando el cielo…';
   return loadWeather().then(function(ok){
-    if(ok&&WX) reply(wxSpeech());
+    if(ok&&WX) wxAi();
     else reply('No puedo consultar el clima desde aquí. Ábreme directamente en Chrome y lo hago.');
   });
 }
 
 /* ---------- Cámara: vigilar, seguir, gestos y juego ---------- */
-var stream=null, camMode=null, camTimer=0, prevG=null, hits=0, lastAlert=0, lastFollow=0, lastSurprise=0;
+var presence=0, stream=null, camMode=null, camTimer=0, prevG=null, hits=0, lastAlert=0, lastFollow=0, lastSurprise=0;
 var cv=document.createElement('canvas'); cv.width=64; cv.height=48;
 var cx=cv.getContext('2d',{willReadFrequently:true});
 
@@ -639,8 +707,9 @@ function syncCam(){
   var on=!!stream, titles={watch:'Vigilancia',rps:'Piedra, papel o tijera',follow:'Seguimiento',gestures:'Gestos'};
   el.watch.setAttribute('aria-pressed',camMode==='watch'); el.watch.textContent=camMode==='watch'?'Vigilando':'Vigilar';
   el.stage.classList.toggle('watching',on);
-  $('#recTxt').textContent=camMode==='watch'?'Vigilando':'Cámara activa';
-  el.wcard.hidden=!on;
+  $('#recTxt').textContent=camMode==='watch'?'Vigilando':camMode==='follow'?'Te veo':'Cámara activa';
+  var gm=camMode==='gestures'||camMode==='rps'; $('#camBtn').setAttribute('aria-pressed',gm); $('#camBtn').textContent=gm?'Cerrar juegos':'Juegos con cámara';
+  el.wcard.hidden=!on; el.wcard.classList.toggle('ghost',camMode==='follow');
   $('#camTitle').textContent=titles[camMode]||'Cámara';
   el.wlog.hidden=camMode!=='watch';
   $('#camStat').textContent=''; $('#camStat').hidden=camMode==='watch'||!camMode;
@@ -654,14 +723,23 @@ function camOpen(){
     return st;
   });
 }
-function camStop(speakIt){
-  var was=!!stream;
+function camStop(speakIt,full){
+  var was=!!stream, prev=camMode;
   clearInterval(camTimer); camMode=null; rpsCam.on=false; rpsCam.token++; rpsSamples=null;
+  if(game&&game.type==='camrps'){game=null; clearChoices()}
+  if(!full&&CFG.follow&&stream&&prev!=='follow'){
+    camMode='follow'; prevG=null; clearInterval(camTimer); camTimer=setInterval(camTick,120); syncCam();
+    if(speakIt) reply('Listo. Sigo mirándote con los ojos.');
+    return;
+  }
   if(stream){stream.getTracks().forEach(function(t){t.stop()}); stream=null}
   el.cam.srcObject=null;
-  if(game&&game.type==='camrps'){game=null; clearChoices()}
   syncCam();
-  if(speakIt) reply(was?'Listo, apagué la cámara.':'La cámara ya estaba apagada.');
+  if(speakIt) reply(was?'Listo, apagué la cámara. Di “sígueme” cuando quieras que te vuelva a seguir.':'La cámara ya estaba apagada.');
+}
+function camOff(){
+  if(camMode&&camMode!=='follow') return camStop(true);
+  CFG.follow=false; saveCfg(); camStop(true,true);
 }
 function stopWatch(speakIt){camStop(speakIt)}
 function startMode(m,needRecog){
@@ -695,6 +773,7 @@ function motionTick(){
     if(frac>.025) hits++; else hits=Math.max(0,hits-1);
     if(hits>=2&&Date.now()-lastAlert>10000){hits=0; lastAlert=Date.now(); motion()}
   }else if(camMode==='follow'){
+    if(asleep){if(frac>.03){presence++; if(presence>=3){presence=0; act()}}else presence=0}
     if(frac>.012){
       var x=sx/ch/64, y=sy/ch/48;
       gaze={x:clamp((.5-x)*36,-20,20),y:clamp((y-.5)*20,-10,10)};
@@ -755,6 +834,7 @@ var GCMD={
 };
 function reactGesture(){
   if(curGesture===gHold.n) gHold.c++; else gHold={n:curGesture,c:1};
+  if(storyOn&&curGesture==='Open_Palm'&&gHold.c>=8){stopSpeaking(); return}
   if(talking) return;
   var now=Date.now();
   if(curGesture==='Open_Palm'&&isWaving()){
@@ -818,16 +898,20 @@ function startWatch(){
     logWatch('Vigilancia activada',false); reply('Listo, estoy vigilando. Te aviso si veo movimiento.');
   }).catch(camFail);
 }
-function startFollow(){
-  if(camMode==='follow') return reply('Ya te estoy siguiendo con la mirada.');
+function startFollow(quiet){
+  CFG.follow=true; saveCfg();
+  if(camMode==='follow'){if(!quiet) reply('Ya te estoy siguiendo con la mirada.'); return}
   endGame();
-  return startMode('follow',false).then(function(){reply('Te miro. Muévete y te sigo con la mirada.')}).catch(camFail);
+  return startMode('follow',false).then(function(){if(!quiet) reply('Te miro. Muévete y te sigo con la mirada.')}).catch(function(e){
+    if(quiet){note('No pude abrir la cámara para seguirte con los ojos. Revisa Voz y permisos.'); return}
+    camFail(e);
+  });
 }
 function startGestures(){
   if(camMode==='gestures') return reply('Ya estoy mirando tus gestos.');
   endGame();
   return startMode('gestures',true).then(function(){
-    reply('Listo, te miro. Dedo arriba: la hora. Victoria: un chiste. Pulgar arriba: un dato curioso. Te quiero: bailo. Puño: jugamos con la mano. Palma abierta un momento: te escucho. Pulgar abajo: apago la cámara. Y si me saludas, te saludo.');
+    reply('Listo, te miro. Para pararme una historia, palma abierta. Dedo arriba: la hora. Victoria: un chiste. Pulgar arriba: un dato curioso. Te quiero: bailo. Puño: jugamos con la mano. Palma abierta un momento: te escucho. Pulgar abajo: apago la cámara. Y si me saludas, te saludo.');
   }).catch(camFail);
 }
 function camMenu(){
@@ -841,6 +925,8 @@ function camMenu(){
   });
   camMenuOn=true;
 }
+
+$('#camBtn').addEventListener('click',function(){if(camMode==='gestures'||camMode==='rps') camStop(true); else startGestures()});
 
 /* ---------- Voz de entrada ---------- */
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, armedUntil=0;
@@ -941,11 +1027,18 @@ var INTENTS=[
   [function(q){return /((camara|mano|gesto).*(piedra|papel|tijera))|((piedra|papel|tijera).*(camara|mano|gesto))/.test(q)}, function(){startCamRps()}],
   [function(q){return /(sigueme|mirame|sigue mi|seguirme|siguenos)/.test(q)}, function(){startFollow()}],
   [function(q){return /(reconoce.*(gesto|mano)|(que|cual) gesto|mira mi mano|gestos)/.test(q)}, function(){startGestures()}],
-  [function(q){return /(apaga|cierra|desactiva|quita|deja de usar).*camara/.test(q)}, function(){camStop(true)}],
+  [function(q){return /(apaga|cierra|desactiva|quita|deja de usar).*camara/.test(q)}, function(){camOff()}],
+  [function(q){return /\b(cierra|quita|apaga|oculta|termina|deten|detener|para)\b.*\bvideo/.test(q)||/(saca|quita) (el )?video/.test(q)}, function(){closeVideo(); setMood('happy',1000); reply('Listo, quité el video.')}],
+  [function(q){return !!vidPlayer&&/(pausa|pausar|pon pausa)/.test(q)}, function(){try{vidPlayer.pauseVideo()}catch(e){}}],
+  [function(q){return !!vidPlayer&&/(reanuda|continua|dale play|sigue el video|sigue con el video)/.test(q)}, function(){try{vidPlayer.playVideo()}catch(e){}}],
+  [function(q){return vidQ.length>1&&/(otro video|siguiente video|el siguiente|otro mas|cambia (de )?video)/.test(q)}, function(){vidI=(vidI+1)%vidQ.length; showVideo()}],
+  [function(q){return /\b(pon|ponme|ponga|muestrame|ensename|reproduce|busca|buscame|quiero ver|ver)\b.*\b(video|videos|cancion|canciones|musica|clip|clips|trailer|tutorial)\b/.test(q)}, function(q,raw){playVideo(videoQuery(raw))}],
+  [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
+  [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
   [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
-   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, un temporizador, jugar o bailar. Di sígueme, vigila, o reconoce mis gestos para usar la cámara. Para dormirme di buenas noches.')}],
+   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, una historia larga o una anécdota, un video, un temporizador, jugar o bailar. También puedes preguntarme lo que quieras. Mis ojos te siguen siempre. Di vigila o reconoce mis gestos para otros usos de la cámara, y buenas noches para dormirme.')}],
   [function(q){return /(callate|silencio|no hables|para de hablar)/.test(q)},
-   function(){speakId++; if('speechSynthesis' in window) speechSynthesis.cancel(); if(curAudio){try{curAudio.pause()}catch(e){} curAudio=null} talking=false; setMood(baseline()); if(wakeOn) setTimeout(function(){if(wakeOn&&!listening&&!talking) startListen(true)},600)}],
+   function(){stopSpeaking()}],
   [function(q){return /(me llamo|mi nombre es)\s+[a-z]+/.test(q)},
    function(q,raw){var m=raw.match(/(?:me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i); if(!m){reply('No alcancé a oír tu nombre.'); return} CFG.name=cap(m[1].toLowerCase()); saveCfg(); setMood('happy',1800); reply('Mucho gusto, '+CFG.name+'. Ya no se me olvida.')}],
   [function(q){return /recuerd/.test(q)&&parseDur(q)>0},
@@ -981,7 +1074,7 @@ var INTENTS=[
   [function(q){return /(chiste|hazme reir|algo gracioso|algo divertido)/.test(q)},
    function(){reply(nextOf(JOKES,'j'))}],
   [function(q){return /(dato|curiosidad|cuentame algo|sabias que)/.test(q)},
-   function(){reply(nextOf(FACTS,'f'))}],
+   function(){curioso()}],
   [function(q){return calc(q)!==null},
    function(q){reply(calc(q))}],
   [function(q){return /gracias/.test(q)}, function(){reply('¡Con gusto!')}],
@@ -994,6 +1087,7 @@ function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return;
   note('Tú: '+raw);
   var q=norm(raw);
+  if(askVideoNext){askVideoNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} playVideo(raw.replace(/chispa[,\s]*/ig,' ').trim()); return}
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
   for(var i=0;i<INTENTS.length;i++){
@@ -1001,25 +1095,153 @@ function handle(raw){
   }
   askClaude(raw);
 }
-var hist=[];
-function askClaude(raw){
-  var p;
-  try{p=window.claude&&window.claude.use?window.claude.use('sample'):null}catch(e){p=null}
-  var fallback='Eso todavía no lo sé hacer. Prueba con la hora, el clima, un chiste, un juego o un temporizador.';
-  if(!p){reply(fallback); return}
-  setMood('thinking'); el.bubble.textContent='Pensando…';
-  var persona='Eres Chispa, un compañero amable y juguetón que vive en una tablet sobre el mesón de la cocina'+(CFG.name?'. Hablas con '+CFG.name:'')+'. Responde en español, en máximo dos frases cortas, sin markdown ni emojis, como si hablaras en voz alta.';
-  var msgs=hist.concat([{role:'user',content:raw}]).map(function(m,i){return i===0?{role:m.role,content:persona+'\n\n'+m.content}:m});
-  Promise.resolve(p).then(function(ask){
-    if(!ask) throw new Error('none');
-    return ask(msgs,{modelTier:'quick',cache:false});
+var hist=[], recentFacts=[];
+function sampleAvail(){try{return !!(window.claude&&window.claude.use)}catch(e){return false}}
+function aiReady(){return !!(CFG.aiKey||sampleAvail())}
+function persona(kind){
+  var base='Eres Chispa, un compañero amable, cálido y juguetón que vive en una tablet sobre el mesón de la cocina'+(CFG.name?'. Hablas con '+CFG.name:'')+'. Hablas español latinoamericano natural, como en Colombia. Lo que escribas se lee en voz alta, así que no uses markdown, listas, viñetas, asteriscos ni emojis.';
+  if(kind==='story') return base+' Cuentas historias largas y entretenidas, bien narradas, con inicio, desarrollo y final, de unas 800 a 1000 palabras. No hagas preguntas ni comentarios al final, solo la historia.';
+  if(kind==='anec') return base+' Cuentas anécdotas con gracia y detalle, de unas 200 a 300 palabras. No hagas preguntas al final.';
+  if(kind==='fact') return base+' Responde solo con el dato, en una o dos frases.';
+  if(kind==='wx') return base+' Usa solamente los datos del clima que te den, sin inventar nada. Responde en dos o tres frases.';
+  return base+' Responde en máximo tres frases cortas.';
+}
+function aiError(e){
+  var st=e&&e.status;
+  if(st===400||st===401||st===403) return 'La IA rechazó la llave. Revísala en Voz y permisos.';
+  if(st===429) return 'Se acabó el cupo de la IA por ahora. Prueba en un rato.';
+  if(st===404) return 'No encontré el modelo de IA. Hay que actualizarme.';
+  if(st) return 'La IA respondió con un error ('+st+').';
+  return 'No pude conectar con la IA. Revisa el internet.';
+}
+function geminiCall(sys,msgs,maxTok){
+  var list=[CFG.aiModel||'gemini-3.5-flash-lite','gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.1-flash-lite'].filter(function(m,k,a){return a.indexOf(m)===k}), i=0;
+  function go(){
+    var model=list[i];
+    return fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
+      method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':CFG.aiKey.trim()},
+      body:JSON.stringify({systemInstruction:{parts:[{text:sys}]},
+        contents:msgs.map(function(m){return {role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}}),
+        generationConfig:{maxOutputTokens:maxTok,temperature:.9}})
+    }).then(function(r){
+      if(!r.ok){var e=new Error('http'+r.status); e.status=r.status; throw e}
+      return r.json();
+    }).then(function(j){
+      var c=j.candidates&&j.candidates[0], t=c&&c.content&&c.content.parts?c.content.parts.map(function(x){return x.text||''}).join(''):'';
+      if(!t.trim()) throw new Error('empty');
+      if(CFG.aiModel!==model){CFG.aiModel=model; saveCfg()}
+      return t.trim();
+    }).catch(function(e){if(e&&e.status===404&&++i<list.length) return go(); throw e});
+  }
+  return go();
+}
+function claudeCall(sys,msgs,maxTok){
+  return fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+    headers:{'x-api-key':CFG.aiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
+    body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:maxTok,system:sys,messages:msgs})
   }).then(function(r){
-    var t=(r&&r.text||'').trim()||'No supe qué decirte.';
-    hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6);
-    reply(t);
-  }).catch(function(){
-    setMood(baseline()); reply(fallback);
+    if(!r.ok){var e=new Error('http'+r.status); e.status=r.status; throw e}
+    return r.json();
+  }).then(function(j){
+    var t=(j.content||[]).map(function(b){return b.text||''}).join('').trim();
+    if(!t) throw new Error('empty'); return t;
   });
+}
+function aiAsk(prompt,o){
+  o=o||{}; var kind=o.kind||'chat', sys=persona(kind), maxTok=kind==='story'?4000:kind==='anec'?1500:500;
+  var msgs=(o.hist===false?[]:hist).concat([{role:'user',content:prompt}]);
+  if(CFG.aiKey) return (CFG.aiProv==='claude'?claudeCall:geminiCall)(sys,msgs,maxTok);
+  var pr; try{pr=window.claude&&window.claude.use?window.claude.use('sample'):null}catch(e){pr=null}
+  if(!pr) return Promise.reject(new Error('noai'));
+  var m2=msgs.map(function(m,k){return k===0?{role:m.role,content:sys+'\n\n'+m.content}:m});
+  return Promise.resolve(pr).then(function(ask){
+    if(!ask) throw new Error('none');
+    return ask(m2,{modelTier:'quick',cache:false});
+  }).then(function(r){var t=(r&&r.text||'').trim(); if(!t) throw new Error('empty'); return t});
+}
+function cleanAi(t){return t.replace(/[*_#`>]+/g,'').replace(/\n{2,}/g,'\n').trim()}
+var NOAI='Para eso necesito mi cerebro de IA. Pon la llave en Voz y permisos.';
+function askClaude(raw){
+  var fallback='Eso todavía no lo sé hacer. Prueba con la hora, el clima, un chiste, un juego o un temporizador.';
+  if(!aiReady()){reply(fallback+' Para conversar de cualquier cosa, pon la llave de IA en Voz y permisos.'); return}
+  setMood('thinking'); el.bubble.textContent='Pensando…';
+  aiAsk(raw,{kind:'chat'}).then(function(t){
+    t=cleanAi(t); hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6);
+    reply(t);
+  }).catch(function(e){setMood(baseline()); reply(e&&e.message==='noai'?fallback:aiError(e))});
+}
+function curioso(){
+  if(!aiReady()){reply(nextOf(FACTS,'f')); return}
+  setMood('thinking'); el.bubble.textContent='Buscando un dato…';
+  aiAsk('Dime un dato curioso, verdadero y poco conocido, de cualquier tema.'+(recentFacts.length?' No repitas estos: '+recentFacts.join(' | '):''),{kind:'fact',hist:false}).then(function(t){
+    t=cleanAi(t); recentFacts.push(t.slice(0,70)); recentFacts=recentFacts.slice(-8); reply(t);
+  }).catch(function(){setMood(baseline()); reply(nextOf(FACTS,'f'))});
+}
+function tell(kind,raw){
+  if(!aiReady()){reply(NOAI); return}
+  setMood('thinking'); el.bubble.textContent=kind==='story'?'Déjame pensar una buena historia…':'Déjame acordarme de una…';
+  aiAsk(raw,{kind:kind,hist:false}).then(function(t){reply(cleanAi(t))}).catch(function(e){setMood(baseline()); reply(e&&e.message==='noai'?NOAI:aiError(e))});
+}
+
+/* ---------- Videos de YouTube ---------- */
+var vidPlayer=null, vidQ=[], vidI=0, ytP=null, askVideoNext=false;
+function ytApi(){
+  if(window.YT&&window.YT.Player) return Promise.resolve();
+  if(ytP) return ytP;
+  ytP=new Promise(function(res,rej){
+    var sc=document.createElement('script'); sc.src='https://www.youtube.com/iframe_api';
+    sc.onerror=function(){ytP=null; rej(new Error('yt'))};
+    window.onYouTubeIframeAPIReady=res; document.head.appendChild(sc);
+    setTimeout(function(){if(!(window.YT&&window.YT.Player)){ytP=null; rej(new Error('yt'))}},12000);
+  });
+  return ytP;
+}
+function ytSearch(q){
+  return fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=moderate&maxResults=8&regionCode=CO&relevanceLanguage=es&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(CFG.ytKey.trim())).then(function(r){
+    if(!r.ok){var e=new Error('http'+r.status); e.status=r.status; throw e}
+    return r.json();
+  }).then(function(j){return (j.items||[]).filter(function(x){return x.id&&x.id.videoId}).map(function(x){return {id:x.id.videoId,title:(x.snippet&&x.snippet.title)||''}})});
+}
+function ytError(e){
+  if(e&&e.status===403) return 'YouTube rechazó la llave o ya se acabó el cupo de hoy.';
+  if(e&&e.status===400) return 'La llave de YouTube no sirve. Revísala en Voz y permisos.';
+  return 'No pude conectar con YouTube. Revisa el internet.';
+}
+function videoQuery(raw){
+  var t=raw.replace(/chispa[,\s]*/ig,' ').trim(), m=t.match(/\b(v[ií]deos?|clips?)\b\s*(?:de|del|sobre|para)?\s*(.*)$/i);
+  if(m&&m[2].trim()) return m[2].trim();
+  m=t.match(/\b(pon(?:me)?|mu[eé]stra(?:me)?|ens[eé]ña(?:me)?|reproduce|busca(?:me)?|quiero ver)\b\s*(?:un|una|el|la|los|las|unos|unas)?\s*(.*)$/i);
+  var r=(m?m[2]:t).replace(/\bpor favor\b/ig,'').trim().replace(/^(de|sobre)\s+/i,'').trim();
+  return /^(v[ií]deos?|clips?)$/i.test(r)?'':r;
+}
+function listenNext(){if(wakeOn) arm(); else startListen(false)}
+function closeVideo(){
+  try{if(vidPlayer) vidPlayer.destroy()}catch(e){}
+  vidPlayer=null; $('#vidBox').textContent=''; $('#vid').hidden=true; document.body.classList.remove('vidon');
+}
+function showVideo(){
+  var it=vidQ[vidI]; if(!it) return;
+  $('#vid').hidden=false; document.body.classList.add('vidon');
+  ytApi().then(function(){
+    if(vidPlayer){vidPlayer.loadVideoById(it.id); return}
+    var box=$('#vidBox'); box.textContent=''; var d=document.createElement('div'); d.id='vidPl'; box.appendChild(d);
+    vidPlayer=new YT.Player('vidPl',{width:'100%',height:'100%',videoId:it.id,
+      playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1},
+      events:{
+        onReady:function(e){try{e.target.playVideo()}catch(x){}},
+        onStateChange:function(e){if(e.data===0){closeVideo(); setMood('happy',1200)}},
+        onError:function(){vidI++; if(vidQ[vidI]) showVideo(); else {closeVideo(); reply('Ese video no se deja reproducir aquí. Pídeme otro.')}}
+      }});
+  }).catch(function(){closeVideo(); reply('No pude cargar el reproductor de YouTube. Hace falta internet y abrirme desde la página.')});
+}
+function playVideo(q){
+  if(!CFG.ytKey) return reply('Para mostrar videos necesito una llave de YouTube. Mira cómo ponerla en Voz y permisos.');
+  if(!q){askVideoNext=true; return reply('¿Qué video quieres ver?').then(function(){if(askVideoNext) listenNext()})}
+  setMood('thinking'); el.bubble.textContent='Buscando “'+q+'”…';
+  return ytSearch(q).then(function(list){
+    if(!list.length){reply('No encontré videos de eso.'); return}
+    vidQ=list; vidI=0; return reply('Te lo pongo.').then(showVideo);
+  }).catch(function(e){setMood(baseline()); reply(ytError(e))});
 }
 
 /* ---------- Juegos ---------- */
@@ -1127,7 +1349,7 @@ function dance(){
 
 /* ---------- Voz y permisos ---------- */
 var sheet=$('#sheet'), voiceSel=$('#voiceSel'), pitchEl=$('#pitch'), rateEl=$('#rate');
-function openSheet(){sheet.hidden=false; fillVoices(); fillAz(); pitchEl.value=CFG.pitch; rateEl.value=CFG.rate; $('#ver').textContent='Versión '+APP_VERSION; runDiag(false)}
+function openSheet(){sheet.hidden=false; fillVoices(); fillAz(); fillAi(); pitchEl.value=CFG.pitch; rateEl.value=CFG.rate; $('#ver').textContent='Versión '+APP_VERSION; runDiag(false)}
 function closeSheet(){sheet.hidden=true}
 function fillVoices(){
   if(!('speechSynthesis' in window)){$('#voiceHelp').textContent='Este navegador no tiene voz de salida.'; return}
@@ -1182,6 +1404,25 @@ $('#azSave').addEventListener('click',function(){
 $('#azClear').addEventListener('click',function(){
   CFG.azKey=''; CFG.azRegion=''; CFG.azOn=false; saveCfg(); fillAz(); $('#azUse').textContent='Llave borrada de esta tablet.';
 });
+function showAiUse(){
+  $('#aiUse').textContent=CFG.aiKey?'IA conectada ('+(CFG.aiProv==='claude'?'Claude':'Gemini')+').':'Sin llave solo respondo lo básico. Entra a aistudio.google.com con tu cuenta de Google, toca “Get API key” y pega la llave aquí. En el nivel gratis, Google puede usar lo que le digas para mejorar sus productos: no le cuentes cosas privadas.';
+  $('#ytUse').textContent=CFG.ytKey?'Videos listos.':'Para ver videos: en console.cloud.google.com crea un proyecto, activa “YouTube Data API v3”, crea una clave de API y pégala aquí.';
+}
+function fillAi(){$('#aiProv').value=CFG.aiProv||'gemini'; $('#aiKey').value=CFG.aiKey; $('#ytKey').value=CFG.ytKey; showAiUse()}
+$('#aiSave').addEventListener('click',function(){
+  CFG.aiProv=$('#aiProv').value; CFG.aiKey=$('#aiKey').value.trim(); CFG.aiModel=''; saveCfg();
+  if(!CFG.aiKey){showAiUse(); $('#aiUse').textContent='Falta la llave.'; return}
+  $('#aiUse').textContent='Probando…';
+  aiAsk('Salúdame en una frase corta y dime tu nombre.',{kind:'chat',hist:false}).then(function(t){showAiUse(); reply(cleanAi(t))}).catch(function(e){$('#aiUse').textContent=aiError(e)});
+});
+$('#aiClear').addEventListener('click',function(){CFG.aiKey=''; CFG.aiModel=''; saveCfg(); fillAi(); $('#aiUse').textContent='Llave borrada de esta tablet.'});
+$('#ytSave').addEventListener('click',function(){
+  CFG.ytKey=$('#ytKey').value.trim(); saveCfg();
+  if(!CFG.ytKey){showAiUse(); $('#ytUse').textContent='Falta la llave.'; return}
+  $('#ytUse').textContent='Probando…';
+  ytSearch('música relajante').then(function(l){$('#ytUse').textContent=l.length?'Funciona. Pídeme un video.':'La llave sirve, pero no encontré resultados.'}).catch(function(e){$('#ytUse').textContent=ytError(e)});
+});
+$('#ytClear').addEventListener('click',function(){CFG.ytKey=''; saveCfg(); fillAi(); $('#ytUse').textContent='Llave borrada de esta tablet.'});
 function framed(){try{return window.self!==window.top}catch(e){return true}}
 function permState(name){
   if(!(navigator.permissions&&navigator.permissions.query)) return Promise.resolve(['No se puede saber desde este navegador','']);
@@ -1235,6 +1476,7 @@ addEventListener('pointerup',function(){down=false},{passive:true});
 addEventListener('pointercancel',function(){down=false},{passive:true});
 el.face.addEventListener('click',function(e){
   if(dist>40) return;
+  if(storyOn){stopSpeaking(); return}
   var now=Date.now(); pokes=pokes.filter(function(t){return now-t<4000}); pokes.push(now);
   if(pokes.length>=5){pokes=[]; setMood('surprised',1500); reply('¡Ya, ya! Me estás mareando.'); return}
   var tg=e.target;
@@ -1266,7 +1508,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-sinbotones', pendingUpdate=false;
+var APP_VERSION='2026-10-15-ia', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
@@ -1274,12 +1516,13 @@ function checkUpdate(){
 }
 setTimeout(checkUpdate,20000); setInterval(checkUpdate,10*60*1000);
 setInterval(function(){
-  if(pendingUpdate&&!talking&&!(listening&&!wakeOn)&&!game&&camMode!=='rps'&&camMode!=='gestures'&&Date.now()-lastAct>60000) location.reload();
+  if(pendingUpdate&&!talking&&!(listening&&!wakeOn)&&!game&&!storyOn&&$('#vid').hidden&&camMode!=='rps'&&camMode!=='gestures'&&Date.now()-lastAct>60000) location.reload();
 },30000);
 
 /* ---------- Arranque ---------- */
 tick(); setInterval(tick,1000);
 autoWake();
+if(CFG.follow){setTimeout(function(){startFollow(true)},1500); addEventListener('pointerdown',function(){if(CFG.follow&&!stream&&!camMode) startFollow(true)},{once:true,passive:true})}
 loadWeather(); setInterval(loadWeather,20*60*1000);
 requestAnimationFrame(frame);
 })();
