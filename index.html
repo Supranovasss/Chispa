@@ -1172,6 +1172,29 @@ function calc(q){
   else{ if(b===0) return 'No se puede dividir entre cero.'; r=a/b }
   return 'Eso da '+new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(r)+'.';
 }
+/* ---------- Confeti ---------- */
+function confetti(ms){
+  var c=document.createElement('canvas'), w=c.width=innerWidth, h=c.height=innerHeight;
+  c.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:60;pointer-events:none';
+  document.body.appendChild(c);
+  var g=c.getContext('2d'), cols=['#ff6b6b','#ffd36b','#8be0b5','#9ad1ff','#d6b8ff','#ffc78f','#ff8fd0'], P=[];
+  for(var i=0;i<220;i++) P.push({x:Math.random()*w,y:-20-Math.random()*h*.8,vx:rand(-2,2),vy:rand(2,6),r:rand(5,10),a:Math.random()*6,va:rand(-.25,.25),c:cols[i%cols.length],sh:Math.random()<.4});
+  var t0=performance.now(), dur=ms||5000;
+  (function step(t){
+    var el2=t-t0; g.clearRect(0,0,w,h);
+    P.forEach(function(p){
+      p.x+=p.vx+Math.sin(p.a)*1.2; p.y+=p.vy; p.a+=p.va; p.vy=Math.min(p.vy+.03,7);
+      g.save(); g.translate(p.x,p.y); g.rotate(p.a); g.fillStyle=p.c; g.globalAlpha=el2>dur-1000?Math.max(0,(dur-el2)/1000):1;
+      if(p.sh){g.beginPath(); g.arc(0,0,p.r/2,0,7); g.fill()} else g.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);
+      g.restore();
+    });
+    if(el2<dur) requestAnimationFrame(step); else c.remove();
+  })(t0);
+}
+function hiSusana(){
+  act(); confetti(5500); setMood('happy',6000);
+  reply('¡Ah, Susana! Tú eres la que molesta tanto a tu hermano, a Juan Pablo. Hola, ¿en qué puedo ayudarte?').then(function(){setMood('happy',2500)});
+}
 /* ---------- Imágenes ---------- */
 var imgList=[], imgI=0, imgT=0;
 function imgOn(){return !$('#imgv').hidden}
@@ -1219,6 +1242,7 @@ function imgPrompt(q){
   return m;
 }
 var INTENTS=[
+  [function(q){return /\b(soy|me llamo|habla|aqui esta|aqui)\s+(susi|susana)\b/.test(q)||/^(hola\W+)?(susi|susana)\W*$/.test(q.trim())}, function(){hiSusana()}],
   [function(q){return imgOn()&&/(cierra|quita|oculta|esconde|ya esta|listo|gracias|basta|apaga la imagen)/.test(q)}, function(){closeImg(); reply('Listo.')}],
   [function(q){return imgOn()&&imgList.length>1&&/(siguiente|otra|proxima|sigue|adelante)/.test(q)}, function(){imgI=(imgI+1)%imgList.length; showImg()}],
   [function(q){return imgOn()&&imgList.length>1&&/(anterior|atras|vuelve|regresa)/.test(q)}, function(){imgI=(imgI-1+imgList.length)%imgList.length; showImg()}],
@@ -1911,7 +1935,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-imagenes', pendingUpdate=false;
+var APP_VERSION='2026-10-15-susana', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
