@@ -74,8 +74,11 @@ ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px
 #face[data-mood=alert]{--eye:var(--alert);--eyeglow:rgba(255,107,107,.5);--mouth:var(--alert)}
 #face[data-mood=listening]{--eye:#bfe9ff;--eyeglow:rgba(150,220,255,.5);--mouth:#bfe9ff}
 #face[data-mood=sleepy]{--eye:#c9b79c;--eyeglow:rgba(200,180,150,.15);--mouth:#c9b79c}
-.eye{fill:var(--eye);transition:fill .3s;filter:drop-shadow(0 0 16px var(--eyeglow))}
-.lid{fill:var(--bg)}
+.eye{fill:var(--eye);transition:fill .3s}
+.eyeg{filter:drop-shadow(0 0 16px var(--eyeglow))}
+.lid{fill:#000}
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block}
+.app{position:relative;z-index:1}
 .blush{fill:var(--glow2)}
 .mouth{stroke:var(--mouth);stroke-width:8;stroke-linecap:round;stroke-linejoin:round;fill:#2a1620;transition:stroke .3s}
 .zzz text{fill:var(--muted);font-family:var(--font-display);font-size:34px;animation:float 3s ease-in-out infinite}
@@ -262,14 +265,16 @@ body.imgon .info{opacity:.3}
     <div class="facewrap">
       <svg id="face" viewBox="0 0 400 290" data-mood="idle" role="img" aria-label="Cara animada de Chispa. Tócala para saludar." tabindex="0">
         <g id="eyeL" transform="translate(130 120)">
-          <rect class="eye" x="-39" y="-46" width="78" height="92" rx="34"/>
-          <rect class="lid" id="lidL" x="-48" y="-56" width="96" height="0"/>
-          <ellipse class="lid" id="smileL" cx="0" cy="122" rx="62" ry="40"/>
+          <mask id="mskL" maskUnits="userSpaceOnUse" x="-150" y="-150" width="300" height="380"><rect x="-150" y="-150" width="300" height="380" fill="#fff"/>
+            <rect class="lid" id="lidL" x="-48" y="-56" width="96" height="0"/>
+            <ellipse class="lid" id="smileL" cx="0" cy="122" rx="62" ry="40"/></mask>
+          <g class="eyeg"><rect class="eye" x="-39" y="-46" width="78" height="92" rx="34" mask="url(#mskL)"/></g>
         </g>
         <g id="eyeR" transform="translate(270 120)">
-          <rect class="eye" x="-39" y="-46" width="78" height="92" rx="34"/>
-          <rect class="lid" id="lidR" x="-48" y="-56" width="96" height="0"/>
-          <ellipse class="lid" id="smileR" cx="0" cy="122" rx="62" ry="40"/>
+          <mask id="mskR" maskUnits="userSpaceOnUse" x="-150" y="-150" width="300" height="380"><rect x="-150" y="-150" width="300" height="380" fill="#fff"/>
+            <rect class="lid" id="lidR" x="-48" y="-56" width="96" height="0"/>
+            <ellipse class="lid" id="smileR" cx="0" cy="122" rx="62" ry="40"/></mask>
+          <g class="eyeg"><rect class="eye" x="-39" y="-46" width="78" height="92" rx="34" mask="url(#mskR)"/></g>
         </g>
         <ellipse class="blush" id="blushL" cx="84" cy="192" rx="26" ry="14" opacity="0"/>
         <ellipse class="blush" id="blushR" cx="316" cy="192" rx="26" ry="14" opacity="0"/>
@@ -1236,6 +1241,112 @@ function hiSusana(){
   act(); confetti(5500); setMood('happy',6000);
   reply('¡Ah, Susana! Tú eres la que molesta tanto a tu hermano, a Juan Pablo. Hola, ¿en qué puedo ayudarte?').then(function(){setMood('happy',2500)});
 }
+/* ---------- Fondo vivo: estrellas, chispas, burbujas y ondas ---------- */
+(function(){
+  var cv=document.createElement('canvas'); cv.id='bg'; cv.setAttribute('aria-hidden','true');
+  document.body.insertBefore(cv,document.body.firstChild);
+  var g=cv.getContext('2d'), W=0,H=0, base=null, SP={}, stars=[], sparks=[], bubbles=[], bokeh=[], burst=[];
+  var amp=1, last=0, px=-999, py=-999, T0=performance.now();
+  function spr(r,c1,c2){var c=document.createElement('canvas'); c.width=c.height=r*2; var x=c.getContext('2d'), gr=x.createRadialGradient(r,r,0,r,r,r);
+    gr.addColorStop(0,c1); gr.addColorStop(.35,c2); gr.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=gr; x.fillRect(0,0,r*2,r*2); return c}
+  SP.spark=spr(24,'rgba(255,214,160,1)','rgba(255,150,70,.5)');
+  SP.cyan=spr(24,'rgba(200,248,255,1)','rgba(60,200,230,.45)');
+  SP.bokeh=spr(64,'rgba(130,200,230,.30)','rgba(90,160,210,.10)');
+  (function(){var r=40,c=document.createElement('canvas'); c.width=c.height=r*2; var x=c.getContext('2d');
+    var f=x.createRadialGradient(r,r,r*.5,r,r,r*.95); f.addColorStop(0,'rgba(150,225,255,0)'); f.addColorStop(1,'rgba(150,225,255,.22)');
+    x.fillStyle=f; x.beginPath(); x.arc(r,r,r*.95,0,7); x.fill();
+    x.strokeStyle='rgba(190,240,255,.55)'; x.lineWidth=2; x.beginPath(); x.arc(r,r,r*.93,0,7); x.stroke();
+    x.strokeStyle='rgba(255,255,255,.7)'; x.lineWidth=3; x.lineCap='round'; x.beginPath(); x.arc(r,r,r*.68,3.6,4.5); x.stroke(); SP.bubble=c})();
+  function R(a,b){return a+Math.random()*(b-a)}
+  function init(){
+    var k=Math.max(.6,Math.min(1.6,W*H/(1280*800)));
+    stars=[]; for(var i=0;i<130*k;i++) stars.push({x:R(0,W),y:R(0,H),r:R(.5,1.5),ph:R(0,6.3),sp:R(.5,1.8),c:Math.random()<.3?'200,235,255':'255,244,225'});
+    sparks=[]; for(i=0;i<30*k;i++) sparks.push(mkSpark(true));
+    bubbles=[]; for(i=0;i<14*k;i++) bubbles.push({x:R(0,W),y:R(0,H),r:R(8,26),vy:R(-.35,-.12),ph:R(0,6.3),ws:R(.3,.8),cy:Math.random()<.5});
+    bokeh=[]; for(i=0;i<8;i++) bokeh.push({x:R(0,W),y:R(0,H),r:R(40,110),vx:R(-.12,.12),vy:R(-.1,.1),a:R(.35,.8)});
+  }
+  function mkSpark(anywhere){return {x:R(0,W),y:anywhere?R(0,H):H+10,vx:R(-.2,.2),vy:R(-.45,-.08),r:R(3,8),ph:R(0,6.3),tw:R(.8,2.2),cy:Math.random()<.28}}
+  function resize(){
+    W=innerWidth; H=innerHeight; var dpr=Math.min(devicePixelRatio||1,1.25);
+    cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); g.setTransform(dpr,0,0,dpr,0,0);
+    base=document.createElement('canvas'); base.width=W; base.height=H; var b=base.getContext('2d');
+    var l=b.createLinearGradient(0,0,W,H); l.addColorStop(0,'#2c1d50'); l.addColorStop(.32,'#111b30'); l.addColorStop(.62,'#0d1722'); l.addColorStop(1,'#0b3b46');
+    b.fillStyle=l; b.fillRect(0,0,W,H);
+    var m=Math.min(W,H), r=b.createRadialGradient(W/2,H*.46,0,W/2,H*.46,m*.5); r.addColorStop(0,'rgba(11,18,29,.9)'); r.addColorStop(.6,'rgba(11,18,29,.55)'); r.addColorStop(1,'rgba(11,18,29,0)');
+    b.fillStyle=r; b.fillRect(0,0,W,H);
+    init();
+  }
+  function env(x){var d=Math.abs(x-W/2)/(W/2); d=Math.max(0,(d-.28)/.72); return d*d*(3-2*d)}
+  function draw(ts,still){
+    var t=(ts-T0)/1000, dt=still?0:1;
+    var ta=(typeof mood!=='undefined')?(mood==='talking'?1.9:mood==='listening'?1.5:mood==='happy'?1.3:1):1;
+    amp+=(ta-amp)*.05;
+    g.globalAlpha=1; g.drawImage(base,0,0,W,H);
+    var i,s,a;
+    // estrellas
+    for(i=0;i<stars.length;i++){s=stars[i]; a=.22+.5*(Math.sin(t*s.sp+s.ph)*.5+.5); g.fillStyle='rgba('+s.c+','+a.toFixed(2)+')';
+      if(s.r>1.1){g.beginPath(); g.arc(s.x,s.y,s.r,0,7); g.fill()} else g.fillRect(s.x,s.y,s.r*1.6,s.r*1.6)}
+    // bokeh grande y lento
+    for(i=0;i<bokeh.length;i++){s=bokeh[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; if(s.x<-130) s.x=W+130; if(s.x>W+130) s.x=-130; if(s.y<-130) s.y=H+130; if(s.y>H+130) s.y=-130;
+      g.globalAlpha=s.a*(.7+.3*Math.sin(t*.3+i)); g.drawImage(SP.bokeh,s.x-s.r,s.y-s.r,s.r*2,s.r*2)}
+    g.globalAlpha=1;
+    // ondas (hebras finas) y barras de sonido en los costados
+    var ymid=H*.56, B=[{a:20,f:.0042,s:.5,o:.0,c:'120,205,225'},{a:30,f:.0031,s:-.38,o:1.7,c:'165,140,230'},{a:15,f:.0066,s:.7,o:3.1,c:'110,220,200'}], b,k,x,y,e;
+    g.lineWidth=1;
+    for(b=0;b<B.length;b++){
+      var bb=B[b];
+      for(k=-5;k<=5;k++){
+        g.strokeStyle='rgba('+bb.c+','+(.05+.09*(1-Math.abs(k)/6)).toFixed(3)+')'; g.beginPath();
+        for(x=0;x<=W+14;x+=14){
+          e=env(x); y=ymid+(b-1)*H*.045+k*3.4+e*bb.a*amp*(Math.sin(x*bb.f+t*bb.s+bb.o+k*.22)+.45*Math.sin(x*bb.f*2.3-t*bb.s*1.4+k*.1));
+          if(x===0) g.moveTo(x,y); else g.lineTo(x,y);
+        }
+        g.stroke();
+      }
+    }
+    g.strokeStyle='rgba(160,215,235,.16)'; g.lineWidth=2; g.lineCap='round'; g.beginPath();
+    for(x=4;x<W;x+=11){
+      e=env(x); if(e<.04) continue;
+      var n=Math.abs(Math.sin(x*.047+t*1.3)*Math.sin(x*.019-t*.7)), h=(4+n*38*amp)*e;
+      g.moveTo(x,ymid-h); g.lineTo(x,ymid+h);
+    }
+    g.stroke(); g.lineCap='butt';
+    // burbujas
+    for(i=0;i<bubbles.length;i++){
+      s=bubbles[i]; s.y+=s.vy*dt; s.x+=Math.sin(t*s.ws+s.ph)*.35*dt;
+      var dx=s.x-px, dy=s.y-py, d2=dx*dx+dy*dy; if(d2<14400&&d2>1){var d=Math.sqrt(d2), f=(120-d)/120*2.2; s.x+=dx/d*f; s.y+=dy/d*f}
+      if(s.y<-40){s.y=H+40; s.x=R(0,W)}
+      g.globalAlpha=.55+.25*Math.sin(t*.8+s.ph); g.drawImage(SP.bubble,s.x-s.r,s.y-s.r,s.r*2,s.r*2);
+    }
+    // chispas
+    for(i=0;i<sparks.length;i++){
+      s=sparks[i]; s.x+=(s.vx+Math.sin(t*.6+s.ph)*.18)*dt; s.y+=s.vy*dt;
+      var dx2=s.x-px, dy2=s.y-py, q=dx2*dx2+dy2*dy2; if(q<14400&&q>1){var dd=Math.sqrt(q), ff=(120-dd)/120*2.6; s.x+=dx2/dd*ff; s.y+=dy2/dd*ff}
+      if(s.y<-20||s.x<-20||s.x>W+20){sparks[i]=mkSpark(false); continue}
+      g.globalAlpha=Math.min(1,(.45+.5*(Math.sin(t*s.tw+s.ph)*.5+.5))*(.8+.2*amp));
+      var sz=s.r*(1+(amp-1)*.25)*2.2; g.drawImage(s.cy?SP.cyan:SP.spark,s.x-sz,s.y-sz,sz*2,sz*2);
+    }
+    // estallido al tocar
+    for(i=burst.length-1;i>=0;i--){
+      s=burst[i]; s.x+=s.vx; s.y+=s.vy; s.vx*=.97; s.vy=s.vy*.97-.01; s.life-=.012; if(s.life<=0){burst.splice(i,1); continue}
+      g.globalAlpha=s.life; var z=s.r*2.4; g.drawImage(s.cy?SP.cyan:SP.spark,s.x-z,s.y-z,z*2,z*2);
+    }
+    g.globalAlpha=1;
+  }
+  function loop(ts){
+    requestAnimationFrame(loop);
+    if(document.hidden||ts-last<33) return; last=ts;
+    draw(ts,false);
+  }
+  addEventListener('resize',resize);
+  addEventListener('pointermove',function(e){px=e.clientX; py=e.clientY},{passive:true});
+  addEventListener('pointerup',function(){px=-999; py=-999},{passive:true});
+  addEventListener('pointerdown',function(e){
+    for(var i=0;i<14;i++){var a=R(0,6.3), v=R(.8,3.2); burst.push({x:e.clientX,y:e.clientY,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:R(2.5,6),life:R(.6,1),cy:Math.random()<.3})}
+  },{passive:true});
+  resize();
+  if(reduce) draw(performance.now(),true); else requestAnimationFrame(loop);
+})();
 /* ---------- Cerrar todo lo que está en pantalla ---------- */
 function closeAll(){
   var any=!$('#vid').hidden||!$('#imgv').hidden||!$('#kcard').hidden||!$('#xcard').hidden;
@@ -2010,7 +2121,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-risas', pendingUpdate=false;
+var APP_VERSION='2026-10-15-fondo', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
