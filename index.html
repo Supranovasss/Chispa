@@ -757,7 +757,7 @@ function tick(){
   $('#date').textContent=cap(dateFmt.format(d));
   var now=Date.now(), fired=false;
   for(var i=timers.length-1;i>=0;i--){
-    if(now>=timers[i].end){ring(timers[i]); timers.splice(i,1); fired=true}
+    if(!timers[i].paused&&now>=timers[i].end){ring(timers[i]); timers.splice(i,1); fired=true}
   }
   renderTimers();
 }
@@ -806,7 +806,7 @@ function renderTimers(){
   el.tlist.textContent='';
   timers.forEach(function(t){
     var li=document.createElement('li'), a=document.createElement('span'), b=document.createElement('span'), x=document.createElement('button');
-    a.className='tm'; a.textContent=mmss(t.end-Date.now());
+    a.className='tm'; a.textContent=(t.paused?'⏸ ':'')+mmss(t.paused?t.left:t.end-Date.now());
     b.className='tl'; b.textContent=t.msg?t.msg+' ('+t.label+')':t.label;
     x.className='x'; x.type='button'; x.textContent='×'; x.setAttribute('aria-label','Cancelar temporizador de '+t.label); x.dataset.id=t.id;
     li.appendChild(a); li.appendChild(b); li.appendChild(x); el.tlist.appendChild(li);
@@ -1509,7 +1509,7 @@ addEventListener('keydown',function(e){if(e.key==='Escape') closeAll()});
 /* ---------- Imágenes ---------- */
 var imgList=[], imgI=0, imgT=0;
 function imgOn(){return !$('#imgv').hidden}
-function closeImg(){clearTimeout(imgT); if(imgList.length){lastImg={l:imgList,i:imgI}; lastShown='img'} imgList=[]; $('#imgv').hidden=true; $('#imgEl').removeAttribute('src'); document.body.classList.remove('imgon')}
+function closeImg(){clearTimeout(imgT); try{clearInterval(imgSlide)}catch(e){} if(imgList.length){lastImg={l:imgList,i:imgI}; lastShown='img'} imgList=[]; $('#imgv').hidden=true; $('#imgEl').removeAttribute('src'); document.body.classList.remove('imgon')}
 function showImg(){
   var it=imgList[imgI]; if(!it) return;
   var dk=document.querySelector('.dock'); if(dk) document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px');
@@ -2110,7 +2110,155 @@ function doShow(w){
     else reply('No tengo ninguna imagen reciente. Pídeme una.')}
   else reply('¿Qué quieres ver?');
 }
+/* ---------- Comandos de edición: video, imagen, temporizadores y alarmas ---------- */
+var ORDX={once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,septimo:7,septima:7,octavo:8,octava:8,noveno:9,novena:9,decimo:10,decima:10};
+var NUMRE='\\d{1,3}|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|primero|primer|primera|segundo|segunda|tercero|tercer|tercera|cuarto|cuarta|quinto|quinta|sexto|sexta|septimo|septima|octavo|octava|noveno|novena|decimo|decima|ultimo|ultima';
+function numOf(t){t=String(t||'').trim(); if(/^\d+$/.test(t)) return +t; if(ORD[t]!==undefined) return ORD[t]; if(ORDX[t]!==undefined) return ORDX[t]; return null}
+var NUMSEL=new RegExp('^(?:(?:pon|ponme|ve|vete|ir|vamos|pasa|pasame|salta|cambia|cambiame|reproduce|abre|abreme|muestra|muestrame|quiero ver|quiero|dame|llevame|ponlo|ponla)\\s+)?(?:(?:a|al|a la|a el|el|la|lo|en)\\s+)*(?:(?:video|imagen|foto|opcion|numero|nro|no)\\s*)*#?\\s*('+NUMRE+')(?:\\s+(?:por favor|porfa))?$');
+var NUMSEL2=new RegExp('^(?:(?:pon|ponme|ve|ir|pasa|salta|cambia|muestrame|quiero ver)\\s+)?(?:(?:a|al|el|la|lo)\\s+)*('+NUMRE+')\\s+(?:video|imagen|foto|opcion)(?:\\s+por favor)?$');
+function selNum(q){var m=q.match(NUMSEL)||q.match(NUMSEL2); return m?numOf(m[1]):null}
+var imgSlide=0, vidFullOn=false;
+(function(){var st=document.createElement('style'); st.textContent='body.vidfull .vid{left:0!important;top:0!important;transform:none!important;width:100vw!important;height:calc(100dvh - var(--dockh,110px))!important;aspect-ratio:auto!important;border-radius:0!important;z-index:30!important}body.vidfull .vid #vidBox,body.vidfull .vid iframe{border-radius:0!important}'; document.head.appendChild(st)})();
+function goVid(n){
+  if(!vidQ.length){reply('No tengo una lista de videos ahora.'); return}
+  var i=n===-1?vidQ.length-1:n-1;
+  if(i<0||i>=vidQ.length){reply('Solo tengo '+vidQ.length+(vidQ.length===1?' video.':' videos.')); return}
+  vidI=i; showVideo();
+}
+function goImg(n){
+  if(!imgList.length) return;
+  var i=n===-1?imgList.length-1:n-1;
+  if(i<0||i>=imgList.length){reply('Solo tengo '+imgList.length+(imgList.length===1?' imagen.':' imágenes.')); return}
+  imgI=i; showImg();
+}
+function vidTitles(){return vidQ.slice(0,6).map(function(v,i){return (i+1)+', '+String(v.title||'sin título').replace(/[|\[\]()]/g,' ').slice(0,45)}).join('. ')}
+function setRate(r){try{var rs=vidPlayer.getAvailablePlaybackRates()||[0.25,0.5,1,1.5,2]; var best=rs[0]; rs.forEach(function(x){if(Math.abs(x-r)<Math.abs(best-r)) best=x}); vidPlayer.setPlaybackRate(best); return best}catch(e){return null}}
+function stepRate(dir){try{var rs=vidPlayer.getAvailablePlaybackRates()||[0.25,0.5,1,1.5,2], c=vidPlayer.getPlaybackRate(), k=rs.indexOf(c); if(k<0) k=rs.indexOf(1); var nk=Math.max(0,Math.min(rs.length-1,k+dir)); vidPlayer.setPlaybackRate(rs[nk]); return rs[nk]}catch(e){return null}}
+function rateSay(r){if(r===null){reply('No pude cambiar la velocidad.'); return} reply(r===1?'Velocidad normal.':'Velocidad '+String(r).replace('.',' punto ')+'.')}
+function startSlide(sec){clearInterval(imgSlide); imgSlide=setInterval(function(){if(!imgOn()||imgList.length<2){clearInterval(imgSlide); return} imgI=(imgI+1)%imgList.length; showImg()},sec*1000)}
+function mediaEdit(q){
+  var ctx=ctxName(), m;
+  if(ctx!=='video'&&ctx!=='img') return null;
+  q=q.replace(/\bchispa\b[,\s]*/g,' ').replace(/\s+/g,' ').trim();
+  if(ctx==='video'){
+    var n=selNum(q); if(n!==null) return function(){goVid(n)};
+    if(/^(?:cambia|cambiame|pasa|salta|pon|ponme|dame|quiero)\w*\s+(?:de |el |al |a otro |otro |un )*(?:siguiente |proximo |otro )?(?:video|clip)(?: siguiente| distinto| diferente)?$/.test(q)||/^(?:otro|un video distinto|un video diferente)$/.test(q)||/^(?:video|clip) (siguiente|proximo)$/.test(q)) return function(){if(vidQ.length>1){vidI=(vidI+1)%vidQ.length; showVideo()}else reply('Ese es el único video. Pídeme otro, por ejemplo: pon un video de salsa.')};
+    if(/^(?:(?:pon|ve a|vuelve a|regresa a|devuelve a)\s+)?(?:el |al )?(?:video|clip) anterior$/.test(q)) return function(){if(vidQ.length>1){vidI=(vidI-1+vidQ.length)%vidQ.length; showVideo()}else reply('No hay un video anterior.')};
+    if(/((que|cual) (video|clip) (es|estoy viendo|es este|es ese|es esto))|(como se llama (el|este|ese) (video|clip))|^(dime )?el titulo( del video)?$/.test(q)) return function(){var v=vidQ[vidI]; reply(v&&v.title?'Es: '+String(v.title).slice(0,90)+'.':'No sé cómo se llama.')};
+    if(/(que|cuales|cuantos)\s+(videos|opciones|resultados)\s+(hay|tengo|tienes|encontraste|trajiste)|lista de (los )?videos|dame las opciones|muestrame (las )?opciones|otras opciones|que otros videos/.test(q)) return function(){if(!vidQ.length){reply('No tengo más videos.'); return} reply('Encontré '+vidQ.length+(vidQ.length===1?' video: ':' videos: ')+vidTitles()+'. Dime el número.').then(function(){listenNext()})};
+    if(/(pantalla completa|mas grande|agrandalo|agranda el video|maximiza|ponlo grande|ocupa toda la pantalla|ponlo mas grande)/.test(q)&&!/(sal|quita|sin)\b/.test(q)) return function(){document.body.classList.add('vidfull'); vidFullOn=true};
+    if(/(pantalla normal|mas pequeno|mas chico|achica|minimiza|sal de (la )?pantalla completa|quita (la )?pantalla completa|reduce el video|tamano normal)/.test(q)) return function(){document.body.classList.remove('vidfull'); vidFullOn=false};
+    if(/^(?:ponlo |ponla |ve |vete )?(?:mas (?:rapido|veloz)|acelera\w*|aumenta la velocidad|sube la velocidad)$/.test(q)||/^velocidad (?:mas )?(?:rapida|alta|arriba)$/.test(q)) return function(){rateSay(stepRate(1))};
+    if(/^(?:ponlo |ponla |ve |vete )?(?:mas (?:lento|despacio)|desacelera\w*|baja la velocidad|reduce la velocidad)$/.test(q)||/^velocidad (?:mas )?(?:lenta|baja|abajo)$/.test(q)) return function(){rateSay(stepRate(-1))};
+    if(/^velocidad normal$|^a velocidad normal$|^(?:ponlo|ponla) normal$/.test(q)) return function(){rateSay(setRate(1))};
+    if(m=q.match(/^(?:pon |ponlo |ponla |cambia )?(?:la )?velocidad (?:a |en |de )?(doble|triple|mitad|\d+(?:[.,]\d+)?|uno y medio|medio)(?:\s+(?:x|veces))?$/)){var rv=m[1]==='doble'?2:m[1]==='mitad'||m[1]==='medio'?0.5:m[1]==='uno y medio'?1.5:parseFloat(m[1].replace(',','.')); return function(){rateSay(setRate(rv))}}
+    if(m=q.match(/^(?:ve|vete|ir|salta|pasa|llevame|pon|ponlo)\w*\s+(?:al|a)\s+(?:el )?(?:minuto|min)\s+(\d+)(?:\s+(?:con|y)\s+(\d+))?$/)){var sk=+m[1]*60+(m[2]?+m[2]:0); return function(){try{vidPlayer.seekTo(sk,true)}catch(e){}}}
+    if(m=q.match(/^(?:ve|vete|ir|salta|pasa|llevame|pon|ponlo)\w*\s+(?:al|a)\s+(?:el )?(?:segundo|seg)\s+(\d+)$/)){var sk2=+m[1]; return function(){try{vidPlayer.seekTo(sk2,true)}catch(e){}}}
+    if(/^(?:ve|vete|ir|salta|pasa|llevame|pon|ponlo)\w*\s+(?:al|a)\s+(?:el )?(?:inicio|principio|comienzo)$/.test(q)) return function(){try{vidPlayer.seekTo(0,true)}catch(e){}};
+    if(/(reproduce|pon)\s+(todos|todo)\s+(seguidos|seguido|en orden|uno tras otro|de corrido)|reproduccion automatica|pasa (solo|solos) al siguiente|autoplay/.test(q)) return function(){vidAuto=true; reply('Listo, pasaré al siguiente video cuando termine uno.')};
+    if(/(no|deja de|quita|desactiva)\s+.*(seguidos|reproduccion automatica|autoplay)/.test(q)) return function(){vidAuto=false; reply('Listo, solo este video.')};
+    return null;
+  }
+  // ctx === 'img'
+  var ni=selNum(q); if(ni!==null) return function(){goImg(ni)};
+  if(/^(?:cambia|cambiame|pasa|salta|pon|ponme|dame|quiero)\w*\s+(?:de |la |a otra |otra |una )*(?:siguiente |proxima |otra )?(?:imagen|foto)(?: siguiente| distinta| diferente)?$/.test(q)||/^(?:otra|una (?:imagen|foto) (?:distinta|diferente))$/.test(q)||/^(?:imagen|foto) (siguiente|proxima)$/.test(q)) return function(){if(imgList.length>1){imgI=(imgI+1)%imgList.length; showImg()}else reply('Es la única que tengo. Pídeme otra imagen.')};
+  if(/^(?:(?:pon|ve a|vuelve a|regresa a|devuelve a)\s+)?(?:la )?(?:imagen|foto) anterior$/.test(q)) return function(){if(imgList.length>1){imgI=(imgI-1+imgList.length)%imgList.length; showImg()}else reply('No hay una imagen anterior.')};
+  if(/(en cual (imagen|foto) voy|en cual voy|en cual estoy|cuantas (imagenes|fotos) (hay|tengo|tienes|son)|que numero es (esta|la imagen))/.test(q)) return function(){reply(imgList.length>1?'Vas en la '+(imgI+1)+' de '+imgList.length+'.':'Solo tengo una imagen.')};
+  if(m=q.match(/(presentacion|diapositivas|slideshow)|(?:pasa|cambia|muestra|pon|inicia|activa)\w*.*\b(solas|solos|automatic\w*|cada \d+ ?(?:segundos|seg))/)&&!/^(deten|detener|para|detente|quita|cancela|apaga)\w*\s+(la )?(presentacion|diapositivas)$/.test(q)){var secs=(q.match(/cada\s+(\d+)\s*(?:segundos?|seg)?/)||[])[1]; var sc=secs?Math.max(2,+secs):6; if(/(deten|detener|para|detente|quita|cancela|apaga|sin)\b/.test(q)) return function(){clearInterval(imgSlide); reply('Listo, ya no paso las imágenes solo.')}; return function(){if(imgList.length<2){reply('Solo tengo una imagen.'); return} startSlide(sc); reply('Listo, las paso solas cada '+sc+' segundos.')}}
+  if(/^(deten|detener|para|detente|quita|cancela|apaga)\w*\s+(la )?(presentacion|diapositivas)$/.test(q)) return function(){clearInterval(imgSlide); reply('Listo.')};
+  return null;
+}
+function tpick(ix){
+  if(!timers.length) return null;
+  var i=ix===null?(timers.length>1?timers.length-1:0):(ix===-1?timers.length-1:ix-1);
+  return timers[i]||null;
+}
+function tname(t){return t.msg?t.msg:'de '+t.label}
+function timerEdit(q){
+  if(!timers.length||!/\b(temporizador|temporizadores|timer|cronometro)\b/.test(q)) return null;
+  var d=parseDur(q), ix=null, m;
+  var re1=new RegExp('(?:temporizador|timer|cronometro)\\s+(?:numero\\s+|nro\\s+|#)?('+NUMRE+')\\b(?!\\s*(?:minutos?|min|segundos?|seg|horas?|h)\\b)'), re2=new RegExp('\\b(?:el|al)\\s+('+NUMRE+')\\s+(?:temporizador|timer)');
+  if((m=q.match(re2))) ix=numOf(m[1]); else if((m=q.match(re1))) ix=numOf(m[1]);
+  if(/(cuantos|que|cuales)\b.*\btemporizadores\b|temporizadores (tengo|hay|activos|corriendo|andan)|lista de temporizadores/.test(q)) return function(){
+    var parts=timers.slice(0,5).map(function(t,i){return (i+1)+', '+tname(t)+', '+(t.paused?'en pausa':'faltan '+durText(Math.max(1,Math.round((t.end-Date.now())/1000))))});
+    reply(timers.length===1?'Tienes un temporizador: '+parts[0].replace(/^1, /,'')+'.':'Tienes '+timers.length+' temporizadores. '+parts.join('. ')+'.')};
+  if(/^(?:pausa|pausar|pausalo|congela|congelalo|deten|detener|detenlo)\w*\b/.test(q)&&ix===null||/\b(pausa|pausar|congela)\w*\s+(?:el |al )?(?:temporizador|timer|cronometro)/.test(q)||(ix!==null&&/\b(pausa|pausar|congela)/.test(q))) return function(){var t=tpick(ix); if(!t){reply('No encuentro ese temporizador.'); return} if(t.paused){reply('Ya está en pausa.'); return} t.left=Math.max(1000,t.end-Date.now()); t.paused=true; renderTimers(); reply('Listo, pausé el temporizador '+tname(t)+'.')};
+  if(/\b(reanuda|reanudar|continua|retoma|retomar|sigue|activa)\w*\b/.test(q)) return function(){var t=tpick(ix); if(!t){reply('No encuentro ese temporizador.'); return} if(!t.paused){reply('Ese temporizador ya está corriendo.'); return} t.end=Date.now()+t.left; t.paused=false; renderTimers(); reply('Listo, sigue corriendo.')};
+  if(ix!==null&&d===0&&/^(?:cancela|cancelar|quita|quitar|borra|borrar|elimina|eliminar|apaga|apagar)\b/.test(q)) return function(){var t=tpick(ix); if(!t){reply('No tengo ese temporizador. Tienes '+timers.length+'.'); return} timers=timers.filter(function(x){return x!==t}); renderTimers(); reply('Listo, cancelé el temporizador '+tname(t)+'.')};
+  if(d>0&&/^(?:cambia|cambiale|cambialo|cambiala|modifica|modificale|modificalo|ajusta|ajustale|ajustalo|reprograma|reprogramalo|corrige|corrigelo)\w*\b/.test(q)&&!/\b(agrega|suma|mas)\b/.test(q)) return function(){var t=tpick(ix); if(!t){reply('No encuentro ese temporizador.'); return} t.end=Date.now()+d*1000; t.label=durText(d); t.paused=false; renderTimers(); reply('Listo, el temporizador quedó en '+durText(d)+'.')};
+  if(d>0&&/^(?:quita|quitale|resta|restale|descuenta|descuentale|bajale|reduce|reducele|acorta|acortale)\w*\b/.test(q)) return function(){var t=tpick(ix); if(!t){reply('No encuentro ese temporizador.'); return} if(t.paused) t.left=Math.max(1000,t.left-d*1000); else t.end=Math.max(Date.now()+1000,t.end-d*1000); renderTimers(); reply('Listo, le quité '+durText(d)+'.')};
+  if(d>0&&/^(?:agrega|agregale|anade|anadele|suma|sumale|ponle|dale|extiende|extiendele|alarga|alargale|amplia|amplial[ae])\w*\b/.test(q)&&/\b(al|el)\s+(?:temporizador|timer|cronometro)/.test(q)) return function(){var t=tpick(ix); if(!t){reply('No encuentro ese temporizador.'); return} if(t.paused) t.left+=d*1000; else t.end+=d*1000; renderTimers(); reply('Listo, le sumé '+durText(d)+'.')};
+  if(/^(cuanto|que tiempo)\s+(falta|queda)\b/.test(q)&&!/\bpara\b/.test(q)) return function(){var t=tpick(ix); if(!t){reply('No tengo temporizadores.'); return} reply(t.paused?'Está en pausa, le quedan '+durText(Math.max(1,Math.round(t.left/1000)))+'.':'Faltan '+durText(Math.max(1,Math.round((t.end-Date.now())/1000)))+'.')};
+  return null;
+}
+function remMatch(kind,txt){
+  var list=REMS.filter(function(r){return !kind||r.kind===kind}).sort(function(a,b){return a.at-b.at});
+  if(!list.length||!txt) return {list:list,r:list[0]||null};
+  txt=txt.trim(); var mo=txt.match(/^(?:(?:numero|nro|#)\s*(\d+)|(primer[oa]|segund[oa]|tercer[oa]|ultim[oa]))$/);
+  if(mo){var n=numOf(mo[1]||mo[2]); return {list:list,r:(n===-1?list[list.length-1]:list[n-1])||null}}
+  var p=null; try{p=whenParse('a las '+txt.replace(/^las?\s+/,''),kind||'alarma')}catch(e){}
+  if(p&&p.at){var h=p.at.getHours()%12, mi=p.at.getMinutes(), r2=list.filter(function(x){var dd=new Date(x.at); return dd.getHours()%12===h&&dd.getMinutes()===mi})[0]; if(r2) return {list:list,r:r2}}
+  var r3=list.filter(function(x){return x.msg&&norm(x.msg).indexOf(txt)>=0})[0];
+  return {list:list,r:r3||null};
+}
+var DAYRE=/\b(hoy|manana|pasado manana|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|\d+\s+de\s+[a-z]+/;
+function remEdit(q){
+  var m, kw=/(alarma|recordatorio)/;
+  if(!kw.test(q)) return null;
+  q=q.replace(/\bchispa\b[,\s]*/g,' ').replace(/\s+/g,' ').trim();
+  if((m=q.match(/^(?:cambia|cambiale|cambiar|cambiame|mueve|muevela|mover|modifica|modificala|modificar|ajusta|ajustala|reprograma|reprogramala|corrige|corrigela|pasa|pasala)\s+(?:el |la |mi |esa |esta |ese |este )?(alarma|recordatorio)(?:\s+(?:de|del|que esta|que suena)\s+(.+?))?\s+(?:a|para|hasta)\s+(?:las?\s+)?(.+)$/))){
+    var kind=m[1], oldT=m[2], newT=m[3];
+    return function(){
+      var res=remMatch(kind,oldT);
+      if(!res.list.length){reply('No tienes '+(kind==='alarma'?'alarmas':'recordatorios')+' pendientes.'); return}
+      if(!res.r){reply('No encuentro '+(kind==='alarma'?'esa alarma':'ese recordatorio')+'. Dime de qué hora es.'); return}
+      var np=whenParse('a las '+newT,kind);
+      if(!np||!np.at){reply('No entendí la hora nueva. Dime por ejemplo: a las 8 de la mañana.'); return}
+      var nt=norm(newT).replace(/\b(de|por|en)\s+la\s+(manana|tarde|noche|madrugada)\b/g,'p'), explicitDay=DAYRE.test(nt), marker=/\b(manana|tarde|noche|madrugada|mediodia|medianoche)\b|\b[ap]\.?\s?m\b|\bp\b|\b(1[3-9]|2[0-3])\b/.test(norm(newT)), old=new Date(res.r.at), nd;
+      if(explicitDay) nd=np.at;
+      else{
+        nd=new Date(old); var hh=np.at.getHours();
+        if(!marker){var b=hh%12; hh=b+(old.getHours()>=12?12:0)}
+        nd.setHours(hh,np.at.getMinutes(),0,0);
+        if(nd.getTime()<=Date.now()) nd.setDate(nd.getDate()+1);
+      }
+      res.r.at=nd.getTime(); saveRem(); renderRems(); popCard('acard',12000);
+      reply('Listo, moví '+(kind==='alarma'?'la alarma':'el recordatorio')+' '+dayText(nd)+' '+atText(nd)+'.');
+    };
+  }
+  if((m=q.match(/^(pospon|pospone|posponer|atrasa|atrasar|aplaza|aplazar|retrasa|retrasar|adelanta|adelantar)\w*\s+(?:el |la |mi |esa |esta )?(alarma|recordatorio)\b/))&&parseDur(q)>0){
+    var dur=parseDur(q)*1000*(/^adelanta/.test(m[1])?-1:1), kind2=m[2], oldT2=(q.match(/\bde\s+las?\s+(\d{1,2}(?:\s+y\s+(?:media|cuarto|\d+))?(?:\s+de\s+la\s+(?:manana|tarde|noche|madrugada))?)/)||[])[1];
+    return function(){
+      if(ringing){var r=ringing; stopRing(); addRem(r.kind,new Date(Date.now()+Math.abs(dur)),r.msg); return}
+      var res=remMatch(kind2,oldT2);
+      if(!res.r){reply(res.list.length?'No encuentro esa alarma.':'No tienes alarmas pendientes.'); return}
+      var nt=res.r.at+dur;
+      if(nt<=Date.now()+5000){reply('Eso ya quedaría en el pasado.'); return}
+      res.r.at=nt; saveRem(); renderRems(); popCard('acard',12000);
+      var d2=new Date(nt); reply('Listo, ahora suena '+dayText(d2)+' '+atText(d2)+'.');
+    };
+  }
+  if((m=q.match(/^(?:cancela|cancelar|borra|borrar|elimina|eliminar|quita|quitar|desactiva|desactivar|apaga)\w*\s+(?:el |la |mi |esa |esta |ese |este )?(alarma|recordatorio)\s+(?:(?:de|del|que esta|a)\s+(?:las?\s+)?(.+)|((?:numero|nro|#)\s*\d+|primera|segunda|tercera|ultima))$/))&&!/\b(todas|todos)\b/.test(q)){
+    var kind3=m[1], txt3=m[2]||m[3];
+    return function(){
+      var res=remMatch(kind3,txt3);
+      if(!res.r){reply('No encuentro '+(kind3==='alarma'?'esa alarma':'ese recordatorio')+'.'); return}
+      REMS=REMS.filter(function(x){return x!==res.r}); saveRem(); renderRems(); popCard('acard',12000);
+      var d3=new Date(res.r.at); reply('Listo, cancelé '+(kind3==='alarma'?'la alarma ':'el recordatorio ')+dayText(d3)+' '+atText(d3)+'.');
+    };
+  }
+  if(/(cual|cuando|a que hora)\b.*\b(proxima|siguiente)\b.*\b(alarma|recordatorio)|^(?:la )?proxima (alarma|recordatorio)$|a que hora (suena|es) la alarma/.test(q)) return function(){
+    var kind4=/recordatorio/.test(q)?'recordatorio':'alarma', res=remMatch(kind4,null);
+    if(!res.r){reply('No tienes '+(kind4==='alarma'?'alarmas':'recordatorios')+' pendientes.'); return}
+    var d4=new Date(res.r.at); reply('Tu próxima '+kind4+' es '+dayText(d4)+' '+atText(d4)+(res.r.msg?': '+res.r.msg:'')+'.');
+  };
+  return null;
+}
+
 var INTENTS=[
+  [function(q){return mediaEdit(q)!==null}, function(q){mediaEdit(q)()}],
+  [function(q){return timerEdit(q)!==null}, function(q){timerEdit(q)()}],
+  [function(q){return remEdit(q)!==null}, function(q){remEdit(q)()}],
   [function(q){return closeWhat(q)!==null}, function(q){doClose(closeWhat(q))}],
   [function(q){return showWhat(q)!==null}, function(q){doShow(showWhat(q))}],
 
@@ -2724,7 +2872,7 @@ setInterval(function(){
 function closeVideo(){
   if(resumeMedia) resumeMedia.t=true;
   try{if(vidPlayer) vidPlayer.destroy()}catch(e){}
-  vidPlayer=null; vidPlaying=false; $('#vidBox').textContent=''; $('#vid').hidden=true; document.body.classList.remove('vidon');
+  vidPlayer=null; vidPlaying=false; $('#vidBox').textContent=''; $('#vid').hidden=true; document.body.classList.remove('vidon'); document.body.classList.remove('vidfull');
 }
 function showVideo(){
   var it=vidQ[vidI]; if(!it) return;
@@ -3071,7 +3219,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-silencio28', pendingUpdate=false;
+var APP_VERSION='2026-10-16-comandos', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
