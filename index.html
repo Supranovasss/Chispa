@@ -2234,6 +2234,7 @@ function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return;
   note('Tú: '+raw);
   var q=norm(raw);
+  if(q.replace(/[^a-z0-9]/g,'').length<2||/^(e+h+|m+|a+h+|u+m+|e+m+|hm+)$/.test(q.trim())){reAsk('',true); return}
   if(askMusicNext&&askMusicNext<Date.now()) askMusicNext=false;
   if(askVideoNext&&askVideoNext<Date.now()) askVideoNext=false;
   if(askMusicNext){askMusicNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} spPlayQuery(musicQuery('pon '+raw)); return}
@@ -2241,7 +2242,7 @@ function handle(raw){
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
   for(var i=0;i<INTENTS.length;i++){
-    if(INTENTS[i][0](q)){INTENTS[i][1](q,raw); return}
+    if(INTENTS[i][0](q)){misses=0; INTENTS[i][1](q,raw); return}
   }
   askClaude(raw);
 }
@@ -2337,12 +2338,14 @@ function cleanAi(t){return t.replace(/[*_#`>]+/g,'').replace(/\n{2,}/g,'\n').tri
 var NOAI='Para eso necesito mi cerebro de IA. Pon la llave en Voz y permisos.';
 function askClaude(raw){
   var fallback='No te entendí bien. Prueba con: la agenda, mis recetas, mis notas, la lista de compras, una alarma, un temporizador, el clima, un chiste o un juego. Di ayuda para ver todo.';
-  if(!aiReady()){reply(fallback+' Para conversar de cualquier cosa, pon la llave de IA en Voz y permisos.'); return}
+  if(!aiReady()){
+    misses++; if(misses<=2){reAsk('No te entendí. ¿Me lo repites?'); return}
+    misses=0; reply(fallback+' Para conversar de cualquier cosa, pon la llave de IA en Voz y permisos.'); return}
   setMood('thinking'); el.bubble.textContent='Pensando…';
   aiAsk(raw,{kind:'chat'}).then(function(t){
-    t=cleanAi(t); hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6);
+    misses=0; t=cleanAi(t); hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6);
     reply(t);
-  }).catch(function(e){setMood(baseline()); reply(e&&e.message==='noai'?fallback:aiError(e))});
+  }).catch(function(e){setMood(baseline()); if(e&&e.message==='noai'){misses++; if(misses<=2){reAsk('No te entendí. ¿Me lo repites?'); return} misses=0; reply(fallback); return} reply(aiError(e))});
 }
 function curioso(){
   if(!aiReady()){reply(nextOf(FACTS,'f')); return}
@@ -2542,6 +2545,16 @@ function videoQuery(raw){
   return /^(v[ií]deos?|clips?)$/i.test(r)?'':r;
 }
 function listenNext(){if(wakeOn) arm(); else startListen(false)}
+var misses=0;
+function reAsk(msg,silent){
+  function go(){
+    wakeBlue(10000);
+    if(wakeOn){armedUntil=Date.now()+10000; lastInterim=null; if(!silent) beep([880,1320]); setMood('listening',9000)}
+    else startListen(false);
+  }
+  if(msg) return reply(msg).then(go);
+  go();
+}
 /* Anuncios: YouTube no avisa de ellos; todo lo que no sea “en pausa” se trata como sonido */
 setInterval(function(){
   if(!vidPlayer||$('#vid').hidden) return;
@@ -2897,7 +2910,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-musica', pendingUpdate=false;
+var APP_VERSION='2026-10-16-repite', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
