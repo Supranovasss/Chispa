@@ -2527,7 +2527,7 @@ var INTENTS=[
 /* ---------- Español latino: modismos, voseo y usted ---------- */
 function wbre(src){return new RegExp('(?<![\\p{L}\\d])(?:'+src+')(?![\\p{L}\\d])','giu')}
 var VOCS='parce|parcero|parcera|mijo|mija|mijito|mijita|manito|manita|socio|socia|bro|broder|brother|compa|compadre|che|wey|guey|güey|pana|panita|chamo|chama|chamito|pibe|cuate|carnal|mae|maje|papi|mami|papito|mamita|veci|vecino|vecina|hermano|hermana|amigo|amiga';
-var LAT=[
+var LATIN_FIX=[
   [wbre('m[oó]str[aá]me|mu[eé]streme'),'muéstrame'],[wbre('m[oó]str[aá]|mostr[aá]'),'muestra'],
   [wbre('ens[eé][ñn]ame|ens[eé][ñn]eme'),'enséñame'],
   [wbre('pon[eé]me|p[oó]ngame|p[oó]nganos|ponganme'),'ponme'],[wbre('pon[eé]|ponga|p[oó]ngale|pongale'),'pon'],
@@ -2549,7 +2549,7 @@ function latinFix(raw){
   var r=String(raw||'');
   r=r.replace(new RegExp('^(?:(?:'+VOCS+')[\\s,]+)+','iu'),'').replace(new RegExp('(?:[\\s,]+(?:'+VOCS+'))+[\\s.!?¡¿]*$','iu'),'').replace(new RegExp(',\\s*(?:'+VOCS+')\\s*,','giu'),',');
   r=r.replace(/^(?:pues|bueno|entonces|oiga|oye|o sea|a ver|veamos|ay|eh|este|disculpa|disculpe|perd[oó]n|permiso|vea|mire|f[ií]jate|sabes|sabe)[\s,]+(?=\S)/iu,'');
-  LAT.forEach(function(p){r=r.replace(p[0],p[1])});
+  LATIN_FIX.forEach(function(p){r=r.replace(p[0],p[1])});
   r=r.replace(/[,\s]+(?:pues|pe|po|nom[aá]s|ahorita)(?=[\s.!?,]|$)/giu,'').replace(/\s+/g,' ').trim();
   return r;
 }
@@ -3399,7 +3399,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-contexto', pendingUpdate=false;
+var APP_VERSION='2026-10-16-clima', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
