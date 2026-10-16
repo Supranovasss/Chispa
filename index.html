@@ -92,6 +92,8 @@ ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px
 .ask input{flex:1;min-width:0;min-height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 17px var(--font-body)}
 .ask input::placeholder{color:var(--muted);font-weight:400}
 .row,.chips{display:flex;flex-wrap:wrap;gap:10px}
+.tip{margin:0;text-align:center;color:var(--muted);font-size:14px;line-height:1.35}
+.choices .hint{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:999px;border:1px dashed var(--line);background:var(--panel);color:var(--ink);font:700 18px var(--font-body);pointer-events:none}
 .btn,.chip{font-family:var(--font-body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;cursor:pointer}
 .btn{min-height:52px;padding:0 22px;font-size:16px}
 .chip{min-height:44px;padding:0 16px;font-size:14px;font-weight:600;color:var(--muted)}
@@ -144,6 +146,8 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
   .heard{min-height:1.2em;font-size:13px}
   .choices{gap:8px}
   .choices .btn{min-height:44px;font-size:16px;padding:0 16px}
+  .choices .hint{min-height:38px;font-size:16px;padding:0 14px}
+  .tip{font-size:12px}
   .dock{gap:6px}
   .ask input,.btn{min-height:44px}
   .btn{padding:0 16px;font-size:15px}
@@ -152,7 +156,7 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
   .chip{flex:none;min-height:38px}
 }
 @media (orientation:landscape) and (max-height:520px){
-  .chips{display:none}
+  .chips,.tip{display:none}
   .info .card{display:none}
   #wcard:not([hidden]),#tcard:not([hidden]){display:block}
 }
@@ -203,39 +207,20 @@ body.dancing #face{animation:sway .55s ease-in-out infinite alternate}
         </g>
       </svg>
     </div>
-    <p class="bubble" id="bubble" aria-live="polite">Hola, soy Chispa. Tócame, escríbeme o dime algo.</p>
+    <p class="bubble" id="bubble" aria-live="polite">Hola, soy Chispa. Tócame o dime algo.</p>
     <div class="choices" id="choices"></div>
     <p class="heard" id="heard"></p>
   </main>
 
   <section class="dock" aria-label="Controles">
-    <form class="ask" id="form" autocomplete="off">
-      <input id="cmd" type="text" placeholder="Escríbele a Chispa…" enterkeyhint="send" aria-label="Mensaje para Chispa">
-      <button class="btn" type="submit">Enviar</button>
-    </form>
     <div class="row">
       <button class="btn primary" id="mic" type="button">Hablar</button>
       <button class="btn" id="wake" type="button" aria-pressed="false">Decir “Chispa”</button>
       <button class="btn" id="watch" type="button" aria-pressed="false">Vigilar</button>
-      <button class="btn" id="camBtn" type="button" aria-pressed="false">Juegos con cámara</button>
-      <button class="btn" id="voice" type="button" aria-pressed="true">Voz</button>
       <button class="btn" id="fs" type="button">Pantalla completa</button>
       <button class="btn" id="cfg" type="button">Voz y permisos</button>
     </div>
-    <div class="chips">
-      <button class="chip" type="button" data-cmd="¿Qué hora es?">Hora</button>
-      <button class="chip" type="button" data-cmd="¿Cómo está el clima?">Clima</button>
-      <button class="chip" type="button" data-cmd="Cuéntame un chiste">Chiste</button>
-      <button class="chip" type="button" data-cmd="Dato curioso">Dato curioso</button>
-      <button class="chip" type="button" data-cmd="Temporizador de 5 minutos">Temporizador 5 min</button>
-      <button class="chip" type="button" data-cmd="Vamos a jugar">Jugar</button>
-      <button class="chip" type="button" data-cmd="Piedra papel o tijera con la cámara">Piedra, papel o tijera con la mano</button>
-      <button class="chip" type="button" data-cmd="Sígueme con la mirada">Sígueme</button>
-      <button class="chip" type="button" data-cmd="Reconoce mis gestos">Gestos</button>
-      <button class="chip" type="button" data-cmd="Baila">Baila</button>
-      <button class="chip" type="button" data-cmd="Guiña un ojo">Guiño</button>
-      <button class="chip" type="button" data-cmd="Buenas noches">Dormir</button>
-    </div>
+    <p class="tip" id="tip">Di “Chispa” y pide: la hora · el clima · un chiste · un dato curioso · un temporizador · jugar · bailar · sígueme · vigila · reconoce mis gestos · ayuda</p>
   </section>
 </div>
 
@@ -293,8 +278,8 @@ var el={
   face:$('#face'),eyeL:$('#eyeL'),eyeR:$('#eyeR'),lidL:$('#lidL'),lidR:$('#lidR'),
   smL:$('#smileL'),smR:$('#smileR'),bL:$('#blushL'),bR:$('#blushR'),mouth:$('#mouth'),zzz:$('#zzz'),
   bubble:$('#bubble'),choices:$('#choices'),heard:$('#heard'),stage:$('#stage'),
-  mic:$('#mic'),wake:$('#wake'),watch:$('#watch'),voice:$('#voice'),fs:$('#fs'),
-  cmd:$('#cmd'),form:$('#form'),cam:$('#cam'),wlog:$('#wlog'),wcard:$('#wcard'),tcard:$('#tcard'),tlist:$('#tlist')
+  mic:$('#mic'),wake:$('#wake'),watch:$('#watch'),fs:$('#fs'),
+  cam:$('#cam'),wlog:$('#wlog'),wcard:$('#wcard'),tcard:$('#tcard'),tlist:$('#tlist')
 };
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function rand(a,b){return a+Math.random()*(b-a)}
@@ -653,7 +638,6 @@ function motion(){
 function syncCam(){
   var on=!!stream, titles={watch:'Vigilancia',rps:'Piedra, papel o tijera',follow:'Seguimiento',gestures:'Gestos'};
   el.watch.setAttribute('aria-pressed',camMode==='watch'); el.watch.textContent=camMode==='watch'?'Vigilando':'Vigilar';
-  $('#camBtn').setAttribute('aria-pressed',on&&camMode!=='watch'&&!!camMode);
   el.stage.classList.toggle('watching',on);
   $('#recTxt').textContent=camMode==='watch'?'Vigilando':'Cámara activa';
   el.wcard.hidden=!on;
@@ -764,19 +748,24 @@ function recogTick(){
   if(rpsSamples) rpsSamples.push(curGesture);
   if(camMode==='gestures') reactGesture();
 }
-var GREACT={
-  Wave:'¡Hola! Te vi saludar.',Open_Palm:'Palma abierta. ¿Me saludas?',Closed_Fist:'Un puño. ¡Choca esos cinco!',
-  Victory:'¡Amor y paz!',Thumb_Up:'¡Genial! Me alegra.',Thumb_Down:'Uy. ¿Algo no te gustó?',
-  Pointing_Up:'¿Sí? Te escucho.',ILoveYou:'¡Yo también te quiero!'
+var GREACT={Wave:'¡Hola! Te vi saludar.'};
+var GCMD={
+  Pointing_Up:'¿Qué hora es?',Victory:'Cuéntame un chiste',Thumb_Up:'Dato curioso',
+  ILoveYou:'Baila',Closed_Fist:'Piedra papel o tijera con la mano',Thumb_Down:'Apaga la cámara'
 };
 function reactGesture(){
   if(curGesture===gHold.n) gHold.c++; else gHold={n:curGesture,c:1};
-  var wave=curGesture==='Open_Palm'&&isWaving(), key=wave?'Wave':curGesture;
-  if(key==='None'||!GREACT[key]) return;
-  if(!wave&&gHold.c<4) return;
+  if(talking) return;
   var now=Date.now();
-  if(talking||now-(gCool[key]||0)<4500) return;
-  gCool[key]=now; reply(GREACT[key]);
+  if(curGesture==='Open_Palm'&&isWaving()){
+    if(now-(gCool.Wave||0)<4500) return;
+    gCool.Wave=now; act(); reply(GREACT.Wave); return;
+  }
+  var key=curGesture;
+  if(key==='None'||gHold.c<(key==='Open_Palm'?8:5)) return;
+  if(now-(gCool[key]||0)<5000) return;
+  if(key==='Open_Palm'){gCool[key]=now; act(); if(wakeOn) arm(); else startListen(false); return}
+  if(GCMD[key]){gCool[key]=now; act(); handle(GCMD[key])}
 }
 
 /* Piedra, papel o tijera con la mano */
@@ -838,11 +827,11 @@ function startGestures(){
   if(camMode==='gestures') return reply('Ya estoy mirando tus gestos.');
   endGame();
   return startMode('gestures',true).then(function(){
-    reply('Listo. Muéstrame pulgar arriba, victoria, un puño o una palma abierta. También puedes saludarme con la mano.');
+    reply('Listo, te miro. Dedo arriba: la hora. Victoria: un chiste. Pulgar arriba: un dato curioso. Te quiero: bailo. Puño: jugamos con la mano. Palma abierta un momento: te escucho. Pulgar abajo: apago la cámara. Y si me saludas, te saludo.');
   }).catch(camFail);
 }
 function camMenu(){
-  endGame(); reply('¿Qué hacemos con la cámara?');
+  endGame(); reply('¿Qué hacemos con la cámara? Dime: piedra, papel o tijera, sígueme, gestos, vigila, o apaga la cámara.');
   var opts=['Piedra, papel o tijera','Seguirme con la mirada','Reconocer gestos','Vigilar'];
   if(stream) opts.push('Apagar cámara');
   showChoices(opts,function(l){
@@ -850,8 +839,8 @@ function camMenu(){
     if(/Piedra/.test(l)) startCamRps(); else if(/Seguirme/.test(l)) startFollow();
     else if(/gestos/.test(l)) startGestures(); else if(/Vigilar/.test(l)) startWatch(); else camStop(true);
   });
+  camMenuOn=true;
 }
-$('#camBtn').addEventListener('click',camMenu);
 
 /* ---------- Voz de entrada ---------- */
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, armedUntil=0;
@@ -862,7 +851,7 @@ function stopListen(){
   if(mood==='listening') setMood(baseline());
 }
 function startListen(continuous){
-  if(!SR){note('Este navegador no tiene reconocimiento de voz. Escríbeme.'); wakeOn=false; syncWake(); return false}
+  if(!SR){note('Este navegador no tiene reconocimiento de voz. Prueba con Chrome.'); wakeOn=false; syncWake(); return false}
   if(continuous&&talking) return true;
   stopListen(); startedAt=Date.now();
   var r=new SR(); r.lang='es-CO'; r.continuous=continuous; r.interimResults=!continuous;
@@ -953,6 +942,10 @@ var INTENTS=[
   [function(q){return /(sigueme|mirame|sigue mi|seguirme|siguenos)/.test(q)}, function(){startFollow()}],
   [function(q){return /(reconoce.*(gesto|mano)|(que|cual) gesto|mira mi mano|gestos)/.test(q)}, function(){startGestures()}],
   [function(q){return /(apaga|cierra|desactiva|quita|deja de usar).*camara/.test(q)}, function(){camStop(true)}],
+  [function(q){return /(ayuda|que sabes hacer|que puedes hacer|que haces|comandos|como te uso)/.test(q)},
+   function(){reply('Puedes pedirme la hora, el clima, un chiste, un dato curioso, un temporizador, jugar o bailar. Di sígueme, vigila, o reconoce mis gestos para usar la cámara. Para dormirme di buenas noches.')}],
+  [function(q){return /(callate|silencio|no hables|para de hablar)/.test(q)},
+   function(){speakId++; if('speechSynthesis' in window) speechSynthesis.cancel(); if(curAudio){try{curAudio.pause()}catch(e){} curAudio=null} talking=false; setMood(baseline()); if(wakeOn) setTimeout(function(){if(wakeOn&&!listening&&!talking) startListen(true)},600)}],
   [function(q){return /(me llamo|mi nombre es)\s+[a-z]+/.test(q)},
    function(q,raw){var m=raw.match(/(?:me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i); if(!m){reply('No alcancé a oír tu nombre.'); return} CFG.name=cap(m[1].toLowerCase()); saveCfg(); setMood('happy',1800); reply('Mucho gusto, '+CFG.name+'. Ya no se me olvida.')}],
   [function(q){return /recuerd/.test(q)&&parseDur(q)>0},
@@ -978,7 +971,7 @@ var INTENTS=[
   [function(q){return /(vigila|vigilancia|modo seguridad|activa.*(camara|seguridad)|cuida la casa)/.test(q)},
    function(){startWatch()}],
   [function(q){return /(duerme|buenas noches|a dormir|descansa|modo noche)/.test(q)},
-   function(){reply('Buenas noches. Toca la pantalla cuando me necesites.').then(goSleep)}],
+   function(){reply('Buenas noches. Di Chispa cuando me necesites.').then(goSleep)}],
   [function(q){return /(que hora|la hora|hora es)/.test(q)},
    function(){reply(horaHablada()+'.')}],
   [function(q){return /(que dia|fecha|a cuanto estamos)/.test(q)},
@@ -1002,6 +995,7 @@ function handle(raw){
   note('Tú: '+raw);
   var q=norm(raw);
   if(game&&gameInput(raw,q)) return;
+  if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
   for(var i=0;i<INTENTS.length;i++){
     if(INTENTS[i][0](q)){INTENTS[i][1](q,raw); return}
   }
@@ -1033,15 +1027,15 @@ var game=null;
 function showChoices(list,cb){
   el.choices.textContent='';
   list.forEach(function(label){
-    var b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent=label;
-    b.addEventListener('click',function(){cb(label)}); el.choices.appendChild(b);
+    var b=document.createElement('span'); b.className='hint'; b.textContent=label; el.choices.appendChild(b);
   });
 }
-function clearChoices(){el.choices.textContent=''}
+var camMenuOn=false;
+function clearChoices(){el.choices.textContent=''; camMenuOn=false}
 function endGame(){if(game&&game.type==='camrps') camStop(false); game=null; clearChoices()}
 function shuffle(a){for(var i=a.length-1;i>0;i--){var j=(Math.random()*(i+1))|0,t=a[i];a[i]=a[j];a[j]=t} return a}
 function gameMenu(){
-  endGame(); reply('¡Vamos a jugar! Elige un juego.');
+  endGame(); reply('¡Vamos a jugar! Dime cuál: piedra, papel o tijera, adivina el número, trivia, cara o sello, o un dado.');
   showChoices(['Piedra, papel o tijera','Piedra, papel o tijera con la mano','Adivina el número','Trivia','Cara o sello','Lanzar dado'],function(l){
     clearChoices();
     if(l==='Cara o sello') coin(); else if(l==='Lanzar dado') dice();
@@ -1053,7 +1047,7 @@ function dice(){var n=1+((Math.random()*6)|0); setMood('surprised',800); reply('
 function coin(){reply(Math.random()<.5?'Salió cara.':'Salió sello.')}
 
 var RPS=['piedra','papel','tijera'];
-function startRps(){endGame(); game={type:'rps',score:[0,0]}; rpsPrompt('Piedra, papel o tijera. ¡Elige!')}
+function startRps(){endGame(); game={type:'rps',score:[0,0]}; rpsPrompt('Piedra, papel o tijera. ¡Dime cuál!')}
 function rpsPrompt(t){
   reply(t);
   showChoices(['Piedra','Papel','Tijera','Terminar'],function(l){
@@ -1182,7 +1176,7 @@ $('#azSave').addEventListener('click',function(){
   CFG.azVoice=$('#azVoice').value; CFG.azRegion=$('#azRegion').value.trim(); CFG.azKey=$('#azKey').value.trim();
   CFG.azOn=!!(CFG.azKey&&CFG.azRegion); $('#azOn').checked=CFG.azOn; saveCfg(); showAzUse();
   if(!CFG.azOn){$('#azUse').textContent='Falta la llave o la región.'; return}
-  if(!voiceOn){voiceOn=true; el.voice.setAttribute('aria-pressed',true)}
+  voiceOn=true;
   reply('Hola, soy Chispa. ¿Cómo suena mi voz?');
 });
 $('#azClear').addEventListener('click',function(){
@@ -1227,8 +1221,6 @@ $('#askCam').addEventListener('click',function(){askPerm('video')});
 $('#reDiag').addEventListener('click',function(){runDiag(false)});
 
 /* ---------- Eventos de la interfaz ---------- */
-el.form.addEventListener('submit',function(e){e.preventDefault(); var v=el.cmd.value; el.cmd.value=''; handle(v)});
-document.querySelectorAll('.chip').forEach(function(b){b.addEventListener('click',function(){handle(b.dataset.cmd)})});
 var pokes=[], lastPet=0, down=false, dist=0, lx=0, ly=0;
 el.face.addEventListener('pointerdown',function(e){down=true; dist=0; lx=e.clientX; ly=e.clientY});
 el.face.addEventListener('pointermove',function(e){
@@ -1253,11 +1245,6 @@ el.face.addEventListener('click',function(e){
 });
 el.face.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault(); el.face.click()}});
 el.watch.addEventListener('click',function(){camMode==='watch'?camStop(true):startWatch()});
-el.voice.addEventListener('click',function(){
-  voiceOn=!voiceOn; el.voice.setAttribute('aria-pressed',voiceOn);
-  if(!voiceOn){if('speechSynthesis' in window) speechSynthesis.cancel(); if(curAudio){try{curAudio.pause()}catch(e){}}}
-  note(voiceOn?'Voz activada.':'Voz silenciada. Seguiré respondiendo en pantalla.');
-});
 el.fs.addEventListener('click',function(){
   if(document.fullscreenElement){document.exitFullscreen(); return}
   var p=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
@@ -1279,7 +1266,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-15-voz2', pendingUpdate=false;
+var APP_VERSION='2026-10-15-sinbotones', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION) pendingUpdate=true;
