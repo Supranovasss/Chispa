@@ -2182,7 +2182,11 @@ var INTENTS=[
   [function(q){return !!vidPlayer&&/(pausa|pausar|pon pausa)/.test(q)}, function(){if(resumeMedia) resumeMedia.t=true; try{vidPlayer.pauseVideo()}catch(e){}}],
   [function(q){return !!vidPlayer&&/(reanuda|continua|dale play|sigue el video|sigue con el video)/.test(q)}, function(){try{vidPlayer.playVideo()}catch(e){}}],
   [function(q){return vidQ.length>1&&/(otro video|siguiente video|el siguiente|otro mas|cambia (de )?video)/.test(q)}, function(){vidI=(vidI+1)%vidQ.length; showVideo()}],
-  [function(q){return isSongReq(q)||/\b(pon|ponme|ponga|muestrame|ensename|reproduce|busca|buscame|quiero ver|ver)\b.*\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)}, function(q,raw){
+  [function(q){return /\byoutube\b/.test(q)&&/\b(abre|abreme|abrir|abri|ve a|ir a|entra|pon|ponme|ponga|muestra|muestrame|quiero|busca|buscame|vamos a|lleva(me)? a)\b/.test(q)&&!/\b(cierra|quita|apaga)\b/.test(q)}, function(q,raw){
+     var t=raw.replace(/chispa[,\s]*/ig,' ').replace(/.*\byoutube\b/i,'').replace(/^[\s,]*(?:y|e|para|con|de|en)?\s*(?:busca(?:me)?|pon(?:me)?|muestra(?:me)?|reproduce|quiero ver|ver)?\s*(?:un|una|el|la|los|las|unos|unas)?\s*(?:v[ií]deos?|clips?|canci[oó]n(?:es)?|m[uú]sica)?\s*(?:de|del|sobre)?\s*/i,'').replace(/\bpor favor\b/ig,'').trim();
+     if(!t){askVideoNext=Date.now()+20000; reply('¿Qué quieres ver en YouTube?').then(function(){if(askVideoNext) listenNext()}); return}
+     playVideo(t)}],
+  [function(q){return isSongReq(q)||/\b(pon|ponme|ponga|pones|poner|muestrame|muestra|ensename|reproduce|reproducir|busca|buscame|buscar|quiero ver|quisiera ver|ver|abre|abreme|abrir|dame|saca|sacame|trae|traeme|coloca|colocame|necesito|quiero|puedes|podrias)\b.*\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)||/^(un |el |los |unos )?(video|videos|clip|clips)\s+(de|del|sobre)\s+\S+/.test(q)}, function(q,raw){
      if(isSongReq(q)&&!/\bvideo/.test(q)){var sq=musicQuery(raw); if(isPlaylistReq(q)) playVideo(sq?sq+' mix música':'',{auto:true}); else playVideo(sq?sq+' audio oficial':'')} else playVideo(videoQuery(raw))}],
   [function(q){return /(historia|cuento|leyenda)/.test(q)&&/(cuenta|cuentame|narra|narrame|dime|quiero oir|quiero escuchar|tienes|echame|otra)/.test(q)}, function(q,raw){tell(/\bcort[ao]\b/.test(q)?'anec':'story',raw)}],
   [function(q){return /anecdota/.test(q)}, function(q,raw){tell('anec',raw)}],
@@ -2676,7 +2680,7 @@ function ytError(e){
 function videoQuery(raw){
   var t=raw.replace(/chispa[,\s]*/ig,' ').trim(), m=t.match(/\b(v[ií]deos?|clips?)\b\s*(?:de|del|sobre|para)?\s*(.*)$/i);
   if(m&&m[2].trim()) return m[2].trim();
-  m=t.match(/\b(pon(?:me)?|mu[eé]stra(?:me)?|ens[eé]ña(?:me)?|reproduce|busca(?:me)?|quiero ver)\b\s*(?:un|una|el|la|los|las|unos|unas)?\s*(.*)$/i);
+  m=t.match(/\b(pon(?:me)?|pones|mu[eé]stra(?:me)?|ens[eé]ña(?:me)?|reproduce|busca(?:me)?|quiero ver|[aá]bre(?:me)?|abrir|dame|saca(?:me)?|trae(?:me)?|coloca(?:me)?|ver)\b\s*(?:un|una|el|la|los|las|unos|unas)?\s*(.*)$/i);
   var r=(m?m[2]:t).replace(/\bpor favor\b/ig,'').trim().replace(/^(de|sobre)\s+/i,'').trim();
   return /^(v[ií]deos?|clips?)$/i.test(r)?'':r;
 }
@@ -3049,7 +3053,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-playlist', pendingUpdate=false;
+var APP_VERSION='2026-10-16-youtube', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
