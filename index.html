@@ -1669,7 +1669,7 @@ try{REMS=JSON.parse(localStorage.getItem('chispa.rem')||'[]')}catch(e){REMS=[]}
 try{SHOP=JSON.parse(localStorage.getItem('chispa.shop')||'[]')}catch(e){SHOP=[]}
 function saveRem(){try{localStorage.setItem('chispa.rem',JSON.stringify(REMS))}catch(e){}}
 function saveShop(){try{localStorage.setItem('chispa.shop',JSON.stringify(SHOP))}catch(e){}}
-function fmtWhen(r){var d=new Date(r.at); if(r.rep) return '🔁 '+cap(repText(r.rep))+' · '+d.toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'}); return cap(dayText(d))+' · '+d.toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'})}
+function fmtWhen(r){var d=new Date(r.at); if(r.yearly) return '🎂 Cada año · '+new Intl.DateTimeFormat('es-CO',{day:'numeric',month:'long'}).format(d)+' · '+d.toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'}); if(r.rep) return '🔁 '+cap(repText(r.rep))+' · '+d.toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'}); return cap(dayText(d))+' · '+d.toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'})}
 function renderRems(){
   var ul=$('#alist'); ul.textContent='';
   REMS.slice().sort(function(a,b){return a.at-b.at}).forEach(function(r){
@@ -1686,9 +1686,9 @@ function renderShop(){
 }
 function addRem(kind,at,msg,rp){
   if(rp&&rp.length) at=nextOcc(rp,at.getHours(),at.getMinutes());
-  var o={id:Date.now()+Math.random(),at:at.getTime(),kind:kind,msg:msg||''}; if(rp&&rp.length) o.rep=rp;
+  var o={id:Date.now()+Math.random(),at:at.getTime(),kind:kind,msg:msg||''}; if(rp&&rp.length) o.rep=rp; if(pendYearly){o.yearly=true; pendYearly=false}
   REMS.push(o); saveRem(); renderRems(); popCard('acard',14000);
-  var t=rp&&rp.length?repText(rp)+' '+atText(at):dayText(at)+' '+atText(at);
+  var t=o.yearly?'cada año el '+new Intl.DateTimeFormat('es-CO',{day:'numeric',month:'long'}).format(at)+' '+atText(at):rp&&rp.length?repText(rp)+' '+atText(at):dayText(at)+' '+atText(at);
   reply(kind==='alarma'?'Listo, alarma '+t+(msg?': '+msg:'')+'.':'Listo, te lo recuerdo '+t+(msg?': '+msg:'')+'.');
 }
 /* ---------- Recordatorios y alarmas que se repiten ---------- */
@@ -1757,18 +1757,20 @@ function handleRepRem(raw,kind,days){
   reply('Listo, dejé '+made.length+' '+(kind==='alarma'?'alarmas':'recordatorios')+' '+repText(days)+': '+made.map(function(m){return atText(m.at)+(m.msg?', '+m.msg:'')}).join('; ')+'.');
 }
 function handleRem(raw,kind){
+  pendYearly=/\b(cumpleanos|aniversario|todos los anos|cada ano|anualmente|cada anio)\b/.test(norm(raw));
+  if(pendYearly){var py=whenParse(raw,kind); if(py&&py.needTime&&py.explicit){var py2=whenParse(raw+' a las 9 de la manana',kind); if(py2&&py2.at){addRem(kind,py2.at,remMsg(raw,py2.spans||[]).replace(/\s+/g,' ')); return}}}
   var rpp=repParse(raw); if(rpp.days){handleRepRem(rpp.raw,kind,rpp.days); return}
   var p=whenParse(raw,kind);
   var msg=remMsg(raw,p.spans);
   if(!p.at){
-    askRem={kind:kind,msg:msg,off:p.off,exp:Date.now()+30000};
+    askRem={kind:kind,msg:msg,off:p.off,yr:pendYearly,exp:Date.now()+30000};
     reAsk('¿A qué hora?'); return;
   }
   if(kind==='recordatorio'&&!msg){askRem={kind:kind,at:p.at,exp:Date.now()+30000}; reAsk('Va. ¿Qué quieres que te recuerde '+dayText(p.at)+' '+atText(p.at)+'?'); return}
   addRem(kind,p.at,msg);
 }
 function remFollow(raw){
-  var a=askRem; askRem=null;
+  var a=askRem; askRem=null; pendYearly=!!a.yr;
   if(a.at){addRem(a.kind,a.at,raw.replace(/^(que\s+)/i,'').trim(),a.rep); return}
   var q=a.off!=null?'a las '+raw.replace(/^a\s+(las?\s+)?/i,''):raw; if(!/\ba\s+la/i.test(q)&&!/^a\s+las/i.test(q)) q='a las '+q.replace(/^a\s+/,'');
   var p=whenParse((a.off===1?'mañana ':a.off===0?'hoy ':'')+q,a.kind);
@@ -1784,9 +1786,9 @@ function snoozeRing(){
   addRem(r.kind,new Date(Date.now()+300000),r.msg);
 }
 function fireRem(r,late){
-  if(r.rep&&r.rep.length){var nx=nextOcc(r.rep,new Date(r.at).getHours(),new Date(r.at).getMinutes(),new Date(Math.max(Date.now(),r.at)+1000)); r.at=nx.getTime()} else REMS=REMS.filter(function(x){return x.id!==r.id});
+  if(r.rep&&r.rep.length){var nx=nextOcc(r.rep,new Date(r.at).getHours(),new Date(r.at).getMinutes(),new Date(Math.max(Date.now(),r.at)+1000)); r.at=nx.getTime()} else if(r.yearly){var dy=new Date(r.at); r.at=new Date(dy.getFullYear()+1,dy.getMonth(),dy.getDate(),dy.getHours(),dy.getMinutes()).getTime()} else REMS=REMS.filter(function(x){return x.id!==r.id});
   saveRem(); renderRems();
-  act(); ringing=r; $('#ringT').textContent=(r.kind==='alarma'?'⏰ Alarma':'🔔 Recordatorio'); $('#ringM').textContent=r.msg||new Date().toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'});
+  act(); ringing=r; $('#ringT').textContent=(r.yearly||/cumple/i.test(r.msg||'')?'🎂 Cumpleaños':r.kind==='alarma'?'⏰ Alarma':'🔔 Recordatorio'); $('#ringM').textContent=r.msg||new Date().toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'});
   $('#ring').hidden=false; setMood('alert',60000); var go=function(){beep([880,1175,880,1175])}; go(); clearInterval(ringLoop); ringLoop=setInterval(go,5000);
   clearTimeout(ringT); ringT=setTimeout(stopRing,120000);
   var say=(late?'Se te pasó esto: ':(r.kind==='alarma'?'¡Alarma! ':'Te recuerdo: '))+(r.msg||(r.kind==='alarma'?'es la hora.':'es la hora.'));
@@ -1799,7 +1801,7 @@ setInterval(function(){
 },1000);
 (function(){ // pendientes que vencieron con la app cerrada
   var now=Date.now();
-  REMS.forEach(function(r){if(r.rep&&r.rep.length&&now-r.at>=3*3600000){var d0=new Date(r.at); r.at=nextOcc(r.rep,d0.getHours(),d0.getMinutes(),new Date(now)).getTime()}});
+  REMS.forEach(function(r){if(r.yearly&&now-r.at>=3*3600000){var dd=new Date(r.at); do{dd=new Date(dd.getFullYear()+1,dd.getMonth(),dd.getDate(),dd.getHours(),dd.getMinutes())}while(dd.getTime()<=now); r.at=dd.getTime()} if(r.rep&&r.rep.length&&now-r.at>=3*3600000){var d0=new Date(r.at); r.at=nextOcc(r.rep,d0.getHours(),d0.getMinutes(),new Date(now)).getTime()}});
   REMS=REMS.filter(function(r){return r.at>now||now-r.at<3*3600000}); saveRem();
   var l=REMS.filter(function(r){return r.at<=now}); if(l.length) setTimeout(function(){if(!ringing) fireRem(l[0],true)},4000);
   renderRems(); renderShop();
@@ -2126,7 +2128,8 @@ function hubAgenda(B){
   items.forEach(function(r){
     var it=mk('div','hit'), tx=mk('div','tx'), bb=mk('b',null,(r.kind==='alarma'?'⏰ Alarma · ':'🔔 Recordatorio · ')+fmtWhen(r)), x=mk('button','dl','✕');
     tx.appendChild(bb); tx.appendChild(document.createTextNode(r.msg||(r.kind==='alarma'?'Alarma':'Recordatorio'))); x.dataset.del='rem:'+r.id; x.setAttribute('aria-label','Borrar');
-    it.appendChild(tx); it.appendChild(x); L.appendChild(it);
+    var ed=mk('button','dl','✎'); ed.dataset.edit='rem:'+r.id; ed.setAttribute('aria-label','Editar');
+    it.appendChild(tx); it.appendChild(ed); it.appendChild(x); L.appendChild(it);
   });
   if(!items.length) L.appendChild(mk('p','hhint',hubSel?'No hay nada ese día.':'No tienes alarmas ni recordatorios pendientes.'));
   L.appendChild(mk('p','hhint','Di: «recuérdame mañana a las 8 llamar a Ana», «despiértame a las 6» o «qué tengo hoy». Toca un día del calendario para verlo.'));
@@ -2135,9 +2138,9 @@ function hubAgenda(B){
 function hubRecetas(B){
   var L=mk('div','hlist'); L.appendChild(mk('h3',null,'Mis recetas ('+RECS.length+')'));
   RECS.forEach(function(r,i){
-    var it=mk('div','hit'), tx=mk('div','tx'), bb=mk('b',null,r.steps.length+' pasos · '+r.ingr.length+' ingredientes'), o=mk('button',null,'Abrir'), x=mk('button','dl','✕');
+    var it=mk('div','hit'), tx=mk('div','tx'), bb=mk('b',null,r.steps.length+' pasos · '+r.ingr.length+' ingredientes'), o=mk('button',null,'Abrir'), x=mk('button','dl','✕'), ed=mk('button','dl','✎'); ed.dataset.edit='rec:'+i; ed.setAttribute('aria-label','Renombrar');
     tx.appendChild(bb); tx.appendChild(document.createTextNode(r.title)); o.dataset.open=String(i); x.dataset.del='rec:'+i;
-    it.appendChild(tx); it.appendChild(o); it.appendChild(x); L.appendChild(it);
+    it.appendChild(tx); it.appendChild(o); it.appendChild(ed); it.appendChild(x); L.appendChild(it);
   });
   if(!RECS.length) L.appendChild(mk('p','hhint','Todavía no tienes recetas guardadas. Pídeme una: «guíame con la receta de arepas». Se guardan solas.'));
   else L.appendChild(mk('p','hhint','Di «abre la receta de …» para cocinarla sin gastar IA, o «borra la receta de …».'));
@@ -2148,7 +2151,8 @@ function hubNotas(B){
   NOTES.forEach(function(n){
     var it=mk('div','hit'), tx=mk('div','tx'), bb=mk('b',null,cap(dayText(new Date(n.at)))), x=mk('button','dl','✕');
     tx.appendChild(bb); tx.appendChild(document.createTextNode(n.t)); x.dataset.del='note:'+n.id;
-    it.appendChild(tx); it.appendChild(x); L.appendChild(it);
+    var ed=mk('button','dl','✎'); ed.dataset.edit='note:'+n.id; ed.setAttribute('aria-label','Editar');
+    it.appendChild(tx); it.appendChild(ed); it.appendChild(x); L.appendChild(it);
   });
   if(!NOTES.length) L.appendChild(mk('p','hhint','No tienes notas. Di: «anota que el wifi se cambió» o «apunta que mañana hay reunión».'));
   B.appendChild(L);
@@ -2156,7 +2160,7 @@ function hubNotas(B){
 function hubLista(B){
   var L=mk('div','hlist'); L.appendChild(mk('h3',null,'Lista de compras ('+SHOP.length+')'));
   SHOP.forEach(function(t,i){
-    var it=mk('div','hit'), tx=mk('div','tx',t), x=mk('button','dl','✕'); x.dataset.del='shop:'+i; it.appendChild(tx); it.appendChild(x); L.appendChild(it);
+    var it=mk('div','hit'), tx=mk('div','tx',t), x=mk('button','dl','✕'); x.dataset.del='shop:'+i; var ed=mk('button','dl','✎'); ed.dataset.edit='shop:'+i; ed.setAttribute('aria-label','Editar'); it.appendChild(tx); it.appendChild(ed); it.appendChild(x); L.appendChild(it);
   });
   if(!SHOP.length) L.appendChild(mk('p','hhint','La lista está vacía. Di: «agrega leche y pan a la lista».'));
   B.appendChild(L);
@@ -2167,6 +2171,16 @@ $('#hub').addEventListener('click',function(e){
   if(t.dataset.nav){hubMon=new Date(hubMon.getFullYear(),hubMon.getMonth()+(+t.dataset.nav),1); renderHub(); return}
   if(t.dataset.day){var k=dkey(new Date(+t.dataset.day)); hubSel=(hubSel===k)?null:k; renderHub(); return}
   if(t.dataset.open!==undefined){var r=RECS[+t.dataset.open]; if(r) openSavedRecipe(r); return}
+  if(t.dataset.edit){
+    var ea2=t.dataset.edit.split(':'), ek=ea2[0], eid=ea2.slice(1).join(':'), cur='', ob=null;
+    if(ek==='rem'){ob=REMS.filter(function(r){return String(r.id)===eid})[0]; cur=ob?ob.msg:''}
+    else if(ek==='note'){ob=NOTES.filter(function(n){return String(n.id)===eid})[0]; cur=ob?ob.t:''}
+    else if(ek==='shop'){cur=SHOP[+eid]||''}
+    else if(ek==='rec'){ob=RECS[+eid]; cur=ob?ob.title:''}
+    var nv=null; try{nv=window.prompt('Editar',cur)}catch(e0){}
+    if(nv!==null&&nv.trim()){nv=nv.trim(); if(ek==='rem'&&ob){ob.msg=nv; saveRem(); renderRems()} else if(ek==='note'&&ob){ob.t=nv; saveNotes()} else if(ek==='shop'){SHOP[+eid]=nv; saveShop(); renderShop()} else if(ek==='rec'&&ob){ob.title=nv; saveRecs()}}
+    renderHub(); return;
+  }
   if(t.dataset.del){
     var a=t.dataset.del.split(':'), kind=a[0], id=a.slice(1).join(':');
     if(kind==='rem'){REMS=REMS.filter(function(r){return String(r.id)!==id}); saveRem(); renderRems()}
@@ -2622,7 +2636,7 @@ function latinFix(raw){
   var r=String(raw||'');
   r=r.replace(new RegExp('^(?:(?:'+VOCS+')[\\s,]+)+','iu'),'').replace(new RegExp('(?:[\\s,]+(?:'+VOCS+'))+[\\s.!?¡¿]*$','iu'),'').replace(new RegExp(',\\s*(?:'+VOCS+')\\s*,','giu'),',');
   r=r.replace(/^(?:pues|bueno|entonces|oiga|oye|o sea|a ver|veamos|ay|eh|este|disculpa|disculpe|perd[oó]n|permiso|vea|mire|f[ií]jate|sabes|sabe)[\s,]+(?=\S)/iu,'');
-  LATIN_FIX.forEach(function(p){r=r.replace(p[0],p[1])});
+  LATIN_FIX.forEach(function(p,ix){if(ix<LATIN_FIX.length-4) r=r.replace(p[0],function(m){var off=arguments[arguments.length-2]; return (typeof off==='number'&&off<=3)?p[1]:m}); else r=r.replace(p[0],p[1])});
   r=r.replace(/[,\s]+(?:pues|pe|po|nom[aá]s|ahorita)(?=[\s.!?,]|$)/giu,'').replace(/\s+/g,' ').trim();
   return r;
 }
@@ -2774,6 +2788,186 @@ function ctxMedia(q,raw){
   playVideo(t,{auto:/\b(mix|playlist|musica|canciones|exitos|compilado|compilacion|recopilacion)\b/i.test(t)||!!dur});
   return true;
 }
+/* ---------- Editar por voz: recordatorios, alarmas, cumpleaños, recetas, notas y lista ---------- */
+var editAsk=null, pendYearly=false;
+function clean1(t){return String(t||'').replace(/^[\s:,.;-]+/,'').replace(/^(?:que\s+(?:diga|dice|se\s+llame|ponga|sea)|diciendo|como)\s+/i,'').replace(/^[\s:,.;-]+/,'').replace(/[\s.,;]+$/,'').replace(/^["“'«]+|["”'»]+$/g,'').trim()}
+function eAsk(msg,fn){editAsk={fn:fn,exp:Date.now()+30000}; reAsk(msg)}
+function remKindOk(r,k){if(!k) return true; if(k==='cumpleanos') return !!(r.yearly||/cumple/i.test(r.msg||'')); return r.kind===k}
+function findRemT(kind,t){
+  var list=REMS.filter(function(r){return remKindOk(r,kind)}).sort(function(a,b){return a.at-b.at});
+  var tt=norm(t||'').replace(/\b(de|del|el|la|las|los|mi|esa|ese|esta|este|que|tengo|me|para)\b/g,' ').replace(/[?.,!]/g,' ').replace(/\s+/g,' ').trim();
+  if(!tt) return {list:list,r:(list.length===1?list[0]:null),none:true};
+  var mo=/\blas?\s+\d/.test(norm(t||''))?null:tt.match(/^(?:numero|nro|#)?\s*(\d+|primer[oa]?|segund[oa]|tercer[oa]?|ultim[oa])$/);
+  if(mo){var n=numOf(mo[1]); return {list:list,r:(n===-1||/^ultim/.test(mo[1])?list[list.length-1]:list[n-1])||null}}
+  var ws=tt.split(' ').filter(function(w){return w.length>2});
+  var r1=ws.length?list.filter(function(x){var m=norm(x.msg||''); return ws.every(function(w){return m.indexOf(w)>=0})})[0]:null; if(r1) return {list:list,r:r1};
+  var p=null; try{p=whenParse('a las '+tt,'recordatorio')}catch(e){}
+  if(p&&p.at){var h=p.at.getHours()%12, mi=p.at.getMinutes(), r2=list.filter(function(x){var d=new Date(x.at); return d.getHours()%12===h&&d.getMinutes()===mi})[0]; if(r2) return {list:list,r:r2}}
+  var r3=ws.length?list.filter(function(x){var m=norm(x.msg||''); return ws.some(function(w){return m.indexOf(w)>=0})})[0]:null;
+  return {list:list,r:r3||null};
+}
+function strongSep(n,from){
+  var re=/\b(?:por|que diga|que dice|que se llame|que ponga|diciendo|como|para que diga|para que ponga)\b\s*:?\s*/g; re.lastIndex=from; var m=re.exec(n);
+  if(!m){var r2=/\s(?:a|:)\s+/g; r2.lastIndex=from; m=r2.exec(n)}
+  return m?{s:m.index,e:m.index+m[0].length}:null;
+}
+var TIMEISH=/^(?:(?:a\s+)?(?:las?\s+)?\d{1,2}(?:[:.]\d{2})?\s*(?:y\s+\w+\s*)?(?:de la\s+\w+|am|pm|a\.?m\.?|p\.?m\.?|en punto|\b)?|(?:manana|hoy|pasado manana|el\s+(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo))\b)/;
+function refreshEdits(){renderRems(); if(!$('#hub').hidden) renderHub()}
+function remEditSet(r,txt,label){
+  r.msg=clean1(txt); saveRem(); refreshEdits(); popCard('acard',12000);
+  reply('Listo, '+(label||'ahora dice')+': '+r.msg+'.');
+}
+function remEditRep(r,days,yearly){
+  var d=new Date(r.at);
+  if(yearly){r.yearly=true; delete r.rep}
+  else if(days&&days.length){r.rep=days; delete r.yearly; r.at=nextOcc(days,d.getHours(),d.getMinutes()).getTime()}
+  else {delete r.rep; delete r.yearly; if(r.at<=Date.now()) r.at=nextOcc([0,1,2,3,4,5,6],d.getHours(),d.getMinutes()).getTime()}
+  saveRem(); refreshEdits(); popCard('acard',12000);
+  reply('Listo, '+(yearly?'ahora se repite cada año':days&&days.length?'ahora se repite '+repText(days):'ya no se repite')+(r.msg?': '+r.msg:'')+'.');
+}
+function recTarget(n){
+  var m=n.match(/\brecetas?\s+(?:de|del)\s+([a-z ]+?)(?=\s+(?:por|a|como|que|el|la|los|las|para|y|diga|dice)\b|[?.,]|$)/), nm=m?m[1].trim():'';
+  var r=null; if(nm) r=findRecipe(nm);
+  if(!r&&!nm&&recipe) r=RECS.filter(function(x){return norm(x.title)===norm(recipe.title)})[0]||null;
+  if(!r&&!nm&&!recipe&&RECS.length===1) r=RECS[0];
+  return {r:r,name:nm};
+}
+function recSync(r){
+  saveRecs(); if(recipe&&norm(recipe.title)===norm(r._old||r.title)){recipe.title=r.title; recipe.ingr=r.ingr.slice(); recipe.steps=r.steps.map(function(x){return {t:x.t,m:x.m}}); showRecipe()}
+  delete r._old; if(!$('#hub').hidden) renderHub();
+}
+function numW(w){return numOf(w)}
+function editRecipe(n,raw,q){
+  var tg=recTarget(n), r=tg.r, ver=/^(?:por favor[, ]*)?(\w+)/.exec(n); ver=ver?ver[1]:'';
+  var isAdd=/^(agrega|agregale|agregar|anade|anadele|anadir|incluye|incluyele|suma|sumale|ponle|echale|inserta)/.test(ver)||/\b(agrega|anade|incluye|suma)\w*\b/.test(n.slice(0,25));
+  var isDel=/^(quita|quitale|quitar|borra|borrale|borrar|elimina|eliminale|eliminar|saca|sacale|sacar)/.test(ver);
+  var isSet=/^(cambia|cambiale|cambiar|edita|editale|editar|modifica|modificale|modificar|corrige|corrigele|corregir|actualiza|actualizale|reemplaza|reemplazale|sustituye|renombra|renombrale|ponle|cambiame)/.test(ver);
+  if(!(isAdd||isDel||isSet)) return false;
+  var hasStep=/\bpaso\b/.test(n), hasIng=/\bingredientes?\b/.test(n), hasName=/\b(nombre|titulo)\b/.test(n)||/^(renombra)/.test(ver);
+  if(!(hasStep||hasIng||hasName||/\breceta\b/.test(n))) return false;
+  if(!r){
+    if(!RECS.length&&!recipe){reply('No tienes recetas guardadas para editar.'); return true}
+    reply(tg.name?'No encuentro una receta de '+tg.name+'. Di el nombre como lo guardé, o ábrela primero.':'¿De cuál receta? Di por ejemplo: «en la receta de arepas…».'); return true;
+  }
+  var oldTitle=r.title;
+  // pasos
+  var ms=n.match(/\bpaso\s+(\d+|primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|ultim[oa])\b/);
+  if(hasStep&&isDel&&ms){var k=ms[1]; var i=(/^ultim/.test(k)?r.steps.length:numW(k)); if(!i||i<1||i>r.steps.length){reply('Esa receta tiene '+r.steps.length+' pasos.'); return true} var gone=r.steps.splice(i-1,1)[0]; if(!r.steps.length) r.steps.push(gone); r._old=oldTitle; recSync(r); reply('Listo, quité el paso '+i+' de la receta de '+r.title+'.'); return true}
+  if(hasStep&&isSet&&ms){
+    var sp=strongSep(n,ms.index+ms[0].length); if(!sp){eAsk('¿Cómo quieres que diga el paso '+ms[1]+'?',function(t){var i2=numW(ms[1]); if(i2>0&&i2<=r.steps.length){r.steps[i2-1].t=clean1(t); r._old=r.title; recSync(r); reply('Listo, cambié el paso '+i2+'.')}}); return true}
+    var i=/^ultim/.test(ms[1])?r.steps.length:numW(ms[1]); if(!i||i<1||i>r.steps.length){reply('Esa receta tiene '+r.steps.length+' pasos.'); return true}
+    r.steps[i-1].t=clean1(raw.slice(sp.e)); r._old=oldTitle; recSync(r); reply('Listo, cambié el paso '+i+': '+r.steps[i-1].t+'.'); return true;
+  }
+  if(hasStep&&isAdd&&!ms){
+    var sd=/\b(?:que diga|que dice|diciendo)\b\s*:?\s*|:\s*/.exec(n), afm=n.match(/\b(?:despues|luego)\s+del\s+paso\s+(\d+)/);
+    var pm=sd?{index:sd.index,0:n.slice(sd.index),1:afm?afm[1]:null,2:n.slice(sd.index+sd[0].length)}:n.match(/\bpaso\b(?:\s+(?:nuevo|al final|final))?(?:\s+(?:despues|luego)\s+del\s+paso\s+(\d+))?\s*(?:que diga|que dice|diciendo|:|de que|que|de)?\s+(.+)$/);
+    if(!pm){eAsk('¿Qué dice el paso nuevo?',function(t){r.steps.push({t:clean1(t),m:0}); r._old=r.title; recSync(r); reply('Listo, agregué el paso '+r.steps.length+'.')}); return true}
+    var txt=raw.slice(Math.max(0,raw.length-pm[2].length)), at=pm[1]?+pm[1]:r.steps.length; txt=clean1(txt); at=Math.max(0,Math.min(r.steps.length,at));
+    r.steps.splice(at,0,{t:txt,m:0}); r._old=oldTitle; recSync(r); reply('Listo, agregué el paso '+(at+1)+': '+txt+'.'); return true;
+  }
+  // ingredientes
+  if(isAdd&&(hasIng||/\ba\s+(?:la|esa|esta)\s+receta/.test(n)||/\ba los ingredientes\b/.test(n))){
+    var im=n.match(/\bingredientes?\b\s*:?\s*(.+)$/), val=null;
+    if(im&&!/^(?:a|de|en)\s+(?:la|los)\b/.test(im[1])) val=raw.slice(im.index+im[0].length-im[1].length).replace(/\s+(?:a|en|de)\s+(?:la|esa|esta)\s+receta.*$/i,'').replace(/\s+(?:a|en)\s+los\s+ingredientes.*$/i,'');
+    else {var jm=n.match(/^(?:por favor[, ]*)?\w+\s+(?:(?:a la receta(?: de [a-z ]+?)?)\s+)?(.+?)\s+(?:a|en)\s+(?:los ingredientes|la receta)\b/); if(jm){var st=n.indexOf(jm[1]); val=raw.slice(st,st+jm[1].length)}}
+    if(!val){eAsk('¿Qué ingrediente quieres agregar?',function(t){r.ingr.push(clean1(t)); r._old=r.title; recSync(r); reply('Listo, agregué '+clean1(t)+' a la receta.')}); return true}
+    var parts=val.split(/\s*,\s*|\s+y\s+(?=\d|un\b|una\b|el\b|la\b)/i).map(clean1).filter(Boolean); parts=parts.map(function(x){return x.replace(/^(?:el|la|los|las)\s+/i,'')});
+    parts.forEach(function(x){r.ingr.push(x)}); r._old=oldTitle; recSync(r); reply('Listo, agregué '+parts.join(' y ')+' a la receta de '+r.title+'.'); return true;
+  }
+  if(isDel&&(hasIng||/\b(?:a|de|en)\s+(?:la|esa|esta)\s+receta/.test(n))&&!hasStep){
+    var dm=n.match(/^(?:por favor[, ]*)?\w+\s+(?:el |la |los |las |un |una )?(?:ingrediente\s+)?(.+?)\s+(?:de|a|en)\s+(?:los ingredientes|la receta)\b/)||n.match(/\bingrediente\s+(.+)$/);
+    if(!dm){reply('¿Qué ingrediente quito?'); return true}
+    var ws=dm[1].replace(/\b(de|del|el|la|los|las|un|una|con)\b/g,' ').split(/\s+/).filter(function(w){return w.length>2});
+    var idx=-1; r.ingr.forEach(function(x,k){if(idx<0&&ws.length&&ws.every(function(w){return norm(x).indexOf(w)>=0})) idx=k}); if(idx<0) r.ingr.forEach(function(x,k){if(idx<0&&ws.some(function(w){return norm(x).indexOf(w)>=0})) idx=k});
+    if(idx<0){reply('No encontré ese ingrediente en la receta.'); return true}
+    var g2=r.ingr.splice(idx,1)[0]; r._old=oldTitle; recSync(r); reply('Listo, quité «'+g2+'» de la receta.'); return true;
+  }
+  if(isSet&&hasIng){
+    var cm=n.match(/\bingredientes?\s+(.+?)\s+por\s+(.+?)(?:\s+(?:en|de)\s+la\s+receta.*)?$/)||n.match(/^(?:por favor[, ]*)?\w+\s+(.+?)\s+por\s+(.+?)\s+(?:en|de)\s+la\s+receta/);
+    if(!cm){reply('Dime así: «cambia el ingrediente sal por sal marina».'); return true}
+    var ws2=cm[1].replace(/\b(de|del|el|la|los|las|un|una|con)\b/g,' ').split(/\s+/).filter(function(w){return w.length>2}), id2=-1; r.ingr.forEach(function(x,k){if(id2<0&&ws2.length&&ws2.some(function(w){return norm(x).indexOf(w)>=0})) id2=k});
+    if(id2<0){reply('No encontré ese ingrediente.'); return true}
+    var st2=n.indexOf(' por ',n.indexOf(cm[1])); var nv=clean1(raw.slice(st2+5).replace(/\s+(?:en|de)\s+la\s+receta.*$/i,'')); r.ingr[id2]=nv; r._old=oldTitle; recSync(r); reply('Listo, ahora dice: '+nv+'.'); return true;
+  }
+  if(hasName||(isSet&&!hasStep&&!hasIng)){
+    var rs=n.search(/\breceta\b/), sp2=strongSep(n,Math.max(0,rs)); if(!sp2){eAsk('¿Cómo quieres que se llame la receta?',function(t){r._old=r.title; r.title=clean1(t); recSync(r); reply('Listo, ahora se llama '+r.title+'.')}); return true}
+    r.title=cap(clean1(raw.slice(sp2.e))); if(!r.title){r.title=oldTitle; reply('No entendí el nombre nuevo.'); return true} r._old=oldTitle; recSync(r); reply('Listo, ahora se llama '+r.title+'.'); return true;
+  }
+  return false;
+}
+function editNote(n,raw){
+  var m=n.match(/\bnota\b\s*(.*)$/); if(!m) return false;
+  var after=m.index+m[0].length-m[1].length, sp=strongSep(n,after), mid=sp?n.slice(after,sp.s):m[1];
+  var tt=mid.replace(/\b(de|del|el|la|las|los|que|dice|dijo|sobre)\b/g,' ').replace(/\s+/g,' ').trim(), nt=null;
+  var mo=tt.match(/^(?:numero|nro|#)?\s*(\d+|primer[oa]?|segund[oa]|tercer[oa]?|ultim[oa])$/);
+  if(mo){var k=/^ultim/.test(mo[1])?NOTES.length:numOf(mo[1]); nt=NOTES[k-1]}
+  else if(tt){var ws=tt.split(' ').filter(function(w){return w.length>2}); nt=NOTES.filter(function(x){return ws.every(function(w){return norm(x.t).indexOf(w)>=0})})[0]||NOTES.filter(function(x){return ws.some(function(w){return norm(x.t).indexOf(w)>=0})})[0]}
+  else if(NOTES.length===1) nt=NOTES[0]; else if(NOTES.length) nt=NOTES[0];
+  if(!nt){reply(NOTES.length?'No encuentro esa nota. Dime el número o una palabra de lo que dice.':'No tienes notas guardadas.'); return true}
+  var apply=function(t){nt.t=clean1(t); saveNotes(); if(!$('#hub').hidden) renderHub(); reply('Listo, la nota ahora dice: '+nt.t+'.')};
+  if(!sp){eAsk('¿Qué quieres que diga la nota?',apply); return true}
+  apply(raw.slice(sp.e)); return true;
+}
+function editCmd(q,raw){
+  var n=q.replace(/[¿?¡!]/g,' ').replace(/\bchispa\b[,\s]*/g,' ').replace(/\s+/g,' ').trim(), rawc=raw.replace(/chispa[,\s]*/ig,' ').trim();
+  if(/^(?:oye )?(?:puedes|puede|sabes|se puede|podrias|es posible|eres capaz de|tienes la capacidad de)\b.*\b(editar|cambiar|modificar|corregir|actualizar|renombrar)\b/.test(n)&&!/\b(por|a las|a la)\b.+\b(por|a las)\b/.test(n)&&n.length<110){
+    reply('Sí. Puedo cambiar el nombre o la descripción de alarmas, recordatorios y cumpleaños, y también la hora, los días y si se repiten. En las recetas, el título, los ingredientes y los pasos. En las notas, el texto, y en la lista de compras, los productos. Por ejemplo: «cambia el recordatorio del gimnasio por ir a nadar», «agrégale sal a la receta de arepas» o «cambia el paso 2 de la receta por…».'); return true}
+  if(/^(editar|cambiar|modificar|corregir|actualizar)\b/.test(n)&&/\b(recordatorios?|alarmas?|cumpleanos|recetas?|notas?|lista|eventos?)\b/.test(n)&&!/\b(por|a las|a la)\b/.test(n)&&n.length<60){
+    reply('Sí. Puedo cambiar el nombre o la descripción de alarmas, recordatorios y cumpleaños, y también la hora, los días y si se repiten. En las recetas, el título, los ingredientes y los pasos. En las notas, el texto, y en la lista de compras, los productos. Por ejemplo: «cambia el recordatorio del gimnasio por ir a nadar», «agrégale sal a la receta de arepas» o «cambia el paso 2 de la receta por…».'); return true}
+  var ver=/^(?:por favor[, ]*)?(cambia|cambiale|cambiar|cambiame|edita|editale|editar|modifica|modificale|modificar|corrige|corrigele|corregir|actualiza|actualizale|renombra|renombrale|reemplaza|reemplazale|sustituye|ponle|pon|agrega|agregale|anade|anadele|incluye|incluyele|suma|sumale|echale|quita|quitale|borra|borrale|elimina|eliminale|saca|sacale|haz|hazlo|hazla|ponlo|ponla|deja|dejalo|dejala|que)\b/.exec(n);
+  if(!ver) return false;
+  // receta
+  if(/\breceta\b|\b(ingredientes?|paso)\b/.test(n)&&!/\b(recordatorio|alarma|cumpleanos|nota|lista de compras)\b/.test(n)&&!/^(pon|ponme)\b/.test(n)){
+    if(/\breceta\b/.test(n)||recipe){var er=editRecipe(n,rawc,q); if(er) return true}
+  }
+  // nota
+  if(/\bnota\b/.test(n)&&/^(cambia|cambiale|cambiar|edita|editale|editar|modifica|modificale|modificar|corrige|corrigele|corregir|actualiza|actualizale|renombra|reemplaza)\b/.test(n)&&!/\b(recordatorio|alarma)\b/.test(n)) return editNote(n,rawc);
+  // lista de compras
+  var sm=n.match(/^(?:por favor[, ]*)?(?:cambia|cambiale|reemplaza|sustituye|corrige|cambiame)\w*\s+(?:el |la |los |las )?(.+?)\s+por\s+(.+?)(?:\s+(?:en|de)\s+(?:la |mi )?lista(?: de compras)?)?$/);
+  if(sm&&/\blista\b/.test(n)&&!/\b(recordatorio|alarma)\b/.test(n)){
+    var w1=sm[1].replace(/\b(de|del|el|la|los|las)\b/g,' ').trim(), ix=-1; SHOP.forEach(function(x,k){if(ix<0&&norm(x).indexOf(w1)>=0) ix=k});
+    if(ix<0){reply('No encuentro «'+w1+'» en la lista.'); return true}
+    var s0=n.indexOf(' por ',n.indexOf(sm[1])), nv=clean1(rawc.slice(s0+5).replace(/\s+(?:en|de)\s+(?:la |mi )?lista(?: de compras)?\s*$/i,'')); SHOP[ix]=nv; saveShop(); renderShop(); if(!$('#hub').hidden) renderHub(); reply('Listo, cambié la lista: '+nv+'.'); return true;
+  }
+  // recordatorios / alarmas / cumpleaños
+  var em=n.match(/\b(recordatorio|alarma|evento|cumpleanos|aviso|cita|aniversario)s?\b/); if(!em) return false;
+  if(/\b(ponme|crea|creame|genera|generame|programa|agendame|nuevo|nueva)\b/.test(n)) return false;
+  var kind=/^(alarma)$/.test(em[1])?'alarma':em[1]==='recordatorio'?'recordatorio':(em[1]==='cumpleanos'||em[1]==='aniversario')?'cumpleanos':null;
+  var after=em.index+em[0].length, rest=n.slice(after);
+  // repetición
+  var rp=repParse(n), noRep=/(no se repita|sin repeticion|una sola vez|solo una vez|quita(?:le)? la repeticion|deja de repetir|que no se repita)/.test(n), yr=/\b(cada ano|todos los anos|anualmente|cada anio)\b/.test(n);
+  if((rp.days||noRep||yr)&&/^(cambia|cambiale|haz|hazlo|hazla|ponlo|ponla|ponle|deja|dejalo|dejala|edita|modifica|quita|quitale|que)\b/.test(n)){
+    var cut=rest.search(/\s(?:para que|que sea|que se|sea|se repita|a diario|todos|cada|de lunes|entre semana|los fines|solo|una sola|sin|no se)\b/), tgt=(cut>=0?rest.slice(0,cut):rest);
+    var rs=findRemT(kind,tgt);
+    if(rs.r){remEditRep(rs.r,yr?null:rp.days,yr); return true}
+    if(!rs.list.length){reply('No tienes '+(kind==='alarma'?'alarmas':'recordatorios')+' para cambiar.'); return true}
+    if(rs.none&&rs.list.length>1){eAsk('¿Cuál? Dime parte del nombre o el número.',function(t){var r2=findRemT(kind,t).r; if(r2) remEditRep(r2,yr?null:rp.days,yr); else reply('No lo encontré.')}); return true}
+    reply('No encuentro ese '+(kind==='alarma'?'alarma':'recordatorio')+'. Dime parte del nombre o el número.'); return true;
+  }
+  var hasField=/\b(nombre|descripcion|mensaje|texto|titulo|detalle|contexto)\b/.test(n.slice(0,em.index));
+  var isSetV=/^(cambia|cambiale|cambiar|cambiame|edita|editale|editar|modifica|modificale|modificar|corrige|corrigele|corregir|actualiza|actualizale|renombra|renombrale|reemplaza|ponle|pon)\b/.test(n);
+  if(!isSetV) return false;
+  var sp=strongSep(n,after), mid=sp?rest.slice(0,sp.s-after):rest, val=sp?rawc.slice(sp.e):'';
+  if(sp&&!hasField&&TIMEISH.test(norm(val).trim())&&!/\b(nombre|descripcion|mensaje)\b/.test(n)) return false;
+  if(sp&&sp.e-sp.s>0&&/^\s*a\s*$/.test(n.slice(sp.s,sp.e).replace(/:/g,''))&&!hasField&&!/(cumpleanos|aniversario)/.test(n)) {/* «a» sin campo = probablemente hora */ if(TIMEISH.test(norm(val).trim())||!val) return false}
+  if(!hasField&&!sp){
+    var rs0=findRemT(kind,rest);
+    if(!rs0.r||!/^(edita|editale|editar|modifica|modificale|modificar|cambia|cambiale|cambiar|corrige|actualiza)\b/.test(n)) return false;
+    eAsk('¿Qué quieres cambiar? Dime el texto nuevo o la hora.',function(t){
+      var tn=norm(t).trim();
+      if(TIMEISH.test(tn)||/^(a las|a la)\b/.test(tn)){var np=whenParse('a las '+tn.replace(/^a\s+(las?\s+)?/,''),rs0.r.kind); if(np&&np.at){rs0.r.at=np.at.getTime(); saveRem(); refreshEdits(); reply('Listo, lo moví '+dayText(np.at)+' '+atText(np.at)+'.'); return}}
+      remEditSet(rs0.r,t);
+    }); return true;
+  }
+  var rs2=findRemT(kind,mid);
+  if(!rs2.list.length){reply('No tienes '+(kind==='alarma'?'alarmas':kind==='cumpleanos'?'cumpleaños':'recordatorios')+' para editar.'); return true}
+  if(!rs2.r){
+    if(rs2.none&&rs2.list.length>1){eAsk('¿Cuál quieres editar? Dime parte del nombre o el número.',function(t){var r4=findRemT(kind,t).r; if(!r4){reply('No lo encontré.'); return} if(val) remEditSet(r4,val); else eAsk('¿Qué quieres que diga?',function(v){remEditSet(r4,v)})}); return true}
+    reply('No encuentro ese. Dime parte del nombre o el número.'); return true;
+  }
+  if(!val){eAsk('¿Qué quieres que diga ahora?',function(v){remEditSet(rs2.r,v)}); return true}
+  remEditSet(rs2.r,val); return true;
+}
 function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return; var raw0=raw; try{raw=latinFix(raw)||raw}catch(e){} if(raw!==raw0) dlog('  español latino: «'+raw0+'» → «'+raw+'»'); dlog('HANDLE «'+raw+'»');
   note('Tú: '+raw);
@@ -2784,8 +2978,11 @@ function handle(raw){
   if(askVideoNext&&askVideoNext<Date.now()) askVideoNext=false;
   if(askMusicNext){askMusicNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} spPlayQuery(musicQuery('pon '+raw),isPlaylistReq(q)); return}
   if(askVideoNext){askVideoNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} playVideo(raw.replace(/chispa[,\s]*/ig,' ').trim()); return}
+  if(editAsk&&editAsk.exp<Date.now()) editAsk=null;
+  if(editAsk){var ea=editAsk; editAsk=null; if(/^(no|nada|cancela|olvidalo|ya no|deja)\b/.test(q)){reply('Listo, lo dejo así.'); return} ea.fn(raw); return}
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
+  try{if(editCmd(q,raw)){misses=0; return}}catch(e){dlog('edit error '+e.message)}
   try{if(radCtl(q,raw)){misses=0; return} if(radReq(q)){misses=0; radPlay(raw,q); return}}catch(e){dlog('radio error '+e.message)}
   try{if(!(typeof optsOn==='function'&&optsOn()&&selNum(q)!=null)&&ctxMedia(q,raw)){misses=0; return}}catch(e){dlog('ctx error '+e.message)}
   for(var i=0;i<INTENTS.length;i++){
@@ -3592,7 +3789,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-repite', pendingUpdate=false;
+var APP_VERSION='2026-10-16-editar', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
