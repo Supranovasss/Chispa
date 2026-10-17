@@ -1696,7 +1696,7 @@ function renderShop(){
 function addRem(kind,at,msg,rp){
   if(rp&&rp.length) at=nextOcc(rp,at.getHours(),at.getMinutes());
   var o={id:Date.now()+Math.random(),at:at.getTime(),kind:kind,msg:msg||''}; if(rp&&rp.length) o.rep=rp; if(pendYearly){o.yearly=true; pendYearly=false}
-  REMS.push(o); saveRem(); renderRems(); popCard('acard',14000);
+  REMS.push(o); saveRem(); renderRems(); popCard('acard',14000); ST.last={ent:'aviso',id:String(o.id)};
   var t=o.yearly?'cada año el '+new Intl.DateTimeFormat('es-CO',{day:'numeric',month:'long'}).format(at)+' '+atText(at):rp&&rp.length?repText(rp)+' '+atText(at):dayText(at)+' '+atText(at);
   if(confirmOn()) undoReply((kind==='alarma'?'Configuré la alarma ':'Configuré el recordatorio ')+t+(msg?': '+msg:'')+', ¿correcto?',function(){REMS=REMS.filter(function(x){return x!==o}); saveRem(); renderRems()});
   else reply(kind==='alarma'?'Listo, alarma '+t+(msg?': '+msg:'')+'.':'Listo, te lo recuerdo '+t+(msg?': '+msg:'')+'.');
@@ -3150,12 +3150,13 @@ function dashRender(){
   var D=$('#dash'), now=new Date(), h=now.getHours();
   $('#dHead').innerHTML='<div class="dnow">'+(h%12||12)+':'+String(now.getMinutes()).padStart(2,'0')+' <small style="font-size:.4em;opacity:.7">'+(h<12?'a. m.':'p. m.')+'</small></div><div class="dd">'+cap(dateFmt.format(now))+(WX?' · '+Math.round(WX.t)+'° '+WX.desc:'')+'</div>';
   var R=$('#dRems'); var list=REMS.slice().sort(function(a,b){return a.at-b.at}).filter(function(r){return r.at>=Date.now()-60000}), eod=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1).getTime();
-  var sig=list.map(function(r){return r.id+':'+r.at+':'+r.msg}).join('|')+'|'+now.getDate(); if(R._sig!==sig){
+  var sig=list.map(function(r){return r.id+':'+r.at+':'+r.msg}).join('|')+'|'+now.getDate()+'|'+JSON.stringify(TASKS); if(R._sig!==sig){
     R._sig=sig; R.textContent='';
     var today=list.filter(function(r){return r.at<eod}), later=list.filter(function(r){return r.at>=eod}).slice(0,4);
     if(!today.length) R.appendChild(mk('p','dempty','Nada pendiente para hoy.'));
     today.forEach(function(r){var row=mk('div','dr'+(r.kind==='alarma'?' alm':'')), b=mk('b',null,new Date(r.at).toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'})), s=mk('span',null,(r.kind==='alarma'?'⏰ ':'🔔 ')+(r.msg||(r.kind==='alarma'?'Alarma':'Recordatorio'))); if(r.rep||r.yearly){var sm=mk('small',null,r.yearly?'Cada año':cap(repText(r.rep))); s.appendChild(sm)} row.appendChild(b); row.appendChild(s); R.appendChild(row)});
     if(later.length){R.appendChild(mk('h3',null,'Próximos')); later.forEach(function(r){var row=mk('div','dr'+(r.kind==='alarma'?' alm':'')), b=mk('b',null,new Date(r.at).toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'})), s=mk('span',null,(r.kind==='alarma'?'⏰ ':'🔔 ')+(r.msg||(r.kind==='alarma'?'Alarma':'Recordatorio'))), sm=mk('small',null,cap(r.rep?repText(r.rep):dayText(new Date(r.at)))); s.appendChild(sm); row.appendChild(b); row.appendChild(s); R.appendChild(row)})}
+    dashTasks(R);
   }
   timerCards($('#dTim'),false); $('#dTh').hidden=!timers.length; $('#dTim').hidden=!timers.length;
   var A=$('#dAmb'); A.textContent=''; if(AMB.kind){var c=mk('div','amb','🎧 '+cap(AMBN[AMB.kind])+(AMB.end?' · quedan '+mmss(AMB.end-Date.now()):'')), b=mk('button',null,'⏹'); b.dataset.ambstop='1'; c.appendChild(b); A.appendChild(c)}
@@ -3244,7 +3245,7 @@ function habSay(e,prev){
   return 'Listo, anoté '+e.name+(e.goal>1?': '+e.n+' de '+e.goal+'.':'.');
 }
 function habLog(spec,n){
-  habRoll(); var e=habEnsure(spec), prev=e.n; e.n=Math.max(0,e.n+n); habSave(); habRender(e.k); return {e:e,prev:prev};
+  habRoll(); var e=habEnsure(spec), prev=e.n; e.n=Math.max(0,e.n+n); ST.last={ent:'habito',id:e.k}; habSave(); habRender(e.k); return {e:e,prev:prev};
 }
 function habNum(q,unitRe){
   var W={un:1,una:1,uno:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,medio:.5,media:.5};
@@ -3685,6 +3686,7 @@ function menuCmd(q){
   '@media (max-width:640px){#menu{height:90vh}.mnhd,.mnb{padding-left:18px;padding-right:18px}.mnd{flex-direction:column;align-items:flex-start}.bar #mic{width:80px;height:80px;min-height:80px}.bar .tb{padding:0 14px}}',
   '@media (prefers-reduced-motion:reduce){.mnt,.mnr{transition:none}}',
   '.sheet>section,.sheet>.sheethead{flex:none}',
+  '.dtk .dtb{display:block;height:4px;margin-top:5px;border-radius:2px;background:rgba(255,255,255,.12);position:relative;overflow:hidden}.dtk .dtb::after{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--p);background:var(--glow)}.dtk.done span{opacity:.55;text-decoration:line-through}',
   '.sheet section.acc{padding:0;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.03);gap:0;overflow:hidden}',
   '.acc>.ah{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:10px 16px;border:0;background:transparent;color:var(--ink);font:600 17px var(--font-display);text-align:left;cursor:pointer}',
   '.acc>.ah .ai{font-size:22px;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.08);flex:none}',
@@ -3801,6 +3803,249 @@ function ctrlCmd(q,raw){
   try{if(settingsCmd(q,raw)) return true}catch(e){dlog('settings '+e.message)}
   return false;
 }
+/* ---------- Almacén unificado y ejecutor verificado (fase 1) ---------- */
+var TASKS=[]; try{TASKS=JSON.parse(localStorage.getItem('chispa.tasks')||'[]')}catch(e){TASKS=[]}
+function saveTasks(){try{localStorage.setItem('chispa.tasks',JSON.stringify(TASKS))}catch(e){}}
+var ST={last:null};
+var STN={habito:['hábito','el','los hábitos'],tarea:['tarea','la','las tareas'],aviso:['alarma','la','las alarmas']};
+function stNew(){return 't'+Date.now().toString(36)+Math.floor(Math.random()*46656).toString(36)}
+function stDisk(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}}
+function stHora(d){var h=d.getHours(),m=d.getMinutes(),h12=h%12||12; return (h12===1?'la ':'las ')+h12+(m?':'+(m<10?'0'+m:m):'')+(h<12?' de la mañana':h<19?' de la tarde':' de la noche')}
+function stStrip(t){return norm(t||'').replace(/[¿?¡!.,;:]/g,' ').replace(/\b(el|la|los|las|un|una|de|del|mi|mis|esa|ese|esta|este|lo|que|tarea|tareas|habito|habitos|alarma|alarmas|recordatorio|recordatorios|aviso|contador|progreso)\b/g,' ').replace(/\s+/g,' ').trim()}
+/* Adaptadores: cada entidad sabe listar, nombrarse, guardarse y leerse del disco */
+var STE={
+  habito:{list:function(){return HB.list},id:function(e){return e.k},label:function(e){return e.name},
+    save:function(){habSave(); habRender()},disk:function(){var d=stDisk('chispa.hab'); return d?d.list:[]},diskId:function(e){return e.k},
+    snap:function(){return JSON.stringify(HB.list)},restore:function(s){HB.list=JSON.parse(s)}},
+  tarea:{list:function(){return TASKS},id:function(e){return e.id},label:function(e){return e.text},
+    save:function(){saveTasks(); try{dashTick()}catch(x){}},disk:function(){return stDisk('chispa.tasks')||[]},diskId:function(e){return e.id},
+    snap:function(){return JSON.stringify(TASKS)},restore:function(s){TASKS=JSON.parse(s)}},
+  aviso:{list:function(){return REMS},id:function(e){return String(e.id)},label:function(e){return (e.msg||'')+' '+new Date(e.at).toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'})},
+    save:function(){saveRem(); renderRems(); try{dashTick()}catch(x){}},disk:function(){return stDisk('chispa.rem')||[]},diskId:function(e){return String(e.id)},
+    snap:function(){return JSON.stringify(REMS)},restore:function(s){REMS=JSON.parse(s)}}
+};
+function stDesc(ent,e){
+  if(ent==='aviso'){var d=new Date(e.at); return (e.kind==='alarma'?'alarma':'recordatorio')+' de '+stHora(d)+(e.msg?' ('+e.msg+')':'')}
+  return ent==='tarea'?e.text:e.name;
+}
+/* Resolver una referencia (id, nombre, hora, ordinal, «esa») → {item} | {amb:[…]} | {none:true} */
+function stFind(ent,ref,tipo){
+  var A=STE[ent], L=A.list().slice(); if(ent==='aviso'){if(tipo) L=L.filter(function(r){return r.kind===tipo}); L.sort(function(a,b){return a.at-b.at})}
+  if(!L.length) return {none:true,empty:true};
+  var r0=norm(ref||'').trim(), r=stStrip(ref), i;
+  for(i=0;i<L.length;i++) if(A.id(L[i])===(ref||'').trim()) return {item:L[i]};
+  if(!r&&!/\b(otra|otro)\b/.test(r0)){
+    if(ST.last&&ST.last.ent===ent){var lt=L.filter(function(x){return A.id(x)===ST.last.id})[0]; if(lt) return {item:lt}}
+    return L.length===1?{item:L[0]}:{amb:L};
+  }
+  var ord=r0.match(/\b(primer[ao]?|segund[ao]|tercer[ao]?|ultim[ao]|1ra|2da)\b/);
+  if(ord){var ix=/ultim/.test(ord[1])?L.length-1:/primer|1ra/.test(ord[1])?0:/segund|2da/.test(ord[1])?1:2; if(L[ix]) return {item:L[ix]}}
+  var hit=[];
+  if(ent==='aviso'){
+    var tm=r0.match(/(?:^|\s)(\d{1,2})(?::(\d{2}))?(?!\d)/);
+    if(tm){var hh=+tm[1], mm=tm[2]?+tm[2]:null; hit=L.filter(function(x){var d=new Date(x.at); return (d.getHours()===hh||d.getHours()%12===hh%12&&hh<=12)&&(mm===null||d.getMinutes()===mm)});
+      var ap=/\b(tarde|noche)\b/.test(r0)?'pm':/\b(manana|madrugada)\b/.test(r0)?'am':null; if(ap&&hit.length>1) hit=hit.filter(function(x){return (new Date(x.at).getHours()>=12)===(ap==='pm')})}
+  }
+  if(!hit.length&&r){var toks=r.split(' ').filter(function(w){return w.length>2});
+    var sc=L.map(function(x){var lb=norm(A.label(x)); var s=0; toks.forEach(function(w){if(lb.indexOf(w)>=0) s++; else if(w.length>4&&lb.indexOf(w.slice(0,-1))>=0) s++}); if(lb===r) s+=5; return {x:x,s:s}}).filter(function(o){return o.s>0}).sort(function(a,b){return b.s-a.s});
+    if(sc.length) hit=sc.filter(function(o){return o.s===sc[0].s}).map(function(o){return o.x})}
+  if(ent==='habito'&&!hit.length){var c=habCat(norm(ref||'')); if(c&&habGet(c.k)) hit=[habGet(c.k)]}
+  if(!hit.length) return {none:true};
+  if(hit.length>1&&hit.every(function(x){return A.label(x)===A.label(hit[0])})) hit=[hit[0]];
+  return hit.length===1?{item:hit[0]}:{amb:hit};
+}
+function stSnap(ent){return {ent:ent,s:STE[ent].snap()}}
+function stOk(ent,id,present){var D=STE[ent].disk().some(function(e){return STE[ent].diskId(e)===id}); return present?D:!D}
+function stRes(o){o.ok=!!o.ok; return o}
+/* El ejecutor: una operación → un resultado estructurado y verificado leyendo el disco */
+var STOPS={
+  habito_sumar:{ent:'habito',v:'sumar'},habito_restar:{ent:'habito',v:'restar'},habito_fijar:{ent:'habito',v:'fijar'},habito_reiniciar:{ent:'habito',v:'reiniciar'},habito_meta:{ent:'habito',v:'meta'},habito_crear:{ent:'habito',v:'crear'},habito_borrar:{ent:'habito',v:'borrar',del:1},
+  tarea_crear:{ent:'tarea',v:'crear'},tarea_progreso:{ent:'tarea',v:'progreso'},tarea_completar:{ent:'tarea',v:'completar'},tarea_reabrir:{ent:'tarea',v:'reabrir'},tarea_editar:{ent:'tarea',v:'editar'},tarea_borrar:{ent:'tarea',v:'borrar',del:1},
+  alarma_crear:{ent:'aviso',v:'crear'},alarma_posponer:{ent:'aviso',v:'posponer'},alarma_mover:{ent:'aviso',v:'mover'},alarma_borrar:{ent:'aviso',v:'borrar',del:1}
+};
+function stAt(a,base){
+  var m=String(a.hora||'').match(/^(\d{1,2}):(\d{2})$/); if(!m) return null; var h=+m[1], mi=+m[2]; if(h>23||mi>59) return null;
+  var d=new Date(); if(a.fecha&&/^\d{4}-\d{2}-\d{2}$/.test(a.fecha)){var p=a.fecha.split('-'); d=new Date(+p[0],+p[1]-1,+p[2])}
+  d.setHours(h,mi,0,0); if(!a.fecha&&d.getTime()<=Date.now()) d.setDate(d.getDate()+1); return d;
+}
+function stExec(op,a){
+  a=a||{}; var S=STOPS[op]; if(!S) return stRes({ok:false,op:op,motivo:'invalido'});
+  var ent=S.ent, A=STE[ent], res={ok:false,op:op,ent:ent}, f, it, before=stSnap(ent), pre;
+  var needRef=S.v!=='crear';
+  if(needRef){
+    f=stFind(ent,a.ref,a.tipo);
+    if(f.none&&ent==='habito'){var cc=habCat(norm(a.ref||'')); if(cc&&S.v!=='borrar'){it=habEnsure(cc); f={item:it}}}
+    if(f.none&&ent==='tarea'&&/^(tarea_completar|tarea_progreso|tarea_reabrir)$/.test(op)){var hb=stFind('habito',a.ref); if(hb.item){return stExec(op==='tarea_completar'?'habito_fijar':op==='tarea_reabrir'?'habito_reiniciar':'habito_fijar',{ref:hb.item.k,n:op==='tarea_completar'?hb.item.goal:(a.valor!=null?a.valor:a.porcentaje!=null?Math.round(hb.item.goal*a.porcentaje/100):hb.item.n+(a.delta||0))})}}
+    if(f.none){res.motivo='no_existe'; return stRes(res)}
+    if(f.amb){res.motivo='ambiguo'; res.opts=f.amb.map(function(x){return {id:A.id(x),label:stDesc(ent,x)}}); return stRes(res)}
+    it=f.item; res.id=A.id(it); res.label=stDesc(ent,it); res.nombre=ent==='aviso'?(it.kind||'alarma'):ent==='tarea'?it.text:it.name;
+  }
+  try{
+  switch(op){
+    case 'habito_sumar': case 'habito_restar': {var n=Math.round(a.n==null?1:a.n); if(!(n>=1&&n<=1000)){res.motivo='invalido'; return stRes(res)} res.antes=it.n; var tgt=Math.max(0,it.n+(op==='habito_sumar'?n:-n)); if(tgt===it.n){res.motivo='sin_cambio'; res.despues=it.n; return stRes(res)} it.n=tgt; res.despues=it.n; res.meta=it.goal; res.unidad=it.unit?it.pl:''; break}
+    case 'habito_fijar': {var v=Math.round(+a.n); if(!(v>=0&&v<=1000)){res.motivo='invalido'; return stRes(res)} res.antes=it.n; it.n=v; res.despues=v; res.meta=it.goal; break}
+    case 'habito_reiniciar': res.antes=it.n; it.n=0; res.despues=0; res.meta=it.goal; break;
+    case 'habito_meta': {var g=Math.round(+a.n); if(!(g>=1&&g<=1000)){res.motivo='invalido'; return stRes(res)} res.antes=it.goal; it.goal=g; res.despues=g; break}
+    case 'habito_crear': {var nm=String(a.nombre||'').trim(); if(!nm){res.motivo='invalido'; return stRes(res)} var cat=habCat(norm(nm)), key=cat?cat.k:'c:'+norm(nm); if(habGet(key)){res.motivo='ya_existe'; res.id=key; res.label=habGet(key).name; return stRes(res)} it=cat?habEnsure(cat):habEnsure({k:key,name:nm,icon:'✅',goal:Math.max(1,Math.round(a.meta||1)),col:'#7be0a0'}); if(cat&&a.meta) it.goal=Math.round(a.meta); res.id=it.k; res.label=it.name; res.nombre=it.name; res.meta=it.goal; break}
+    case 'habito_borrar': res.nombre=it.name; HB.list=HB.list.filter(function(x){return x!==it}); break;
+    case 'tarea_crear': {var tx=String(a.texto||'').trim(); if(!tx){res.motivo='invalido'; return stRes(res)} it={id:stNew(),text:tx,n:0,goal:Math.max(1,Math.round(a.meta||100)),done:false,at:Date.now()}; TASKS.push(it); res.id=it.id; res.label=tx; res.nombre=tx; res.antes=null; res.despues=0; break}
+    case 'tarea_progreso': {var g2=it.goal||1, nv; if(a.porcentaje!=null) nv=Math.round(g2*Math.max(0,Math.min(100,+a.porcentaje))/100); else if(a.valor!=null) nv=Math.round(+a.valor); else if(a.delta!=null) nv=it.n+Math.round(+a.delta); else {res.motivo='invalido'; return stRes(res)} nv=Math.max(0,Math.min(g2,nv)); res.antes=Math.round(it.n/g2*100); it.n=nv; it.done=nv>=g2; res.despues=Math.round(nv/g2*100); res.pct=res.despues; res.completa=it.done; break}
+    case 'tarea_completar': res.antes=Math.round(it.n/(it.goal||1)*100); it.n=it.goal||1; it.done=true; res.despues=100; res.pct=100; res.completa=true; break;
+    case 'tarea_reabrir': res.antes=Math.round(it.n/(it.goal||1)*100); it.done=false; if(it.n>=(it.goal||1)) it.n=0; res.despues=Math.round(it.n/(it.goal||1)*100); break;
+    case 'tarea_editar': {var t2=String(a.texto||'').trim(); if(!t2){res.motivo='invalido'; return stRes(res)} res.antes=it.text; it.text=t2; res.despues=t2; res.nombre=t2; break}
+    case 'tarea_borrar': res.nombre=it.text; TASKS=TASKS.filter(function(x){return x!==it}); break;
+    case 'alarma_crear': {var d=stAt(a); if(!d){res.motivo='invalido'; return stRes(res)} var kind=a.tipo==='recordatorio'?'recordatorio':'alarma', rp=(a.dias&&a.dias.length)?a.dias:null; if(rp) d=nextOcc(rp,d.getHours(),d.getMinutes()); it={id:Date.now()+Math.random(),at:d.getTime(),kind:kind,msg:String(a.texto||'')}; if(rp) it.rep=rp; REMS.push(it); res.id=String(it.id); res.nombre=kind; res.despues=d.getTime(); res.cuando=stHora(d); res.label=stDesc('aviso',it); break}
+    case 'alarma_posponer': {var mn=Math.round(a.minutos==null?10:a.minutos); if(!(mn>=1&&mn<=1440)){res.motivo='invalido'; return stRes(res)} res.antes=it.at; var nt=it.at+mn*60000; if(nt<=Date.now()) nt=Date.now()+mn*60000; it.at=nt; res.despues=nt; res.cuando=stHora(new Date(nt)); break}
+    case 'alarma_mover': {var dm=stAt(a); if(!dm){res.motivo='invalido'; return stRes(res)} if(it.rep&&it.rep.length) dm=nextOcc(it.rep,dm.getHours(),dm.getMinutes()); res.antes=it.at; it.at=dm.getTime(); res.despues=it.at; res.cuando=stHora(dm); break}
+    case 'alarma_borrar': res.nombre=it.kind||'alarma'; REMS=REMS.filter(function(x){return x!==it}); break;
+  }
+  A.save();
+  }catch(e){res.motivo='error'; res.error=e.message; try{A.restore(before.s); A.save()}catch(x){} return stRes(res)}
+  /* Verificación: leer lo guardado en el disco y comprobar que quedó como se esperaba */
+  var okv=true;
+  if(S.v==='borrar') okv=stOk(ent,res.id,false);
+  else if(S.v==='crear') okv=stOk(ent,res.id,true);
+  else {var dsk=A.disk().filter(function(e){return A.diskId(e)===res.id})[0]; okv=!!dsk;
+    if(okv){if(ent==='habito'){var want=S.v==='meta'?res.despues:res.despues; okv=S.v==='meta'?dsk.goal===want:dsk.n===want}
+      else if(ent==='tarea'){if(S.v==='editar') okv=dsk.text===res.despues; else okv=Math.round(dsk.n/(dsk.goal||1)*100)===res.despues||S.v==='reabrir'}
+      else if(ent==='aviso'&&/posponer|mover/.test(S.v)) okv=dsk.at===res.despues}}
+  if(!okv){try{A.restore(before.s); A.save()}catch(x){} res.motivo='no_guardado'; return stRes(res)}
+  res.ok=true; ST.last=(S.v==='borrar')?null:{ent:ent,id:res.id};
+  var desc=res.label||res.nombre||ent; var snap=before;
+  chg({sumar:'sumé a',restar:'resté a',fijar:'fijé',reiniciar:'reinicié',meta:'cambié la meta de',crear:'creé',borrar:'borré',progreso:'avance de',completar:'completé',reabrir:'reabrí',editar:'edité',posponer:'pospuse',mover:'moví'}[S.v]+' '+(res.label||res.nombre||ent),function(){STE[snap.ent].restore(snap.s); STE[snap.ent].save()});
+  return stRes(res);
+}
+/* Confirmación hablada: plantillas muy cortas armadas con el resultado real */
+function stSay(res){
+  var nm=res.nombre||'', c1=function(s){return s?cap(s):s};
+  if(!res.ok){
+    var w=res.ent==='aviso'?'alarma':res.ent==='tarea'?'tarea':'hábito';
+    switch(res.motivo){
+      case 'no_existe': return res.empty?(res.ent==='aviso'?'No tienes alarmas.':res.ent==='tarea'?'No tienes tareas.':'No tienes hábitos.'):(res.ent==='habito'?'No encuentro ese hábito.':'No encuentro esa '+w+'.');
+      case 'ambiguo': return '¿'+res.opts.slice(0,3).map(function(o){return o.label.replace(/^(alarma|recordatorio) de /,'')}).join(', o ')+'?';
+      case 'sin_cambio': return 'Ya está en '+res.despues+'.';
+      case 'ya_existe': return 'Ya existe.';
+      case 'no_guardado': return 'No pude guardarlo.';
+      default: return 'No pude hacerlo.';
+    }
+  }
+  var op=res.op, v=STOPS[op].v;
+  if(res.ent==='habito'){
+    if(v==='reiniciar') return 'Listo, '+nm+' en cero.';
+    if(v==='meta') return 'Meta de '+nm+': '+res.despues+'.';
+    if(v==='crear') return 'Creado: '+nm+'.';
+    if(v==='borrar') return 'Borrado.';
+    if(res.meta===1&&res.despues>=1) return c1(nm)+', completado.';
+    return 'Listo, '+nm+' en '+res.despues+(res.despues>=res.meta&&res.antes<res.meta?'. ¡Meta cumplida!':'')+'.';
+  }
+  if(res.ent==='tarea'){
+    if(v==='crear') return 'Anotada: '+nm+'.';
+    if(v==='completar') return c1(nm)+', completada.';
+    if(v==='progreso') return res.completa?c1(nm)+', completada.':c1(nm)+' al '+res.pct+' por ciento.';
+    if(v==='reabrir') return 'Reabierta.';
+    if(v==='editar') return 'Listo.';
+    return 'Borrada.';
+  }
+  if(v==='borrar') return 'Borrada.';
+  return c1(nm)+' a '+res.cuando+'.';
+}
+/* Ejecutar + hablar + preguntar si falta algo; las destructivas piden confirmar */
+function stRun(op,a,opt){
+  a=a||{}; opt=opt||{}; var S=STOPS[op];
+  if(S&&S.del&&!opt.sure&&confirmOn()){
+    var f=stFind(S.ent,a.ref,a.tipo);
+    if(f.item){var ref2=STE[S.ent].id(f.item); confirmQ('¿Borro '+stDesc(S.ent,f.item)+'?',function(){stRun(op,Object.assign({},a,{ref:ref2}),{sure:1})},function(){reply('Listo, lo dejo.')}); return true}
+  }
+  var res=stExec(op,a); ST.res=res;
+  if(res.motivo==='ambiguo'){
+    var opts=res.opts; editAsk={fn:function(r2){var q2=norm(r2), pick=null; opts.forEach(function(o,i){var lb=norm(o.label); if(!pick&&(q2.indexOf(lb)>=0||(stStrip(r2)&&lb.indexOf(stStrip(r2))>=0))) pick=o}); if(!pick&&/\b(primer|primera|1)\b/.test(q2)) pick=opts[0]; if(!pick&&/\b(segund|2)\b/.test(q2)) pick=opts[1]; if(!pick&&/\b(ultim)\b/.test(q2)) pick=opts[opts.length-1];
+      if(!pick&&S.ent==='aviso'){var t2=q2.match(/(\d{1,2})/); if(t2) opts.forEach(function(o){if(!pick&&new RegExp('\\b'+t2[1]+'\\b').test(o.label)) pick=o})}
+      if(!pick){reply('No entendí cuál. Lo dejo así.'); return} stRun(op,Object.assign({},a,{ref:pick.id}),opt)},exp:Date.now()+25000};
+    reAsk(stSay(res)); return true}
+  reply(stSay(res)); return true;
+}
+/* Herramientas para la IA: una por operación */
+function stSchema(props,req){return {type:'object',properties:props,required:req||[]}}
+var STP={ref:{type:'string',description:'Id del elemento (preferido, tomado del estado) o parte de su nombre/hora. Vacío si es el último mencionado.'},n:{type:'integer',minimum:0,maximum:1000},tipo:{type:'string',enum:['alarma','recordatorio']}};
+var ST_TOOLS=[
+ {name:'habito_sumar',description:'Suma al contador de un hábito (ej. vasos de agua). n=1 por defecto.',parameters:stSchema({ref:STP.ref,n:STP.n},['ref'])},
+ {name:'habito_restar',description:'Resta del contador de un hábito.',parameters:stSchema({ref:STP.ref,n:STP.n},['ref'])},
+ {name:'habito_fijar',description:'Fija el contador de hoy de un hábito en un valor exacto.',parameters:stSchema({ref:STP.ref,n:STP.n},['ref','n'])},
+ {name:'habito_reiniciar',description:'Pone en cero el progreso de hoy de un hábito (borrar progreso, reiniciar contador).',parameters:stSchema({ref:STP.ref},['ref'])},
+ {name:'habito_meta',description:'Cambia la meta diaria de un hábito.',parameters:stSchema({ref:STP.ref,n:{type:'integer',minimum:1,maximum:1000}},['ref','n'])},
+ {name:'habito_crear',description:'Crea un hábito nuevo con meta diaria.',parameters:stSchema({nombre:{type:'string'},meta:{type:'integer',minimum:1,maximum:1000}},['nombre'])},
+ {name:'habito_borrar',description:'Elimina por completo un hábito.',parameters:stSchema({ref:STP.ref},['ref'])},
+ {name:'tarea_crear',description:'Crea una tarea o misión. Por defecto se mide en porcentaje (meta=100); usa otra meta solo si hay una cantidad (ej. 20 páginas).',parameters:stSchema({texto:{type:'string'},meta:{type:'integer',minimum:1,maximum:1000}},['texto'])},
+ {name:'tarea_progreso',description:'Actualiza el avance de una tarea: porcentaje (0-100), valor exacto o delta.',parameters:stSchema({ref:STP.ref,porcentaje:{type:'number',minimum:0,maximum:100},valor:{type:'number'},delta:{type:'number'}},['ref'])},
+ {name:'tarea_completar',description:'Marca una tarea (o hábito) como completada/lista/hecha.',parameters:stSchema({ref:STP.ref},['ref'])},
+ {name:'tarea_reabrir',description:'Quita el estado de completada de una tarea.',parameters:stSchema({ref:STP.ref},['ref'])},
+ {name:'tarea_editar',description:'Cambia el texto de una tarea.',parameters:stSchema({ref:STP.ref,texto:{type:'string'}},['ref','texto'])},
+ {name:'tarea_borrar',description:'Elimina una tarea.',parameters:stSchema({ref:STP.ref},['ref'])},
+ {name:'alarma_crear',description:'Crea una alarma o recordatorio. hora en formato 24 h HH:MM.',parameters:stSchema({hora:{type:'string'},texto:{type:'string'},tipo:STP.tipo,fecha:{type:'string'},dias:{type:'array',items:{type:'integer',minimum:0,maximum:6}}},['hora'])},
+ {name:'alarma_posponer',description:'Retrasa una alarma/recordatorio existente N minutos (10 por defecto).',parameters:stSchema({ref:STP.ref,minutos:{type:'integer',minimum:1,maximum:1440},tipo:STP.tipo},['ref'])},
+ {name:'alarma_mover',description:'Cambia la hora de una alarma/recordatorio existente. hora en 24 h HH:MM.',parameters:stSchema({ref:STP.ref,hora:{type:'string'},fecha:{type:'string'},tipo:STP.tipo},['ref','hora'])},
+ {name:'alarma_borrar',description:'Elimina una alarma/recordatorio existente.',parameters:stSchema({ref:STP.ref,tipo:STP.tipo},['ref'])}
+];
+/* Estado actual para la IA (fase 3 lo envía en cada petición) */
+function stState(){
+  var pad=function(n){return n<10?'0'+n:n}, hm=function(t){var d=new Date(t); return pad(d.getHours())+':'+pad(d.getMinutes())};
+  var nw=new Date();
+  return {ahora:nw.getFullYear()+'-'+pad(nw.getMonth()+1)+'-'+pad(nw.getDate())+' '+pad(nw.getHours())+':'+pad(nw.getMinutes()),
+    habitos:HB.list.map(function(e){return {id:e.k,nombre:e.name,n:e.n,meta:e.goal}}),
+    tareas:TASKS.map(function(t){return {id:t.id,texto:t.text,pct:Math.round(t.n/(t.goal||1)*100),hecha:!!t.done}}),
+    alarmas:REMS.slice().sort(function(a,b){return a.at-b.at}).map(function(r){return {id:String(r.id),tipo:r.kind,hora:hm(r.at),texto:r.msg||'',repite:r.rep||null}}),
+    ultimo:ST.last};
+}
+function stListTasks(){
+  if(!TASKS.length){reply('No tienes tareas.'); return true}
+  cardShow('Tus tareas','Tareas','',TASKS.map(function(t){return (t.done?'✓ ':'• ')+t.text+(t.goal>1&&!t.done?' · '+Math.round(t.n/t.goal*100)+'%':'')}));
+  var p=TASKS.filter(function(t){return !t.done}); reply(p.length?'Te faltan '+p.length+': '+p.slice(0,4).map(function(t){return t.text}).join(', ')+'.':'Todo está completo.'); return true;
+}
+function dashTasks(R){
+  if(!TASKS.length) return; R.appendChild(mk('h3',null,'Tareas'));
+  TASKS.slice().sort(function(a,b){return (a.done?1:0)-(b.done?1:0)}).slice(0,6).forEach(function(t){
+    var p=Math.round(t.n/(t.goal||1)*100), row=mk('div','dr dtk'+(t.done?' done':'')), s=mk('span',null,(t.done?'✓ ':'')+t.text);
+    if(t.goal>1&&!t.done){var bar=mk('i','dtb'); bar.style.setProperty('--p',p+'%'); s.appendChild(bar)}
+    row.appendChild(mk('b',null,t.done?'✓':p+'%')); row.appendChild(s); R.appendChild(row)});
+}
+/* Red de seguridad sin IA: frases frecuentes → misma ejecución verificada */
+function stTime(n,kind){
+  var m=n.match(/.*\b(?:a|para)\s+(las?\s+\d.*)$/); if(!m) return null;
+  try{var r=whenParse('a '+m[1].replace(/\s+/g,' '),kind); if(r&&r.at) return r.at}catch(e){} return null;
+}
+function stCmd(q,raw){
+  var m, n=q.replace(/[¿?¡!]/g,' ').replace(/\bchispa\b[,\s]*/g,' ').replace(/\s+/g,' ').trim();
+  if(/^(que|cuales)\b.*\btareas\b|^(mis|muestrame las|lista de) tareas$|^(muestra|abre) (mis )?tareas$/.test(n)) return stListTasks();
+  if((m=n.match(/^(?:agrega|anade|crea|nueva|pon|apunta|anota)\w*\s+(?:una\s+|la\s+|esta\s+)?(?:nueva\s+)?tarea\s*(?::|de|para|que|llamada)?\s*(.+)$/))){var tx=raw.slice(raw.length-m[1].length).trim().replace(/[.!?]+$/,''), mg=tx.match(/[,\s]*(?:con\s+)?(?:meta|objetivo)\s+(?:de\s+)?(\d+)\s*$/i), meta=100; if(mg){meta=+mg[1]; tx=tx.slice(0,mg.index).trim()} return stRun('tarea_crear',{texto:tx,meta:meta})}
+  if((m=n.match(/^(?:marca|pon|deja|da|dale)\w*\s+(?:como\s+)?(?:la\s+|el\s+|lo\s+)?(?:tarea\s+|mision\s+|habito\s+)?(.+?)\s+(?:como\s+|en\s+)?(lista|listo|hecha|hecho|completada|completado|terminada|terminado|finalizada|cumplida|cumplido)$/))) return stRun('tarea_completar',{ref:m[1]});
+  if((m=n.match(/^(?:ya\s+)?(?:termine|complete|acabe|finalice|cumpli|hice)\s+(?:la\s+tarea\s+|con\s+|lo\s+de\s+|la\s+de\s+|el\s+|la\s+)?(.+)$/))&&TASKS.some(function(t){return !t.done&&stFind('tarea',m[1]).item})) return stRun('tarea_completar',{ref:m[1]});
+  if((m=n.match(/^(?:pon|deja|ajusta|actualiza|voy)\w*\s+(?:la\s+|el\s+)?(?:tarea\s+)?(?:de\s+|en\s+)?(.+?)\s+(?:al|en el|en|a)\s+(\d{1,3})\s*(?:%|por ciento)$/))&&stFind('tarea',m[1]).item) return stRun('tarea_progreso',{ref:m[1],porcentaje:+m[2]});
+  if((m=n.match(/^voy\s+(?:en|al)\s+(\d{1,3})\s*(?:%|por ciento)\s+(?:de|con|en)\s+(?:la\s+|el\s+)?(.+)$/))) return stRun('tarea_progreso',{ref:m[2],porcentaje:+m[1]});
+  if((m=n.match(/^(?:reabre|reabrir|desmarca|desmarcar)\w*\s+(?:la\s+|el\s+)?(?:tarea\s+)?(.+)$/))) return stRun('tarea_reabrir',{ref:m[1]});
+  if((m=n.match(/^(?:borra|elimina|quita|cancela)\w*\s+(?:la\s+|el\s+)?tarea\s+(?:de\s+|del\s+)?(.+)$/))) return stRun('tarea_borrar',{ref:m[1]});
+  if((m=n.match(/^(?:borra|elimina|quita|reinicia|resetea|limpia|vacia)\w*\s+(?:todo\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(?:progreso|conteo|contador|avance|registro|vasos|cuenta)\s+(?:de\s+|del\s+|de\s+los\s+)?(.+)$/))&&(stFind('habito',m[1]).item||habCat(m[1]))) return stRun('habito_reiniciar',{ref:m[1]});
+  if((m=n.match(/^(?:reinicia|resetea|limpia|vacia|borra|elimina)\w*\s+(?:todo\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(?:progreso\s+|conteo\s+|contador\s+)?(?:de\s+|del\s+)?(?!tarea|alarma|recordatorio|habito|nota|lista)(.+)$/))&&stFind('habito',m[1]).item&&!stFind('tarea',m[1]).item) return stRun('habito_reiniciar',{ref:m[1]});
+  if((m=n.match(/^(?:reinicia|resetea|limpia|pon|deja)\w*\s+(?:el\s+|la\s+|los\s+|las\s+)?(.+?)\s+(?:en|a)\s+(?:cero|0)$/))&&(stFind('habito',m[1]).item||habCat(m[1]))) return stRun('habito_reiniciar',{ref:m[1]});
+  if((m=n.match(/^(?:borra|elimina|quita)\w*\s+(?:el\s+)?habito\s+(?:de\s+)?(.+)$/))) return stRun('habito_borrar',{ref:m[1]});
+  if(!ringing&&ST.last&&ST.last.ent==='aviso'&&STE.aviso.list().some(function(r){return String(r.id)===ST.last.id})){
+    if((m=n.match(/^(?:pospon|posponla|atrasa|atrasala|retrasa|retrasala|aplaza|aplazala)\w*$/))&&!parseDur(n)) return stRun('alarma_posponer',{ref:'',minutos:10});
+    if(/^(?:muevela|mueve|pasala|cambiala|ponla|dejala)\b/.test(n)){var t9=stTime(n,'alarma'); if(t9) return stRun('alarma_mover',{ref:'',hora:('0'+t9.getHours()).slice(-2)+':'+('0'+t9.getMinutes()).slice(-2)})}
+  }
+  var kind=/\brecordatorio\b/.test(n)?'recordatorio':/\balarma\b/.test(n)?'alarma':null;
+  if(kind&&!ringing){
+    var rel=/\b(mas tarde|mas temprano|atrasa\w*|retrasa\w*|pospon\w*|aplaza\w*|adelanta\w*)\b/.test(n);
+    var nt=stTime(n,kind), hh=nt?('0'+nt.getHours()).slice(-2)+':'+('0'+nt.getMinutes()).slice(-2):null;
+    var ref=(nt&&n.match(/\bde\s+las?\s+(\d{1,2}(?::\d{2})?)\s+(?:a|para)\s+las?\b/)||n.match(/\bde\s+las?\s+(\d{1,2}(?::\d{2})?)\s*$/)||[])[1]||(!nt&&(n.match(/\bde\s+las?\s+(\d{1,2}(?::\d{2})?)/)||[])[1])||'';
+    var art='(?:la\\s+|mi\\s+|esa\\s+|esta\\s+|el\\s+)?';
+    if(/^(?:pon|ponla|dejala|pospon\w*|atrasa\w*|retrasa\w*|aplaza\w*|adelanta\w*|mueve\w*|muevela|pasa\w*|cambia\w*)\s+(?:la\s+|mi\s+|esa\s+|esta\s+)(?:alarma|recordatorio)\b/.test(n)&&(rel||nt)&&!/\b(nombre|texto|mensaje|descripcion|diga|por|como|todos|cada|repite)\b/.test(n)&&!/^pon\s+(?:la\s+)?(?:alarma|recordatorio)\s+(?:a|para)\s+las?\b/.test(n)||/^(?:cambia\w*|muevela|mueve|pasala|pasa)\s+(?:la\s+|mi\s+)(?:alarma|recordatorio)\s+de\s+las?\s+\d.*\s(?:a|para)\s+las?\s+\d/.test(n)){
+      if(/\b(adelanta\w*|mas temprano)\b/.test(n)&&!nt) return false;
+      if(!nt&&parseDur(n)>0) return false;
+      if(nt) return stRun('alarma_mover',{ref:ref,tipo:kind,hora:hh});
+      return stRun('alarma_posponer',{ref:ref,tipo:kind,minutos:10});
+    }
+  }
+  return false;
+}
 /* ---------- Funciones con esquema JSON rígido (la IA llama funciones, no inventa texto) ---------- */
 var YESRE=/^(si|sip|sipi|correcto|claro|dale|ok|okay|okey|listo|exacto|confirmo|confirmado|afirmativo|asi es|esta bien|bien|de una|perfecto|eso es|eso|va|vale|por supuesto|obvio|aja|hazlo|borralo|borrala)\b/;
 var NORE=/^(no|nop|nope|nada|incorrecto|cancela|cancelalo|cancelala|mal|negativo|equivocado|deshaz|deshazlo|deshacer|dejalo|dejala|ese no|asi no|mejor no|todavia no)\b/;
@@ -3831,7 +4076,7 @@ var TOOLS=[
   {name:'set_system_volume',description:'Cambia el volumen general de la tablet (requiere la app Chispa Control).',parameters:{type:'object',properties:{percent:{type:'integer',minimum:0,maximum:100}},required:['percent']}},
   {name:'set_do_not_disturb',description:'Activa o desactiva No molestar en la tablet.',parameters:{type:'object',properties:{enabled:{type:'boolean'}},required:['enabled']}},
   {name:'find_recipes',description:'Muestra varias opciones de recetas.',parameters:{type:'object',properties:{dish:{type:'string',description:'Plato o ingrediente; vacío si es libre'},diet:{type:'array',items:{type:'string'},description:'Restricciones: sin azucar, ligera, vegetariana, vegana, sin gluten, rapida'}},required:['dish','diet']}}
-];
+].concat(ST_TOOLS);
 function schemaCheck(sc,v,path){
   path=path||'args'; var t=sc.type;
   if(t==='object'){ if(!v||typeof v!=='object'||Array.isArray(v)) return path+' debe ser objeto'; var req=sc.required||[]; for(var i=0;i<req.length;i++) if(v[req[i]]===undefined) return path+'.'+req[i]+' falta'; for(var k in (sc.properties||{})) if(v[k]!==undefined){var e=schemaCheck(sc.properties[k],v[k],path+'.'+k); if(e) return e} return null}
@@ -3875,6 +4120,7 @@ function runTool(name,a){
     case 'set_do_not_disturb': ctlDo('/dnd?on='+(a.enabled?1:0),a.enabled?'Listo, activé No molestar.':'Listo, quité No molestar.'); return true;
     case 'find_recipes': OPTS={dish:a.dish,diet:a.diet||[],list:[]}; optsSeen=[]; optsGen(a.dish,a.diet||[],false); return true;
   }
+  if(STOPS[name]) return stRun(name,a);
   return false;
 }
 function toGem(sc){
@@ -3883,7 +4129,7 @@ function toGem(sc){
 }
 function toolSys(){
   var n=new Date(), iso=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')+' '+String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
-  return persona('chat')+' REGLAS: cuando la persona pida una acción (temporizador, alarma, recordatorio, radio, video, música, ruido, clima, hora, agenda, lista, nota, recetas, detener), llama SIEMPRE la función correspondiente con parámetros exactos; no describas la acción en texto. Convierte horas relativas usando la fecha y hora actual: '+iso+' (zona America/Bogota, hora local). Si solo es conversación, responde en texto breve.';
+  return persona('chat')+' REGLAS: cuando la persona pida una acción (temporizador, alarma, recordatorio, radio, video, música, ruido, clima, hora, agenda, lista, nota, recetas, detener), llama SIEMPRE la función correspondiente con parámetros exactos; no describas la acción en texto. Convierte horas relativas usando la fecha y hora actual: '+iso+' (zona America/Bogota, hora local). Para modificar algo que ya existe (hábitos, tareas, alarmas) usa las funciones habito_*, tarea_* y alarma_* con el id exacto del ESTADO ACTUAL; nunca digas que lo hiciste sin llamar la función. Si solo es conversación, responde en texto breve. ESTADO ACTUAL: '+JSON.stringify(stState());
 }
 function aiTool(raw){
   var sys=toolSys(), msgs=hist.concat([{role:'user',content:raw}]);
@@ -3938,6 +4184,7 @@ function handle(raw){
   if(/\b(pideme|activa|pon|vuelve a pedir)\s+(la\s+)?confirmacion\b|\bconfirmame\s+todo\b/.test(q)){CFG.noConfirm=false; saveCfg(); reply('Listo, te confirmo cada cambio.'); return}
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
+  try{if(stCmd(q,raw)){misses=0; return}}catch(e){dlog('st error '+e.message)}
   try{if(editCmd(q,raw)){misses=0; return}}catch(e){dlog('edit error '+e.message)}
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
   try{if(radCtl(q,raw)){misses=0; return} if(radReq(q)){misses=0; radPlay(raw,q); return}}catch(e){dlog('radio error '+e.message)}
@@ -4067,6 +4314,7 @@ function askClaude(raw){
         var tl=TOOLS.filter(function(x){return x.name===res.name})[0], err=tl?schemaCheck(tl.parameters,res.args||{}):'función desconocida';
         dlog('  función: '+res.name+' '+JSON.stringify(res.args)+(err?' ✗ '+err:' ✓'));
         if(!err){hist.push({role:'user',content:raw},{role:'assistant',content:'(hice: '+res.name+')'}); hist=hist.slice(-6); setMood(baseline()); if(runTool(res.name,res.args)) return}
+        if(STOPS[res.name]){setMood(baseline()); reAsk('No te entendí bien. ¿Lo repites?'); return}
         return aiAsk(raw,{kind:'chat'}).then(function(t){t=cleanAi(t); hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6); reply(t)});
       }
       var t2=cleanAi(res.text); hist.push({role:'user',content:raw},{role:'assistant',content:t2}); hist=hist.slice(-6); reply(t2);
@@ -4763,7 +5011,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-17-menu', pendingUpdate=false;
+var APP_VERSION='2026-10-17-acciones', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
