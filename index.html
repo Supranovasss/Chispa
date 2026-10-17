@@ -566,9 +566,12 @@ setInterval(function(){
 
 /* ---------- Dormir y despertar ---------- */
 var asleepAt=0;
-function goSleep(){asleep=true; asleepAt=Date.now(); try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
-function wakeUp(){asleep=false; try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
-function act(){lastAct=Date.now(); if(asleep) wakeUp(); if(typeof sbOn!=='undefined'&&sbOn&&Date.now()-sbStart>800) sbExit()}
+var camSusp=false;
+function camSuspend(){if(camMode==='follow'&&stream){clearInterval(camTimer); stream.getTracks().forEach(function(t){t.stop()}); stream=null; el.cam.srcObject=null; camMode=null; camSusp=true; syncCam()}}
+function camResume(){if(camSusp){camSusp=false; if(CFG.follow) setTimeout(function(){if(!asleep) startFollow(true)},400)}}
+function goSleep(){asleep=true; asleepAt=Date.now(); try{camSuspend()}catch(e){} try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
+function wakeUp(){asleep=false; try{camResume()}catch(e){} try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
+function act(){lastAct=Date.now(); if(typeof GENT!=='undefined'&&GENT.t&&Date.now()-GENT.start>3000) gentleStop(); if(asleep) wakeUp(); if(typeof sbOn!=='undefined'&&sbOn&&Date.now()-sbStart>800) sbExit()}
 addEventListener('pointerdown',act,{passive:true});
 addEventListener('keydown',act);
 /* La pantalla solo se atenúa cuando se le ordena dormir; no hay modo dormir automático. */
@@ -1001,7 +1004,7 @@ function motionTick(){
     if(frac>.014) hits++; else hits=Math.max(0,hits-1);
     if(hits>=2&&Date.now()-lastAlert>10000){hits=0; lastAlert=Date.now(); motion()}
   }else if(camMode==='follow'){
-    if(asleep){if(frac>.018){presence++; if(presence>=3){presence=0; act()}}else presence=0}
+    if(asleep&&!nightOn()){if(frac>.018){presence++; if(presence>=3){presence=0; act()}}else presence=0}
     if(frac>.005){
       var x=sx/ch/MWD, y=sy/ch/MHT;
       gaze={x:clamp((.5-x)*2*1.5*34,-34,34),y:clamp((y-.5)*2*1.4*18,-18,18)};
@@ -1149,7 +1152,7 @@ function startWatch(){
 }
 var followTry=0;
 function startFollow(quiet){
-  CFG.follow=true; followTry=Date.now();
+  CFG.follow=true; followTry=Date.now(); if(asleep){camSusp=true; return}
   if(camMode==='follow'){if(!quiet) reply('Ya te estoy siguiendo con la mirada.'); return}
   endGame();
   return startMode('follow',false).then(function(){if(!quiet) reply('Te miro. Muévete y te sigo con la mirada.')}).catch(function(e){
@@ -2596,7 +2599,9 @@ var INTENTS=[
    function(){startWatch()}],
   [function(q){return /(ya puedes (dormir|descansar)|hora de (dormir|la siesta|descansar|acostarse)|a dormir|duermete|duerme|vamos a dormir|me voy a dormir|buenas noches|siesta|modo noche|descansa|apaga.*pantalla|atenua|oscurece|baja.*(luz|brillo))/.test(q)},
    function(q){
-     var m=/siesta/.test(q)?'Que tengas una linda siesta. Di Oye Chispa cuando me necesites.':/(pantalla|atenua|oscurece|luz|brillo)/.test(q)?'Listo, atenúo la pantalla. Di Oye Chispa y despierto.':'Buenas noches, que descanses. Di Oye Chispa cuando me necesites.';
+     var night=!/siesta/.test(q)&&(/(buenas noches|me voy a dormir|a dormir|vamos a dormir|modo noche|ya puedes (dormir|descansar)|hora de (dormir|acostarse))/.test(q)||(/(duermete|duerme|descansa)/.test(q)&&inNightWindow()));
+     if(night) nightStart();
+     var m=/siesta/.test(q)?'Que tengas una linda siesta. Di Oye Chispa cuando me necesites.':night?'Buenas noches, que descanses. Mañana te despierto a las '+wakeTxt()+' con una alarma suave.':/(pantalla|atenua|oscurece|luz|brillo)/.test(q)?'Listo, atenúo la pantalla. Di Oye Chispa y despierto.':'Buenas noches, que descanses. Di Oye Chispa cuando me necesites.';
      if(!$('#vid').hidden) closeVideo();
      reply(m).then(goSleep)}],
   [function(q){return /(que h?oras?\b|la h?ora|h?ora es|horas son|hora (tenemos|tiene|marca|actual))/.test(q)},
@@ -3158,15 +3163,15 @@ function dashRender(){
 function dashTick(){
   var on=(CFG.dash!==false)&&!winBlocking(), D=$('#dash');
   document.body.classList.toggle('dashon',on); D.hidden=!on; if(on) dashRender();
-  habRoll(); var hbx=$('#habs'); if(hbx) hbx.hidden=!!CFG.habOff||!HB.list.length||winBlocking();
+  nightTick(); habRoll(); var hbx=$('#habs'); if(hbx) hbx.hidden=!!CFG.habOff||!HB.list.length||winBlocking();
   if(sbOn){sbRender()}
-  else if(CFG.sbOff!==true&&Date.now()-lastAct>(CFG.sbMin||2)*60000&&!asleep&&!talking&&!mediaOn()&&!winBlocking()&&Date.now()>armedUntil&&!(listening&&!wakeOn)&&camMode!=='rps'&&camMode!=='gestures') sbEnter();
+  else if(CFG.sbOff!==true&&Date.now()-lastAct>(CFG.sbMin||10)*60000&&!asleep&&!talking&&!mediaOn()&&!winBlocking()&&Date.now()>armedUntil&&!(listening&&!wakeOn)&&camMode!=='rps'&&camMode!=='gestures') sbEnter();
 }
 setInterval(dashTick,1000);
 function amb2(q,raw){
   if(/\b(modo ambiente|pantalla de descanso|salvapantallas|modo descanso|protector de pantalla)\b/.test(q)&&!/\b(desactiva|quita|apaga|sin)\b/.test(q)){CFG.sbOff=false; saveCfg(); sbEnter(); return true}
   if(/\b(desactiva|quita|apaga|sin)\w*\b.*\b(modo ambiente|pantalla de descanso|salvapantallas)\b/.test(q)){CFG.sbOff=true; saveCfg(); reply('Listo, desactivé el modo ambiente.'); return true}
-  if(/\b(activa|enciende|pon)\w*\b.*\b(modo ambiente)\b/.test(q)){CFG.sbOff=false; saveCfg(); reply('Listo, el modo ambiente se activa tras '+(CFG.sbMin||2)+' minutos sin uso.'); return true}
+  if(/\b(activa|enciende|pon)\w*\b.*\b(modo ambiente)\b/.test(q)){CFG.sbOff=false; saveCfg(); reply('Listo, el modo ambiente se activa tras '+(CFG.sbMin||10)+' minutos sin uso.'); return true}
   if(/\b(oculta|quita|esconde|desactiva)\w*\b.*\btablero\b/.test(q)){CFG.dash=false; saveCfg(); reply('Listo, oculté el tablero.'); return true}
   if(/\b(muestra|pon|activa|enciende)\w*\b.*\b(tablero|panel del dia|resumen del dia)\b/.test(q)){CFG.dash=true; saveCfg(); reply('Aquí está el tablero.'); return true}
   return false;
@@ -3291,20 +3296,20 @@ function todayTasks(){
   return REMS.filter(function(r){return r.at>=now-60000&&r.at<eod}).sort(function(a,b){return a.at-b.at});
 }
 function briefing(withAll,gr){
-  if(BR.busy) return; BR.busy=true; setMood('thinking'); el.bubble.textContent=withAll?'Preparando tu resumen…':'Buscando titulares…';
+  if(BR.busy) return; if(nightOn()) nightEnd(); gentleStop(); BR.busy=true; setMood('thinking'); el.bubble.textContent=withAll?'Preparando tu resumen…':'Buscando titulares…';
   var nw=getNews().catch(function(){return []}), now=new Date(), nm=CFG.name?', '+CFG.name:'';
   nw.then(function(news){
     BR.busy=false; setMood(baseline());
-    var all=todayTasks(), top=all.slice(0,3), parts=[], hd=news.slice(0,3);
+    var all=todayTasks(), top=all.slice(0,3), parts=[], hd=news.slice(0,5);
     var say=[];
     if(withAll){
-      say.push((gr||saludo())+nm+'. Hoy es '+dateFmt.format(now)+'.');
+      say.push((gr||saludo())+nm+'. Hoy es '+dateFmt.format(now)+'. '+BDL[Math.floor(Math.random()*BDL.length)]);
       if(WX) say.push('Ahora hay '+Math.round(WX.t)+' grados con '+WX.desc+'. Hoy la mínima es '+Math.round(WX.min)+' y la máxima '+Math.round(WX.max)+', con '+Math.round(WX.rain)+' por ciento de probabilidad de lluvia.'+(WX.rain>=50?' Lleva paraguas.':''));
       else say.push('No pude consultar el clima ahora.');
       if(top.length) say.push('Tus '+(top.length===1?'pendiente':'principales pendientes')+' de hoy: '+top.map(function(r){return atText(new Date(r.at))+', '+(r.msg||(r.kind==='alarma'?'alarma':'recordatorio'))}).join('; ')+'.'+(all.length>3?' Y '+(all.length-3)+' más.':''));
       else say.push('No tienes pendientes para hoy.');
     }
-    if(hd.length) say.push((withAll?'Los titulares: ':'Estos son los titulares: ')+hd.map(function(t,i){return ['Primero','Segundo','Tercero'][i]+', '+t.replace(/[.!?]+$/,'')+'.'}).join(' ')); else say.push('No pude traer noticias ahora. Revisa el internet.');
+    if(hd.length) say.push((withAll?'Las noticias más importantes: ':'Estos son los titulares: ')+hd.map(function(t,i){return ['Primero','Segundo','Tercero','Cuarto','Quinto'][i]+', '+t.replace(/[.!?]+$/,'')+'.'}).join(' ')); else say.push('No pude traer noticias ahora. Revisa el internet.');
     var B=$('#brB'); B.textContent='';
     if(withAll){
       B.appendChild(mk('h2',null,(gr||saludo())+nm)); B.appendChild(mk('div','bd',cap(dateFmt.format(now))));
@@ -3320,7 +3325,7 @@ function briefing(withAll,gr){
 }
 var BR={busy:false};
 function briefCmd(q,raw){
-  if(q.length<44&&/^(?:oye chispa\s+)?(buenos dias|buen dia|buenas dias)\b/.test(q)||/\b(resumen|briefing|informe)\s+(de la\s+manana|del dia|matutino|de hoy)\b|\bdame\s+(el|mi)\s+resumen\b|\bque (hay|tengo) para hoy\b|\bponme al dia\b|\bresumen (de )?(buenos dias|matutino)/.test(q)){briefing(true,/buen(os)? dias?|buenas dias/.test(q)?'Buenos días':null); return true}
+  if(q.length<54&&/^(?:(?:oye|hey|ey|o)?\s*chispa[,.\s]*)?(buenos dias|buen dia|buenas dias)\b/.test(q)||/\b(resumen|briefing|informe)\s+(de la\s+manana|del dia|matutino|de hoy)\b|\bdame\s+(el|mi)\s+resumen\b|\bque (hay|tengo) para hoy\b|\bponme al dia\b|\bresumen (de )?(buenos dias|matutino)/.test(q)){briefing(true,/buen(os)? dias?|buenas dias/.test(q)?'Buenos días':null); return true}
   if(/\b(noticias|titulares)\b/.test(q)&&/\b(dame|dime|lee|leeme|muestrame|ensename|cuales son|ultimas|que hay de|hay alguna|las de hoy|de hoy|quiero|pon(?:me)? las)\b/.test(q)&&!/\b(radio|emisora|video|youtube|musica)\b/.test(q)){briefing(false); return true}
   var m=q.match(/\b(?:usa|cambia|pon|configura)\w*\s+(?:el\s+)?(?:feed|rss)\s+(?:de\s+)?(https?:\S+)/i); if(m){CFG.rss=raw.match(/https?:\S+/)[0]; saveCfg(); NEWSC.t=0; reply('Listo, usaré ese feed para las noticias.'); return true}
   return false;
@@ -3431,7 +3436,7 @@ var CMDS=[
  {t:'Conversar y aprender',i:'💬',kw:/\b(chiste|historia|cuento|dato|curioso|anecdota|conversar|pregunta|preguntar|imagen|dibuja)\b/,x:['Cuéntame un chiste','Dime un dato curioso','Cuéntame una historia','Cuéntame una anécdota','Dibújame un gato en la luna','Muéstrame imágenes de Medellín','Hazme preguntas (trivia)','Cualquier pregunta (necesita la llave de IA)']},
  {t:'Juegos y cámara',i:'🎮',kw:/\b(juego|juegos|jugar|camara|vigilar|vigila|baila|bailar)\b/,x:['Vamos a jugar','Piedra, papel o tijera','Adivina el número','Cara o sello / Tira un dado','Juegos con cámara','Sígueme con los ojos','Vigila (modo seguridad)','Baila']},
  {t:'Tablet (app Chispa Control)',i:'🔆',kw:/\b(brillo|volumen|bateria|tablet|control|molestar)\b/,x:['Sube el brillo / Baja el brillo','Pon el brillo al 30%','Brillo al máximo / al mínimo / automático','Pon el volumen de la tablet al 50%','Mantén la pantalla encendida','Activa No molestar','¿Cuánta batería tiene la tablet?','¿Está conectada la app de control?','Actualiza la app de control','Cuando te duermes o entras al modo ambiente, baja el brillo real solo','Instalación: descarga ChispaControl.apk desde github.com/Supranovasss/Chispa/releases/tag/control-latest, ábrela y toca los 5 pasos']},
- {t:'Pantalla y modos',i:'🌙',kw:/\b(pantalla|dormir|duerme|modo|tablero|actualiza|actualizar|version|confirmacion)\b/,x:['Duérmete / Buenas noches (pantalla oscura)','Oye Chispa (para despertar)','Activa / desactiva el modo ambiente','Oculta / muestra el tablero','No me pidas confirmación / Pídeme confirmación','Cierra todo','Actualízate (busca la versión nueva)','Qué comandos hay (esta lista)']},
+ {t:'Pantalla y modos',i:'🌙',kw:/\b(pantalla|dormir|duerme|modo|tablero|actualiza|actualizar|version|confirmacion)\b/,x:['Duérmete / Buenas noches (pantalla oscura hasta las 6:40 de la mañana)','Desactiva el modo noche / Ya me desperté','Cambia la hora de despertar a las 7','Oye Chispa, buenos días (saludo, clima, pendientes y noticias)','Pon la pantalla de reloj a 5 minutos','Oye Chispa (para despertar)','Activa / desactiva el modo ambiente','Oculta / muestra el tablero','No me pidas confirmación / Pídeme confirmación','Cierra todo','Actualízate (busca la versión nueva)','Qué comandos hay (esta lista)']},
  {t:'Confirmar y corregir',i:'✅',kw:/\b(confirmar|corregir|deshacer|correcto)\b/,x:['Cuando Chispa pregunta "¿correcto?": di "correcto" o "sí"','Si algo quedó mal: di "no" y lo deshace','Antes de borrar algo te pregunta: "sí" para borrar']}
 ];
 (function(){
@@ -3487,7 +3492,7 @@ function ctlCall(path,ms){
   return fetch(CTL.base+path,{cache:'no-store',signal:c.signal,targetAddressSpace:'loopback'}).then(function(r){clearTimeout(t); return r.json()}).then(function(j){CTL.ok=true; return j},function(e){clearTimeout(t); CTL.ok=false; throw e});
 }
 function ctlPing(){
-  return ctlCall('/ping').then(function(j){CTL.v=j.v||''; if(Date.now()-CTL.chk>3600000){CTL.chk=Date.now(); ctlCall('/update/check',9000).then(function(u){CTL.newer=!!u.newer}).catch(function(){})} return true}).catch(function(){return false});
+  return ctlCall('/ping').then(function(j){CTL.v=j.v||''; if(asleep&&!(j.dimmed)) ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1'); if(Date.now()-CTL.chk>3600000){CTL.chk=Date.now(); ctlCall('/update/check',9000).then(function(u){CTL.newer=!!u.newer}).catch(function(){})} return true}).catch(function(){return false});
 }
 function ctlSoft(path){if(CTL.ok) ctlCall(path).catch(function(){})}
 function ctlErr(e){return /ajustes|Modificar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 1, Modificar ajustes del sistema.':/No molestar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 2, No molestar.':/desconocidas|Instalar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 5, Instalar actualizaciones.':'No pude hacerlo: '+(e||'error')+'.'}
@@ -3523,6 +3528,46 @@ function ctlCmd(q,raw){
   if(/\b(no molestar|no me molestes)\b/.test(q)){var off=/\b(desactiva|quita|apaga|termina|sin)\b/.test(q); ctlDo('/dnd?on='+(off?0:1),off?'Listo, quité No molestar.':'Listo, activé No molestar.'); return true}
   return false;
 }
+/* ---------- Modo noche (dormida hasta la hora de despertar) y despertar suave ---------- */
+var NIGHT={until:0}, GENT={t:0,n:0,start:0};
+function wakeAt(){return [CFG.wakeH==null?6:CFG.wakeH, CFG.wakeM==null?40:CFG.wakeM]}
+function wakeTxt(){var w=wakeAt(), h=w[0]%12||12; return h+(w[1]?' y '+(w[1]<10?'0'+w[1]:w[1]):' en punto')+(w[0]<12?' de la mañana':' de la tarde')}
+function nextWake(){var w=wakeAt(), now=Date.now(), d=new Date(now); d.setHours(w[0],w[1],0,0); if(d.getTime()<=now) d.setDate(d.getDate()+1); return d.getTime()}
+function nightSave(){try{localStorage.setItem('chispa.night',JSON.stringify(NIGHT))}catch(e){}}
+function nightLoad(){try{var o=JSON.parse(localStorage.getItem('chispa.night')||'null'); if(o&&o.until>Date.now()){NIGHT=o; goSleep()}}catch(e){}}
+function nightOn(){return NIGHT.until>Date.now()}
+function nightStart(){NIGHT={until:nextWake()}; nightSave()}
+function nightEnd(){NIGHT={until:0}; nightSave(); gentleStop()}
+function inNightWindow(){var d=new Date(), w=wakeAt(), m=d.getHours()*60+d.getMinutes(); return m>=19*60||m<w[0]*60+w[1]}
+function gentleStop(){clearInterval(GENT.t); GENT.t=0}
+function gentlePlay(){
+  if(GENT.n++>=26){gentleStop(); return}
+  var c=audio(); if(!c) return; try{c.resume()}catch(e){}
+  var g=Math.min(.16,.03+GENT.n*.005), t0=c.currentTime+.05;
+  [523.25,659.25,783.99,1046.5].forEach(function(f,i){var o=c.createOscillator(), e=c.createGain(), s=t0+i*.55; o.type='sine'; o.frequency.value=f; e.gain.setValueAtTime(0,s); e.gain.linearRampToValueAtTime(g,s+.08); e.gain.exponentialRampToValueAtTime(.0008,s+1.4); o.connect(e); e.connect(c.destination); o.start(s); o.stop(s+1.5)});
+}
+function gentleStart(){gentleStop(); GENT.n=0; GENT.start=Date.now(); GENT.t=setInterval(gentlePlay,7000); gentlePlay()}
+function morningWake(){
+  NIGHT={until:0}; nightSave(); if(sbOn) sbExit(); wakeUp(); lastAct=Date.now(); GENT.start=Date.now();
+  setMood('happy',9000); document.dispatchEvent(new Event('chispa-burst')); el.bubble.textContent='¡Buenos días! Di: Oye Chispa, buenos días';
+  gentleStart();
+}
+function nightTick(){
+  if(NIGHT.until&&Date.now()>=NIGHT.until){morningWake(); return}
+  if(nightOn()&&!asleep&&Date.now()-lastAct>120000&&!talking&&!ringing&&!game&&!recipe) goSleep();
+}
+function nightCmd(q,raw){
+  if(/\b(desactiva|quita|cancela|apaga|termina|salte del)\w*\s+(el\s+)?modo noche\b|\bya (me )?(desperte|levante|desperto)\b|\bdespierta\b|\bdespiertate\b/.test(q)){var was=nightOn(); nightEnd(); if(asleep) wakeUp(); reply(was?'Listo, salgo del modo noche. ¡Buenos días!':'Ya estoy despierta.'); return true}
+  var m=q.match(/\b(?:hora de despertar|despertar de chispa|despiertes|despiertate|modo noche|desperte)\D{0,30}?(\d{1,2})(?:\s*(?::|\.|y)\s*(\d{2}))?\s*(?:de la\s+)?(manana|am|a m|tarde|pm)?/);
+  if(m&&/\b(cambia|pon|configura|programa|ajusta|quiero|que me)\b/.test(q)&&/\b(despert|modo noche)/.test(q)&&!/\b(alarma|recordatorio)\b/.test(q)){
+    var h=+m[1], mi=m[2]?+m[2]:0; if(m[3]&&/tarde|pm/.test(m[3])&&h<12) h+=12; if(h>23||mi>59) return false;
+    CFG.wakeH=h; CFG.wakeM=mi; saveCfg(); if(nightOn()){NIGHT.until=nextWake(); nightSave()} reply('Listo, mañana te despierto a las '+wakeTxt()+'.'); return true}
+  var sm=q.match(/\b(?:modo ambiente|pantalla de reloj|pantalla de descanso|protector de pantalla|pantalla de bloqueo)\b.*?(\d{1,3})\s*minutos?/);
+  if(sm&&/\b(cambia|pon|configura|despues de|tras|cada|a)\b/.test(q)){var mm=Math.max(1,Math.min(120,+sm[1])); CFG.sbMin=mm; CFG.sbOff=false; saveCfg(); reply('Listo, la pantalla del reloj se activa tras '+mm+' minutos sin uso.'); return true}
+  return false;
+}
+nightLoad();
+var BDL=['Que tengas un día lleno de cosas buenas.','Hoy es un buen día para empezar con calma y buena energía.','Un vaso de agua para arrancar y ya vas ganando el día.','Cada día es una página nueva. Hagámosla bonita.','Respira hondo, sonríe, y a por el día.','Tú puedes con todo lo de hoy, y yo te ayudo.'];
 /* ---------- Funciones con esquema JSON rígido (la IA llama funciones, no inventa texto) ---------- */
 var YESRE=/^(si|sip|sipi|correcto|claro|dale|ok|okay|okey|listo|exacto|confirmo|confirmado|afirmativo|asi es|esta bien|bien|de una|perfecto|eso es|eso|va|vale|por supuesto|obvio|aja|hazlo|borralo|borrala)\b/;
 var NORE=/^(no|nop|nope|nada|incorrecto|cancela|cancelalo|cancelala|mal|negativo|equivocado|deshaz|deshazlo|deshacer|dejalo|dejala|ese no|asi no|mejor no|todavia no)\b/;
@@ -3664,7 +3709,7 @@ function handle(raw){
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
   try{if(radCtl(q,raw)){misses=0; return} if(radReq(q)){misses=0; radPlay(raw,q); return}}catch(e){dlog('radio error '+e.message)}
   try{if(!(typeof optsOn==='function'&&optsOn()&&selNum(q)!=null)&&ctxMedia(q,raw)){misses=0; return}}catch(e){dlog('ctx error '+e.message)}
-  try{if(cmdsCmd(q,raw)||ctlCmd(q,raw)||updCmd(q)||habitCmd(q,raw)||briefCmd(q,raw)||calcViz(q,raw)){misses=0; return}}catch(e){dlog('nuevo error '+e.message)}
+  try{if(nightCmd(q,raw)||cmdsCmd(q,raw)||ctlCmd(q,raw)||updCmd(q)||habitCmd(q,raw)||briefCmd(q,raw)||calcViz(q,raw)){misses=0; return}}catch(e){dlog('nuevo error '+e.message)}
   for(var i=0;i<INTENTS.length;i++){
     if(INTENTS[i][0](q)){misses=0; INTENTS[i][1](q,raw); return}
   }
@@ -4485,7 +4530,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-tablero', pendingUpdate=false;
+var APP_VERSION='2026-10-16-noche', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
