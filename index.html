@@ -470,6 +470,34 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
 (function(){
 'use strict';
 var $=function(s){return document.querySelector(s)};
+/* Transiciones suaves al abrir y cerrar ventanas: se aplican a la propiedad hidden de las tarjetas */
+(function(){
+  var NAT=Object.getOwnPropertyDescriptor(HTMLElement.prototype,'hidden'); if(!NAT||!NAT.set) return;
+  var SEL='#kcard,#xcard,#lcard,#ycard,#acard,#tcard,#wcard,#vid,#imgv,#hub,#rside,#rcard,#sheet,#dash,#habs,#brief,#cc,#cmds,#menu,.radc,.bigc', T=new WeakMap(), ready=false;
+  setTimeout(function(){ready=true},1500);
+  var st=document.createElement('style'); st.textContent='@keyframes xin{from{opacity:0;scale:.965;translate:0 10px}to{opacity:1;scale:1;translate:0 0}}@keyframes xinR{from{opacity:0;translate:28px 0}to{opacity:1;translate:0 0}}@keyframes xout{from{opacity:1;scale:1;translate:0 0}to{opacity:0;scale:.97;translate:0 6px}}@keyframes xoutR{from{opacity:1;translate:0 0}to{opacity:0;translate:28px 0}}.xin{animation:xin .34s cubic-bezier(.2,.8,.2,1) both}.xout{animation:xout .24s ease-in both;pointer-events:none}#sheet.xin{animation-name:xinR}#sheet.xout{animation-name:xoutR}@media (prefers-reduced-motion:reduce){.xin,.xout{animation:none!important}}';
+  document.head.appendChild(st);
+  Object.defineProperty(HTMLElement.prototype,'hidden',{configurable:true,
+    get:function(){var s=T.get(this); return s&&s.v!==undefined?s.v:NAT.get.call(this)},
+    set:function(v){
+      v=!!v; var el=this, s=T.get(el); if(!s){s={v:undefined,t:0}; T.set(el,s)}
+      var animate=ready&&!document.hidden&&!(typeof asleep!=='undefined'&&asleep)&&!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)&&el.matches(SEL);
+      if(!animate){clearTimeout(s.t); s.t=0; s.v=undefined; el.classList.remove('xin','xout'); NAT.set.call(el,v); return}
+      var cur=s.v!==undefined?s.v:NAT.get.call(el);
+      if(cur===v&&!s.t) return;
+      if(v){
+        if(NAT.get.call(el)){s.v=undefined; return}
+        if(s.t) return;
+        s.v=true; el.classList.remove('xin'); el.classList.add('xout');
+        s.t=setTimeout(function(){s.t=0; if(s.v===true) NAT.set.call(el,true); s.v=undefined; el.classList.remove('xout')},240);
+      }else{
+        clearTimeout(s.t); s.t=0; s.v=undefined; var was=NAT.get.call(el);
+        el.classList.remove('xout'); NAT.set.call(el,false);
+        if(was){el.classList.remove('xin'); void el.offsetWidth; el.classList.add('xin'); setTimeout(function(){el.classList.remove('xin')},420)}
+      }
+    }});
+})();
+
 var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 var CITY='Medellín', LAT=6.2442, LON=-75.5812, TZ='America/Bogota';
 
@@ -5011,7 +5039,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-17-acciones', pendingUpdate=false;
+var APP_VERSION='2026-10-17-transiciones', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
