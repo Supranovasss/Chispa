@@ -126,6 +126,26 @@ public class MainActivity extends Activity {
         svcChip.setPadding(dp(14), dp(10), dp(14), dp(10));
         col.addView(svcChip, lp(-2, -2, 0, 16, 0, 0));
 
+        // Botón principal: iniciar Chispa en Chrome
+        LinearLayout start = new LinearLayout(this);
+        start.setOrientation(LinearLayout.HORIZONTAL);
+        start.setGravity(Gravity.CENTER_VERTICAL);
+        start.setPadding(dp(20), dp(16), dp(20), dp(16));
+        GradientDrawable sg = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{GLOW, Color.parseColor("#FF9A76")});
+        sg.setCornerRadius(dp(24));
+        start.setBackground(sg);
+        start.setClickable(true);
+        TextView sIc = text("⚡", 28, DARK_INK, false);
+        start.addView(sIc, lp(-2, -2, 0, 0, 16, 0));
+        LinearLayout sTx = new LinearLayout(this);
+        sTx.setOrientation(LinearLayout.VERTICAL);
+        sTx.addView(text("Iniciar Chispa", 20, DARK_INK, true));
+        sTx.addView(text("Abre Google Chrome con Chispa lista para hablar", 13, Color.parseColor("#5A3A38"), false), lp(-2, -2, 0, 4, 0, 0));
+        start.addView(sTx, new LinearLayout.LayoutParams(0, -2, 1f));
+        start.addView(text("›", 28, DARK_INK, true));
+        start.setOnClickListener(v -> run(() -> control.handle("/open", q())));
+        col.addView(start, lp(-1, -2, 0, 20, 0, 0));
+
         // Progreso de permisos
         LinearLayout ph = new LinearLayout(this);
         ph.setOrientation(LinearLayout.HORIZONTAL);
@@ -154,7 +174,7 @@ public class MainActivity extends Activity {
         tests.setOrientation(LinearLayout.HORIZONTAL);
         tests.addView(testTile("🌙", "Brillo al 15 %", v -> run(() -> control.handle("/brightness", q("level", "15", "save", "1")))), new LinearLayout.LayoutParams(0, -2, 1f));
         tests.addView(testTile("☀️", "Restaurar brillo", v -> run(() -> control.handle("/brightness/restore", q()))), lp(0, -2, 10, 0, 0, 0, 1f));
-        tests.addView(testTile("✨", "Abrir Chispa", v -> run(() -> control.handle("/open", q()))), lp(0, -2, 10, 0, 0, 0, 1f));
+        tests.addView(testTile("🔄", "Reiniciar servicio", v -> { startSvc(); refresh(); resultTxt.setTextColor(OK); resultTxt.setText("✓ Servicio reiniciado"); }), lp(0, -2, 10, 0, 0, 0, 1f));
         col.addView(tests, lp(-1, -2, 0, 12, 0, 0));
         resultTxt = text("", 13, MUTED, false);
         resultTxt.setLineSpacing(0, 1.2f);
