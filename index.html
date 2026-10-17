@@ -1669,7 +1669,7 @@ try{REMS=JSON.parse(localStorage.getItem('chispa.rem')||'[]')}catch(e){REMS=[]}
 try{SHOP=JSON.parse(localStorage.getItem('chispa.shop')||'[]')}catch(e){SHOP=[]}
 function saveRem(){try{localStorage.setItem('chispa.rem',JSON.stringify(REMS))}catch(e){}}
 function saveShop(){try{localStorage.setItem('chispa.shop',JSON.stringify(SHOP))}catch(e){}}
-function fmtWhen(r){var d=new Date(r.at); return cap(dayText(d))+' · '+d.toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'})}
+function fmtWhen(r){var d=new Date(r.at); if(r.rep) return '🔁 '+cap(repText(r.rep))+' · '+d.toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'}); return cap(dayText(d))+' · '+d.toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'})}
 function renderRems(){
   var ul=$('#alist'); ul.textContent='';
   REMS.slice().sort(function(a,b){return a.at-b.at}).forEach(function(r){
@@ -1684,12 +1684,80 @@ function renderShop(){
   SHOP.forEach(function(it){var li=document.createElement('li'); li.textContent='• '+it; ul.appendChild(li)});
   if(!SHOP.length){var e=document.createElement('li'); e.textContent='La lista está vacía.'; ul.appendChild(e)}
 }
-function addRem(kind,at,msg){
-  REMS.push({id:Date.now()+Math.random(),at:at.getTime(),kind:kind,msg:msg||''}); saveRem(); renderRems(); popCard('acard',14000);
-  var t=dayText(at)+' '+atText(at);
+function addRem(kind,at,msg,rp){
+  if(rp&&rp.length) at=nextOcc(rp,at.getHours(),at.getMinutes());
+  var o={id:Date.now()+Math.random(),at:at.getTime(),kind:kind,msg:msg||''}; if(rp&&rp.length) o.rep=rp;
+  REMS.push(o); saveRem(); renderRems(); popCard('acard',14000);
+  var t=rp&&rp.length?repText(rp)+' '+atText(at):dayText(at)+' '+atText(at);
   reply(kind==='alarma'?'Listo, alarma '+t+(msg?': '+msg:'')+'.':'Listo, te lo recuerdo '+t+(msg?': '+msg:'')+'.');
 }
+/* ---------- Recordatorios y alarmas que se repiten ---------- */
+var DNAME=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+var RD_D='(?:lunes|martes|miercoles|jueves|viernes|sabados?|domingos?)';
+function dayNum(w){w=w.replace(/s$/,''); return {domingo:0,lunes:1,martes:2,miercole:3,miercoles:3,jueves:4,viernes:5,sabado:6}[w==='lune'?'lunes':w==='marte'?'martes':w==='miercole'?'miercoles':w==='jueve'?'jueves':w==='vierne'?'viernes':w]}
+function repParse(raw){
+  var n=norm(raw), m, days=null, span=null;
+  if((m=n.match(/\b(?:de\s+lunes\s+a\s+viernes|lunes\s+a\s+viernes|entre\s+semana|dias\s+de\s+semana|dias\s+habiles|dias\s+laborales|todos\s+los\s+dias\s+de\s+semana)\b/))){days=[1,2,3,4,5]}
+  else if((m=n.match(/\b(?:todos\s+los\s+|cada\s+|los\s+)fines?\s+de\s+semana\b|\bsabados\s+y\s+domingos\b/))){days=[0,6]}
+  else if((m=n.match(new RegExp('\\b(?:todos\\s+los|todas\\s+los|cada|los)\\s+('+RD_D+'(?:\\s*(?:,|y|e)\\s*'+RD_D+')*)\\b')))){
+    days=[]; (m[1].match(new RegExp(RD_D,'g'))||[]).forEach(function(w){var d=dayNum(w); if(d!==undefined&&days.indexOf(d)<0) days.push(d)}); days.sort(function(a,b){return a-b}); if(!days.length) days=null}
+  else if((m=n.match(/\b(?:todos\s+los\s+(?:santos\s+)?dias|cada\s+dia|diariamente|a\s+diario|todas\s+las\s+(?:mananas|tardes|noches)|cada\s+(?:manana|tarde|noche)|todos\s+los\s+dias\s+del\s+ano|diario|de\s+forma\s+diaria|todo\s+los\s+dias)\b/))){days=[0,1,2,3,4,5,6]}
+  if(!days) return {days:null,raw:raw};
+  var s=raw.slice(0,m.index)+' '+raw.slice(m.index+m[0].length);
+  return {days:days,raw:s.replace(/\s+/g,' ').trim()};
+}
+function repText(d){
+  if(!d||d.length===7) return 'todos los días';
+  if(d.join()==='1,2,3,4,5') return 'de lunes a viernes';
+  if(d.join()==='0,6') return 'los fines de semana';
+  var n=d.map(function(x){return DNAME[x]}); return 'todos los '+(n.length>1?n.slice(0,-1).join(', ')+' y '+n[n.length-1]:n[0]);
+}
+function nextOcc(days,h,mi,from){
+  from=from||new Date(); var t=new Date(from.getFullYear(),from.getMonth(),from.getDate());
+  for(var i=0;i<9;i++){var d=new Date(t.getFullYear(),t.getMonth(),t.getDate()+i,h,mi,0,0); if(days.indexOf(d.getDay())>=0&&d.getTime()>from.getTime()) return d}
+  return new Date(from.getTime()+86400000);
+}
+function splitTimes(raw){
+  var tk=raw.split(/\s*(?:;|,|\by\b)\s*/i).filter(function(x){return x.trim()}), out=[], cur='';
+  tk.forEach(function(x){
+    cur=cur?cur+', '+x:x;
+    if(TRE.test(norm(cur))){out.push(cur); cur=''}
+  });
+  if(cur&&out.length) out[out.length-1]+=', '+cur;
+  return out.length>1?out:[raw];
+}
+function repClean(m){
+  var prev; m=String(m||'');
+  do{prev=m; m=m.replace(/^[\s:,.;-]+/,'').replace(/^(?:gen[eé]rame|genera|cr[eé]ame|crea|se[ñn][aá]lame|se[ñn]ala|ag[eé]ndame|agenda|organ[ií]zame|organiza|hazme|haz|ponme|pon|programa|recu[eé]rdame|recuerda|av[ií]same)\b/i,'').replace(/^(?:una?|el|la|los|las|me|mi|en la agenda|en mi agenda|en el calendario|notificaci[oó]n(?:es)?|rutina|alarma|recordatorio|aviso|para|que|de|a)\b/i,'')}while(m!==prev);
+  return m.replace(/\s+/g,' ').replace(/[\s:,.;-]+$/,'').trim();
+}
+function handleRepRem(raw,kind,days){
+  var parts=splitTimes(raw), made=[], need=null;
+  parts.forEach(function(pt){
+    var p=whenParse(pt,kind); var msg=repClean(remMsg(pt,p.spans||[]));
+    if(!p.at){if(parts.length===1) need={msg:msg}; return}
+    var hh=p.at.getHours(), mm=p.at.getMinutes();
+    if(parts.length>1&&made.length&&!/\b(manana|tarde|noche|madrugada|a\.?m|p\.?m|mediodia|medianoche)\b/.test(norm(pt))){
+      var pv=made[made.length-1], h12=hh%12, c=[h12,h12+12].filter(function(x){return x*60+mm>=pv.h*60+pv.mi}); if(c.length) hh=c[0];
+    }
+    var at2=new Date(p.at.getTime()); at2.setHours(hh,mm,0,0);
+    made.push({h:hh,mi:mm,msg:repClean(msg),at:at2});
+  });
+  if(!made.length){
+    askRem={kind:kind,msg:need?need.msg:'',off:null,rep:days,exp:Date.now()+30000};
+    reAsk('¿A qué hora '+repText(days)+'?'); return;
+  }
+  if(made.length===1){
+    var m1=made[0];
+    if(kind==='recordatorio'&&!m1.msg){askRem={kind:kind,at:m1.at,rep:days,exp:Date.now()+30000}; reAsk('Va. ¿Qué quieres que te recuerde '+repText(days)+' '+atText(m1.at)+'?'); return}
+    addRem(kind,m1.at,m1.msg,days); return;
+  }
+  made.forEach(function(m){REMS.push({id:Date.now()+Math.random(),at:nextOcc(days,m.h,m.mi).getTime(),kind:kind,msg:m.msg,rep:days})});
+  saveRem(); renderRems(); popCard('acard',16000);
+  reply('Listo, dejé '+made.length+' '+(kind==='alarma'?'alarmas':'recordatorios')+' '+repText(days)+': '+made.map(function(m){return atText(m.at)+(m.msg?', '+m.msg:'')}).join('; ')+'.');
+}
 function handleRem(raw,kind){
+  var rpp=repParse(raw); if(rpp.days){handleRepRem(rpp.raw,kind,rpp.days); return}
   var p=whenParse(raw,kind);
   var msg=remMsg(raw,p.spans);
   if(!p.at){
@@ -1701,12 +1769,12 @@ function handleRem(raw,kind){
 }
 function remFollow(raw){
   var a=askRem; askRem=null;
-  if(a.at){addRem(a.kind,a.at,raw.replace(/^(que\s+)/i,'').trim()); return}
+  if(a.at){addRem(a.kind,a.at,raw.replace(/^(que\s+)/i,'').trim(),a.rep); return}
   var q=a.off!=null?'a las '+raw.replace(/^a\s+(las?\s+)?/i,''):raw; if(!/\ba\s+la/i.test(q)&&!/^a\s+las/i.test(q)) q='a las '+q.replace(/^a\s+/,'');
   var p=whenParse((a.off===1?'mañana ':a.off===0?'hoy ':'')+q,a.kind);
   if(!p.at){reAsk('No entendí la hora. Dime por ejemplo: a las 7 y media de la mañana.'); askRem=a; askRem.exp=Date.now()+30000; return}
-  if(a.kind==='recordatorio'&&!a.msg){askRem={kind:a.kind,at:p.at,exp:Date.now()+30000}; reAsk('¿Qué quieres que te recuerde '+dayText(p.at)+' '+atText(p.at)+'?'); return}
-  addRem(a.kind,p.at,a.msg);
+  if(a.kind==='recordatorio'&&!a.msg){askRem={kind:a.kind,at:p.at,rep:a.rep,exp:Date.now()+30000}; reAsk('¿Qué quieres que te recuerde '+(a.rep?repText(a.rep):dayText(p.at))+' '+atText(p.at)+'?'); return}
+  addRem(a.kind,p.at,a.msg,a.rep);
 }
 function stopRing(){
   if(!ringing) return; clearInterval(ringLoop); clearTimeout(ringT); ringing=null; $('#ring').hidden=true; setMood(baseline());
@@ -1716,7 +1784,8 @@ function snoozeRing(){
   addRem(r.kind,new Date(Date.now()+300000),r.msg);
 }
 function fireRem(r,late){
-  REMS=REMS.filter(function(x){return x.id!==r.id}); saveRem(); renderRems();
+  if(r.rep&&r.rep.length){var nx=nextOcc(r.rep,new Date(r.at).getHours(),new Date(r.at).getMinutes(),new Date(Math.max(Date.now(),r.at)+1000)); r.at=nx.getTime()} else REMS=REMS.filter(function(x){return x.id!==r.id});
+  saveRem(); renderRems();
   act(); ringing=r; $('#ringT').textContent=(r.kind==='alarma'?'⏰ Alarma':'🔔 Recordatorio'); $('#ringM').textContent=r.msg||new Date().toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'});
   $('#ring').hidden=false; setMood('alert',60000); var go=function(){beep([880,1175,880,1175])}; go(); clearInterval(ringLoop); ringLoop=setInterval(go,5000);
   clearTimeout(ringT); ringT=setTimeout(stopRing,120000);
@@ -1729,7 +1798,8 @@ setInterval(function(){
   for(var i=0;i<REMS.length;i++) if(REMS[i].at<=now){fireRem(REMS[i],false); break}
 },1000);
 (function(){ // pendientes que vencieron con la app cerrada
-  var now=Date.now(), late=REMS.filter(function(r){return r.at<=now});
+  var now=Date.now();
+  REMS.forEach(function(r){if(r.rep&&r.rep.length&&now-r.at>=3*3600000){var d0=new Date(r.at); r.at=nextOcc(r.rep,d0.getHours(),d0.getMinutes(),new Date(now)).getTime()}});
   REMS=REMS.filter(function(r){return r.at>now||now-r.at<3*3600000}); saveRem();
   var l=REMS.filter(function(r){return r.at<=now}); if(l.length) setTimeout(function(){if(!ringing) fireRem(l[0],true)},4000);
   renderRems(); renderShop();
@@ -2427,6 +2497,7 @@ var INTENTS=[
      if(!mine.length){reply('No tengo '+(kind==='alarma'?'alarmas':'recordatorios')+' pendientes.'); return}
      var del=all?mine:[mine[0]]; REMS=REMS.filter(function(r){return del.indexOf(r)<0}); saveRem(); renderRems(); popCard('acard',12000);
      reply(all?'Listo, borré '+del.length+(kind==='alarma'?' alarmas.':' recordatorios.'):'Listo, cancelé la próxima '+kind+'.')}],
+  [function(q){return !!repParse(q).days&&/(recuerd|avis|alarma|notific|agend|senal|rutina|recordatorio|despiert|despert)/.test(q)&&!/\b(cancela|borra|elimina|quita|cuales|que alarmas|que recordatorios)\b/.test(q)}, function(q,raw){handleRem(raw,/(alarma|despiert|despert)/.test(q)?'alarma':'recordatorio')}],
   [function(q){return /(despiertame|despertame|\b(pon|ponme|programa|crea|configura|activa)\b.*\balarma\b|\balarma\s+(a|para|de|en|manana|hoy|el)\b)/.test(q)}, function(q,raw){handleRem(raw,'alarma')}],
   [function(q){return /(recuerdame|recuerdalo|avisame|recordatorio|recuerda que|no (me )?dejes (que )?(se me )?olvid)/.test(q)}, function(q,raw){handleRem(raw,'recordatorio')}],
   [function(q){return /(borra|vacia|limpia|elimina|reinicia)\s+(toda\s+)?(la\s+)?lista/.test(q)&&!/(reproduccion|musica)/.test(q)}, function(){SHOP=[]; saveShop(); renderShop(); popCard('lcard',8000); reply('Listo, vacié la lista de compras.')}],
@@ -2685,7 +2756,7 @@ function ctxMedia(q,raw){
   var strongNoun=/\b(mix|mixes|video|videos|clip|clips|concierto|conciertos|pelicula|peliculas|documental|documentales|tutorial|tutoriales|karaoke|compilado|compilacion|recopilacion|podcast|serie|capitulo|episodio)\b/.test(q);
   if(!mn&&!dur) return false;
   if(mn&&mn[1]&&/^(el|este|ese|la|las|los)\s/.test(mn[1])) return false;
-  if(/\b(temporizador|temporizadores|cronometro|alarma|alarmas|recordatorio|recordatorios|despiertame|avisame)\b/.test(q)) return false;
+  if(/\b(temporizador|temporizadores|cronometro|alarma|alarmas|recordatorio|recordatorios|despiertame|avisame|recuerdame|recuerda|notificacion|agendame|senalame)\b/.test(q)) return false;
   if(!strongNoun&&/\b(imagen|imagenes|foto|fotos|dibuja|dibujo|receta|recetas|nota|notas|agenda|lista de compras|clima|pronostico)\b/.test(q)) return false;
   if(mn&&!strongNoun&&!dur&&/^(?:\S+\s+){0,3}(musica|cancion|canciones|exitos|lo mejor)\s/.test(q.replace(new RegExp('^.*?(?:'+CTX_VERB+')\\s+'),''))&&false) return false;
   var wantsYT=strongNoun||!!dur||/\b(youtube|you tube)\b/.test(q);
@@ -3521,7 +3592,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-radio2', pendingUpdate=false;
+var APP_VERSION='2026-10-16-repite', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
