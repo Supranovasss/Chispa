@@ -1538,7 +1538,7 @@ function closeAll(){
   if(game){any=true; endGame()}
   if(!$('#vid').hidden) closeVideo();
   if(!$('#imgv').hidden) closeImg();
-  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief');
+  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief'); hideBig('cmds');
   return any;
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.mx'); if(b){e.stopPropagation(); closeAll()}});
@@ -3139,7 +3139,7 @@ function sbRender(){
 function winBlocking(){
   if(asleep||sbOn||ringing||game||recipe) return true;
   if(radOn()||optsOn()) return true;
-  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc'].some(function(i){var c=$('#'+i); return c&&!c.hidden});
+  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc','cmds'].some(function(i){var c=$('#'+i); return c&&!c.hidden});
 }
 function dashRender(){
   var D=$('#dash'), now=new Date(), h=now.getHours();
@@ -3192,7 +3192,7 @@ function amb2(q,raw){
 })();
 var bigT={};
 function hideBig(id){clearTimeout(bigT[id]); var e=document.getElementById(id); if(e) e.hidden=true}
-function showBig(id,ms){var e=document.getElementById(id); ['cc','brief'].forEach(function(o){if(o!==id) hideBig(o)}); e.hidden=false; clearTimeout(bigT[id]); bigT[id]=setTimeout(function(){e.hidden=true},ms||60000)}
+function showBig(id,ms){var e=document.getElementById(id); ['cc','brief','cmds'].forEach(function(o){if(o!==id) hideBig(o)}); e.hidden=false; clearTimeout(bigT[id]); bigT[id]=setTimeout(function(){e.hidden=true},ms||60000)}
 function fnum(n,d){if(!isFinite(n)) return '—'; var a=Math.abs(n); d=d==null?(a>=1000?0:a>=100?1:2):d; return n.toLocaleString('es-CO',{maximumFractionDigits:d})}
 function ffrac(n){
   var w=Math.floor(n+1e-9), f=n-w, best=null, tb=[[0,''],[1/8,'1/8'],[1/4,'1/4'],[1/3,'1/3'],[3/8,'3/8'],[1/2,'1/2'],[5/8,'5/8'],[2/3,'2/3'],[3/4,'3/4'],[7/8,'7/8'],[1,'']];
@@ -3414,6 +3414,70 @@ function calcViz(q,raw){
 }
 
 habLoad(); habRender();
+/* ---------- Catálogo de comandos ---------- */
+var CMDS=[
+ {t:'Hora y fecha',i:'🕒',kw:/\b(hora|fecha|dia)\b/,x:['¿Qué hora es?','¿Qué día es hoy?','¿Cuántos días faltan para Navidad?','¿Cuándo es el Día de la Madre?']},
+ {t:'Clima',i:'⛅',kw:/\b(clima|tiempo|lluvia|llover|temperatura|pronostico)\b/,x:['¿Cómo está el clima?','¿Va a llover hoy?','¿Qué temperatura hace?','Pronóstico de las próximas horas']},
+ {t:'Alarmas y recordatorios',i:'⏰',kw:/\b(alarma|alarmas|recordatorio|recordatorios|recordar|cumpleanos)\b/,x:['Pon una alarma a las 6 de la mañana','Recuérdame llamar a mi mamá a las 5 de la tarde','Recuérdame ir al gimnasio todos los días a las 4','Alarma de lunes a viernes a las 7','Cumpleaños de Ana el 5 de mayo','¿Qué alarmas tengo?','Cancela la alarma de las 6','Borra todos los recordatorios','Pospón la alarma 10 minutos','Cambia la alarma de las 6 para las 7','Cambia el recordatorio de llamar a mamá para que diga …','Hazlo todos los lunes y miércoles']},
+ {t:'Temporizadores',i:'⏳',kw:/\b(temporizador|temporizadores|cronometro|timer)\b/,x:['Pon un temporizador de 10 minutos','Temporizador de pasta de 8 minutos','Temporizador de horno de 20 minutos','Cancela el temporizador de la pasta','Avísame en una hora']},
+ {t:'Hábitos diarios',i:'💧',kw:/\b(habito|habitos|agua|vasos?)\b/,x:['Anota un vaso de agua','Me tomé dos vasos de agua','Registra que ya estudié inglés','Registra que ya hice ejercicio','¿Cuántos vasos de agua llevo?','Mi meta de agua es 10 vasos','Quita un vaso de agua','Oculta los hábitos']},
+ {t:'Resumen y noticias',i:'📰',kw:/\b(resumen|noticias|titulares|buenos dias|briefing)\b/,x:['Buenos días','Dame el resumen del día','Dame las noticias','Usa el feed https://… (otra fuente de noticias)']},
+ {t:'Calculadora y conversor',i:'🧮',kw:/\b(calculadora|calcular|calcula|convertir|conversor|unidades|porcentaje)\b/,x:['Calcula el 19% de 85000','Agrégale 19% a 85.000','150000 con 20% de descuento','Calcula la propina de 85000','¿Cuánto es 85.000 por 3?','¿Qué porcentaje es 20 de 80?','¿Cuánto son 250 gramos en tazas?','¿Cuántos gramos son 2 tazas de harina?','350 grados Fahrenheit en Celsius','Convierte 5 libras a kilos']},
+ {t:'Recetas',i:'🍳',kw:/\b(receta|recetas|cocina|cocinar|cocinando)\b/,x:['Quiero hacer una receta de arepas','Dame opciones de recetas ligeras de pollo','Recetas sin azúcar','Opción 2','Siguiente / Atrás / Repite el paso','Paso 3','Dime los ingredientes','Agrega los ingredientes a la lista de compras','Lee la receta completa','Mis recetas','Cambia el ingrediente … por …','Cierra la receta']},
+ {t:'Videos y música',i:'🎬',kw:/\b(video|videos|musica|cancion|canciones|youtube|spotify)\b/,x:['Pon un video de …','Pon un mix de salsa de una hora','Pon la canción …','Busca un karaoke de …','Pausa / Continúa','Otro video / Siguiente canción','Sube / Baja el volumen','Cierra el video']},
+ {t:'Radio por internet',i:'📻',kw:/\b(radio|emisora|emisoras)\b/,x:['Pon la radio','Pon una emisora de salsa','Pon radio de noticias','Otra emisora','Emisora número 3','Apaga la radio']},
+ {t:'Ruido y sonido ambiente',i:'🌧️',kw:/\b(ruido|sonido|sonidos|lluvia|ambiente|lofi|concentrar|estudiar)\b/,x:['Pon ruido de lluvia por 30 minutos','Pon ruido marrón / blanco / rosa','Pon sonido de olas / viento / tormenta','Pon música lo-fi para estudiar','Apaga el ruido','Modo ambiente (pantalla de reloj)']},
+ {t:'Agenda, notas y compras',i:'📒',kw:/\b(agenda|notas?|lista|compras|mercado)\b/,x:['Abre la agenda','Anota que … (nota)','Muéstrame mis notas','Agrega leche y huevos a la lista de compras','¿Qué hay en la lista?','Quita la leche de la lista','Borra la última nota','Edita la nota de …']},
+ {t:'Conversar y aprender',i:'💬',kw:/\b(chiste|historia|cuento|dato|curioso|anecdota|conversar|pregunta|preguntar|imagen|dibuja)\b/,x:['Cuéntame un chiste','Dime un dato curioso','Cuéntame una historia','Cuéntame una anécdota','Dibújame un gato en la luna','Muéstrame imágenes de Medellín','Hazme preguntas (trivia)','Cualquier pregunta (necesita la llave de IA)']},
+ {t:'Juegos y cámara',i:'🎮',kw:/\b(juego|juegos|jugar|camara|vigilar|vigila|baila|bailar)\b/,x:['Vamos a jugar','Piedra, papel o tijera','Adivina el número','Cara o sello / Tira un dado','Juegos con cámara','Sígueme con los ojos','Vigila (modo seguridad)','Baila']},
+ {t:'Pantalla y modos',i:'🌙',kw:/\b(pantalla|dormir|duerme|modo|tablero|actualiza|actualizar|version|confirmacion)\b/,x:['Duérmete / Buenas noches (pantalla oscura)','Oye Chispa (para despertar)','Activa / desactiva el modo ambiente','Oculta / muestra el tablero','No me pidas confirmación / Pídeme confirmación','Cierra todo','Actualízate (busca la versión nueva)','Qué comandos hay (esta lista)']},
+ {t:'Confirmar y corregir',i:'✅',kw:/\b(confirmar|corregir|deshacer|correcto)\b/,x:['Cuando Chispa pregunta "¿correcto?": di "correcto" o "sí"','Si algo quedó mal: di "no" y lo deshace','Antes de borrar algo te pregunta: "sí" para borrar']}
+];
+(function(){
+  var c=document.createElement('section'); c.className='bigc cm'; c.id='cmds'; c.hidden=true;
+  c.innerHTML='<button class="x" aria-label="Cerrar">✕</button><h2>¿Qué puedes pedirme?</h2><p class="cs">Desliza con el dedo. Toca un ejemplo y lo hago.</p><input id="cmQ" type="search" placeholder="Buscar un comando…" autocomplete="off"><div id="cmL"></div>';
+  document.body.appendChild(c);
+  var st=document.createElement('style'); st.textContent='.cm{height:min(82vh,760px);overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:18px 20px}.cm h2{margin:0 44px 2px 0;font-size:22px}.cm .cs{margin:0 0 10px;opacity:.7;font-size:14px}.cm input{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;font-size:15px;margin-bottom:8px}.cm details{border-bottom:1px solid rgba(255,255,255,.1);padding:2px 0}.cm summary{cursor:pointer;padding:9px 2px;font-size:16px;font-weight:600;list-style:none;display:flex;align-items:center;gap:10px}.cm summary::-webkit-details-marker{display:none}.cm summary::after{content:"▾";margin-left:auto;opacity:.6;transition:transform .2s}.cm details[open] summary::after{transform:rotate(180deg)}.cm ul{margin:0 0 8px;padding:0;list-style:none;display:grid;gap:4px}.cm li{font-size:14px;line-height:1.3;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.06)}.cm li[data-ex]{cursor:pointer}.cm li[data-ex]:active{background:rgba(255,213,138,.25)}.cm li.hl,.cm details.hl summary{color:#ffd58a}.cm .cn{opacity:.6;font-size:13px;padding:10px 2px}'; document.head.appendChild(st);
+  function build(f){
+    var L=document.getElementById('cmL'); L.textContent=''; var n=0;
+    CMDS.forEach(function(g){
+      var its=g.x.filter(function(e){return !f||norm(e+' '+g.t).indexOf(f)>=0}); if(!its.length) return; n++;
+      var d=document.createElement('details'); d.open=true; d.dataset.t=g.t; var s=document.createElement('summary'); s.textContent=g.i+'  '+g.t; d.appendChild(s);
+      var ul=document.createElement('ul'); its.forEach(function(e){var li=document.createElement('li'); li.textContent='“'+e+'”'; if(!/…|\//.test(e)&&!/^Cuando|^Si algo|^Antes/.test(e)) li.dataset.ex=e; ul.appendChild(li)}); d.appendChild(ul); L.appendChild(d);
+    });
+    if(!n){var p=document.createElement('div'); p.className='cn'; p.textContent='No encontré ese comando. Pregúntame lo que quieras y lo intento.'; L.appendChild(p)}
+  }
+  c.querySelector('#cmQ').addEventListener('input',function(e){build(norm(e.target.value.trim()))});
+  c.addEventListener('click',function(e){
+    if(e.target.closest('.x')){hideBig('cmds'); return}
+    var li=e.target.closest('li[data-ex]'); if(li){hideBig('cmds'); var t=li.dataset.ex; setTimeout(function(){handle(t)},250)}
+  });
+  window.cmdsBuild=build;
+})();
+function cmdsOpen(topic){
+  document.getElementById('cmQ').value=''; cmdsBuild('');
+  var box=document.getElementById('cmds'); box.scrollTop=0; showBig('cmds',240000);
+  if(topic){var d=[].filter.call(box.querySelectorAll('details'),function(x){return x.dataset.t===topic.t})[0]; if(d){d.classList.add('hl'); setTimeout(function(){box.scrollTop=Math.max(0,d.offsetTop-70)},60)}}
+}
+function cmdsCmd(q,raw){
+  var ask=/\b(que|cuales)\s+(comandos|cosas|funciones)\b|\bcomandos\b|\blista de (comandos|funciones)\b|\bque (te |le )?(puedo|podria) (preguntar|pedir|decir|pedirte|preguntarte|hacer)\b|\bque me puedes (ofrecer|hacer|ayudar)\b|\bque usos\b|\bpara que sirves\b|\bque sabes hacer\b|\bque puedes hacer\b|^(ayuda|ayudame)$|\bcomo te uso\b|\bque funciones tienes\b|\bmuestrame (todo )?lo que (sabes|puedes)\b/.test(q);
+  if(!ask) return false;
+  var topic=null; for(var i=0;i<CMDS.length;i++){var k=q.replace(/\b(que|cuales|comandos|puedo|puedes|pedir|pedirte|preguntar|preguntarte|decir|hay|tienes|de|del|la|el|los|las|por|para|sobre|con|te|le|a)\b/g,' '); if(CMDS[i].kw.test(k)){topic=CMDS[i]; break}}
+  cmdsOpen(topic);
+  var ex=topic?topic.x.filter(function(e){return !/…|\/|^Cuando|^Si algo|^Antes/.test(e)}).slice(0,3):null;
+  reply(topic?'Sobre '+topic.t.toLowerCase()+' puedes decirme, por ejemplo: '+ex.join('. ')+'. En la pantalla está todo lo demás.':'Aquí tienes todo lo que puedo hacer. Desplázalo con el dedo, o toca un ejemplo y lo hago.');
+  return true;
+}
+function hardUpdate(){
+  try{sessionStorage.setItem('chispa.updTry','0')}catch(e){}
+  var p=[]; try{if(navigator.serviceWorker) p.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}catch(e){}
+  try{if(window.caches) p.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}))}catch(e){}
+  Promise.all(p).catch(function(){}).then(function(){location.replace(location.pathname+'?u='+Date.now())});
+}
+function updCmd(q){
+  if(!/\b(actualizate|actualiza(?:te)?|busca(?:r)? actualizaciones|nueva version|ultima version|actualizar)\b/.test(q)||/\b(receta|alarma|recordatorio|nota|lista|agenda|hora|clima)\b/.test(q)) return false;
+  reply('Voy a buscar la versión más reciente. Ya vuelvo.').then(function(){setTimeout(hardUpdate,300)}); return true;
+}
 /* ---------- Funciones con esquema JSON rígido (la IA llama funciones, no inventa texto) ---------- */
 var YESRE=/^(si|sip|sipi|correcto|claro|dale|ok|okay|okey|listo|exacto|confirmo|confirmado|afirmativo|asi es|esta bien|bien|de una|perfecto|eso es|eso|va|vale|por supuesto|obvio|aja|hazlo|borralo|borrala)\b/;
 var NORE=/^(no|nop|nope|nada|incorrecto|cancela|cancelalo|cancelala|mal|negativo|equivocado|deshaz|deshazlo|deshacer|dejalo|dejala|ese no|asi no|mejor no|todavia no)\b/;
@@ -3548,7 +3612,7 @@ function handle(raw){
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
   try{if(radCtl(q,raw)){misses=0; return} if(radReq(q)){misses=0; radPlay(raw,q); return}}catch(e){dlog('radio error '+e.message)}
   try{if(!(typeof optsOn==='function'&&optsOn()&&selNum(q)!=null)&&ctxMedia(q,raw)){misses=0; return}}catch(e){dlog('ctx error '+e.message)}
-  try{if(habitCmd(q,raw)||briefCmd(q,raw)||calcViz(q,raw)){misses=0; return}}catch(e){dlog('nuevo error '+e.message)}
+  try{if(cmdsCmd(q,raw)||updCmd(q)||habitCmd(q,raw)||briefCmd(q,raw)||calcViz(q,raw)){misses=0; return}}catch(e){dlog('nuevo error '+e.message)}
   for(var i=0;i<INTENTS.length;i++){
     if(INTENTS[i][0](q)){misses=0; INTENTS[i][1](q,raw); return}
   }
@@ -4369,16 +4433,28 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-habitos', pendingUpdate=false;
+var APP_VERSION='2026-10-16-comandos', pendingUpdate=false;
+function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
-  fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
-    if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
-  }).catch(function(){});
+  return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+    if(!j||!j.v) return null;
+    if(j.v===APP_VERSION){pendingUpdate=false; try{sessionStorage.setItem('chispa.updTry','0')}catch(e){} updBanner(false); return j.v}
+    pendingUpdate=true; updBanner(true,j.v);
+    if(updTries()>=2){hardUpdate(); return j.v}
+    return Promise.all([fetch(location.pathname,{cache:'reload'}),fetch('index.html',{cache:'reload'})].map(function(p){return p.catch(function(){})})).then(function(){return j.v});
+  }).catch(function(){return null});
 }
-setTimeout(checkUpdate,20000); setInterval(checkUpdate,10*60*1000);
+function updBanner(on,v){
+  var b=document.getElementById('updb');
+  if(!b){b=document.createElement('button'); b.id='updb'; b.hidden=true; b.style.cssText='position:fixed;z-index:30;left:50%;top:10px;transform:translateX(-50%);border:0;border-radius:999px;padding:9px 18px;background:#2a6fb0;color:#fff;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.4);cursor:pointer'; b.addEventListener('click',function(){doReload()}); document.body.appendChild(b)}
+  b.hidden=!on; if(on) b.textContent='Nueva versión lista · toca para actualizar';
+}
+function doReload(){try{sessionStorage.setItem('chispa.updTry',String(updTries()+1))}catch(e){} location.reload()}
+setTimeout(checkUpdate,15000); setInterval(checkUpdate,3*60*1000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden) checkUpdate()});
 setInterval(function(){
-  if(pendingUpdate&&!talking&&!(listening&&!wakeOn)&&!game&&!storyOn&&$('#vid').hidden&&camMode!=='rps'&&camMode!=='gestures'&&Date.now()-lastAct>60000) location.reload();
-},30000);
+  if(pendingUpdate&&!talking&&!(listening&&!wakeOn)&&!game&&!storyOn&&$('#vid').hidden&&!mediaOn()&&camMode!=='rps'&&camMode!=='gestures'&&Date.now()-lastAct>30000) doReload();
+},20000);
 
 /* ---------- Arranque ---------- */
 (function(){var dk=document.getElementById('dock'); function f(){document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px')} f(); if(window.ResizeObserver) new ResizeObserver(f).observe(dk); addEventListener('resize',f)})();
