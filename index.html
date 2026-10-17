@@ -1220,7 +1220,7 @@ function dlog(m){try{DLOG.push(((Date.now()-dT0)/1000).toFixed(1)+'s '+m); if(DL
 function dlogToggle(){var b=document.getElementById('dlogBox'); if(b){b.remove(); return} b=document.createElement('div'); b.id='dlogBox'; b.style.cssText='position:fixed;left:3%;right:3%;top:4%;bottom:4%;z-index:99999;background:#0d1722f5;color:#cfe4ff;border:2px solid #2b7fff;border-radius:14px;padding:14px;font:15px/1.45 ui-monospace,monospace;overflow:auto;white-space:pre-wrap'; b.onclick=function(){b.remove()}; document.body.appendChild(b); dlog('registro abierto')}
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, armedUntil=0, LANGS=['es-CO','es-US','es-MX','es-419','es-ES'], langI=0;
 var startedAt=0, wfails=0, gestureSeen=false, autoBlocked=false, recCont=false, resumeMedia=null;
-function mediaOn(){return vidPlaying||spPlaying||(typeof RAD!=='undefined'&&RAD.playing)}
+function mediaOn(){return vidPlaying||strmOn||spPlaying||(typeof RAD!=='undefined'&&RAD.playing)}
 function holdMic(){return mediaOn()&&!CFG.listenDuring}
 function stopListen(){
   if(rec){rec.onend=null; rec.onerror=null; rec.onresult=null; try{rec.abort()}catch(e){} rec=null}
@@ -1569,7 +1569,7 @@ function closeAll(){
   if(game){any=true; endGame()}
   if(!$('#vid').hidden) closeVideo();
   if(!$('#imgv').hidden) closeImg();
-  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief'); hideBig('cmds'); hideBig('menu');
+  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief'); hideBig('cmds'); hideBig('menu'); hideBig('strm');
   return any;
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.mx'); if(b){e.stopPropagation(); closeAll()}});
@@ -3172,7 +3172,7 @@ function sbRender(){
 function winBlocking(){
   if(asleep||sbOn||ringing||game||recipe) return true;
   if(radOn()||optsOn()) return true;
-  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc','cmds','menu'].some(function(i){var c=$('#'+i); return c&&!c.hidden&&!(i==='wcard'&&c.classList.contains('ghost'))});
+  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc','cmds','menu','strm'].some(function(i){var c=$('#'+i); return c&&!c.hidden&&!(i==='wcard'&&c.classList.contains('ghost'))});
 }
 function dashRender(){
   var D=$('#dash'), now=new Date(), h=now.getHours();
@@ -3226,7 +3226,7 @@ function amb2(q,raw){
 })();
 var bigT={};
 function hideBig(id){clearTimeout(bigT[id]); var e=document.getElementById(id); if(e) e.hidden=true}
-function showBig(id,ms){var e=document.getElementById(id); ['cc','brief','cmds','menu'].forEach(function(o){if(o!==id) hideBig(o)}); e.hidden=false; clearTimeout(bigT[id]); bigT[id]=setTimeout(function(){e.hidden=true},ms||60000)}
+function showBig(id,ms){var e=document.getElementById(id); ['cc','brief','cmds','menu','strm'].forEach(function(o){if(o!==id) hideBig(o)}); e.hidden=false; clearTimeout(bigT[id]); bigT[id]=setTimeout(function(){e.hidden=true},ms||60000)}
 function fnum(n,d){if(!isFinite(n)) return '—'; var a=Math.abs(n); d=d==null?(a>=1000?0:a>=100?1:2):d; return n.toLocaleString('es-CO',{maximumFractionDigits:d})}
 function ffrac(n){
   var w=Math.floor(n+1e-9), f=n-w, best=null, tb=[[0,''],[1/8,'1/8'],[1/4,'1/4'],[1/3,'1/3'],[3/8,'3/8'],[1/2,'1/2'],[5/8,'5/8'],[2/3,'2/3'],[3/4,'3/4'],[7/8,'7/8'],[1,'']];
@@ -3460,6 +3460,7 @@ var CMDS=[
  {t:'Calculadora y conversor',i:'🧮',kw:/\b(calculadora|calcular|calcula|convertir|conversor|unidades|porcentaje)\b/,x:['Calcula el 19% de 85000','Agrégale 19% a 85.000','150000 con 20% de descuento','Calcula la propina de 85000','¿Cuánto es 85.000 por 3?','¿Qué porcentaje es 20 de 80?','¿Cuánto son 250 gramos en tazas?','¿Cuántos gramos son 2 tazas de harina?','350 grados Fahrenheit en Celsius','Convierte 5 libras a kilos']},
  {t:'Recetas',i:'🍳',kw:/\b(receta|recetas|cocina|cocinar|cocinando)\b/,x:['Quiero hacer una receta de arepas','Dame opciones de recetas ligeras de pollo','Recetas sin azúcar','Opción 2','Siguiente / Atrás / Repite el paso','Paso 3','Dime los ingredientes','Agrega los ingredientes a la lista de compras','Lee la receta completa','Mis recetas','Cambia el ingrediente … por …','Cierra la receta']},
  {t:'Videos y música',i:'🎬',kw:/\b(video|videos|musica|cancion|canciones|youtube|spotify)\b/,x:['Pon un video de …','Pon un mix de salsa de una hora','Pon la canción …','Busca un karaoke de …','Pausa / Continúa','Otro video / Siguiente canción','Sube / Baja el volumen','Cierra el video']},
+ {t:'Streams (Twitch y Kick)',i:'📺',kw:/\b(stream|streams|twitch|kick|directo|streamer|streamers|canal)\b/,x:['Pon a ibai en Twitch','Pon el stream de auronplay en Kick','Abre Twitch','Mis streamers','Agrega a ibai a mis favoritos en Twitch','Quita a ibai de mis favoritos','Con chat / Sin chat (solo Twitch)','Cierra el stream']},
  {t:'Radio por internet',i:'📻',kw:/\b(radio|emisora|emisoras)\b/,x:['Pon la radio','Pon una emisora de salsa','Pon radio de noticias','Otra emisora','Emisora número 3','Apaga la radio']},
  {t:'Ruido y sonido ambiente',i:'🌧️',kw:/\b(ruido|sonido|sonidos|lluvia|ambiente|lofi|concentrar|estudiar)\b/,x:['Pon ruido de lluvia por 30 minutos','Pon ruido marrón / blanco / rosa','Pon sonido de olas / viento / tormenta','Pon música lo-fi para estudiar','Apaga el ruido','Modo ambiente (pantalla de reloj)']},
  {t:'Agenda, notas y compras',i:'📒',kw:/\b(agenda|notas?|lista|compras|mercado)\b/,x:['Abre la agenda','Anota que … (nota)','Muéstrame mis notas','Agrega leche y huevos a la lista de compras','¿Qué hay en la lista?','Quita la leche de la lista','Borra la última nota','Edita la nota de …']},
@@ -3619,6 +3620,7 @@ var MNT=[
  {g:'libre',f:1,i:'📻',n:'Radio',d:'Emisoras por internet',l:'Abre una ventana con emisoras para elegir con el dedo, o pídelas por género.',x:['Pon la radio','Pon una emisora de salsa','Otra emisora','Apaga la radio']},
  {g:'libre',i:'🎬',n:'Música y videos',d:'YouTube y canciones',l:'Busca y pone videos o música. Necesita la llave de YouTube en Ajustes.',x:['Pon un mix de salsa de una hora','Pausa','Cierra el video']},
  {g:'libre',i:'🌧️',n:'Sonido ambiente',d:'Lluvia, olas, ruido blanco',l:'Sonidos para concentrarte o dormir, con temporizador si quieres.',x:['Pon ruido de lluvia por 30 minutos','Pon música lo-fi para estudiar','Apaga el ruido']},
+ {g:'libre',i:'📺',n:'Streams',d:'Twitch y Kick en vivo',act:function(){strmOpen()}},
  {g:'libre',i:'🎮',n:'Juegos',d:'Con la voz y con la cámara',l:'Piedra, papel o tijera, adivinar números y juegos donde Chispa te ve por la cámara.',x:['Vamos a jugar','Piedra, papel o tijera','Juegos con cámara']},
  {g:'libre',i:'💬',n:'Chistes e historias',d:'Para pasar el rato',l:'Chistes, datos curiosos, cuentos y preguntas. Para conversar libremente necesita la llave de IA.',x:['Cuéntame un chiste','Dime un dato curioso','Cuéntame una historia']},
  {g:'tablet',f:1,i:'🌙',n:'Dormir',d:'Pantalla oscura hasta la mañana',l:'La pantalla se apaga casi del todo, la cámara descansa y solo queda el micrófono. Chispa te despierta con una alarma suave a la hora que elijas.',x:['Duérmete','Cambia la hora de despertar a las 7','Ya me desperté']},
@@ -3749,6 +3751,105 @@ function menuCmd(q){
   var sh=document.getElementById('sheet'); sh.addEventListener('click',function(){setTimeout(function(){secs.forEach(function(s){if(s._upd) s._upd()})},400)});
   document.querySelector('#sheet .sheethead h2').textContent='Ajustes'; sh.setAttribute('aria-label','Ajustes');
   var tp=document.getElementById('tip'); if(tp) tp.firstChild.textContent='Di “Oye Chispa” y pide lo que quieras, o toca Menú para ver todo lo que sé hacer.';
+})();
+/* ---------- Streams en vivo: Twitch y Kick ---------- */
+var STRM={fav:[],last:'twitch',chat:false,cur:null}, strmOn=false;
+try{var _sf=JSON.parse(localStorage.getItem('chispa.streams')||'null'); if(_sf){STRM.fav=_sf.fav||[]; STRM.last=_sf.last||'twitch'}}catch(e){}
+function strmSave(){try{localStorage.setItem('chispa.streams',JSON.stringify({fav:STRM.fav,last:STRM.last}))}catch(e){}}
+var SPL={twitch:{n:'Twitch',c:'#a970ff'},kick:{n:'Kick',c:'#53fc18'}};
+function strmClean(t){return norm(String(t||'')).replace(/\b(el|la|de|del|canal|stream|directo|streamer|en vivo|live|a)\b/g,' ').replace(/[^a-z0-9_]/g,'')}
+function strmOk(p,c){return p==='kick'?/^[a-z0-9_]{3,25}$/.test(c):/^[a-z0-9_]{3,25}$/.test(c)}
+function strmHost(){return location.hostname||''}
+function strmUrl(p,c,chat){
+  if(p==='kick') return 'https://player.kick.com/'+encodeURIComponent(c)+'?autoplay=true&muted=false';
+  return chat?'https://www.twitch.tv/embed/'+encodeURIComponent(c)+'/chat?parent='+encodeURIComponent(strmHost()||'localhost')+'&darkpopout'
+            :'https://player.twitch.tv/?channel='+encodeURIComponent(c)+'&parent='+encodeURIComponent(strmHost()||'localhost')+'&autoplay=true&muted=false';
+}
+function strmFrame(src){var f=document.createElement('iframe'); f.src=src; f.allow='autoplay; fullscreen; picture-in-picture; encrypted-media'; f.setAttribute('allowfullscreen',''); f.setAttribute('referrerpolicy','origin'); f.title='Stream en vivo'; return f}
+function strmPlay(p,c,opt){
+  opt=opt||{}; c=strmClean(c);
+  if(!strmOk(p,c)){reply('No entendí bien el nombre del canal. Escríbelo en el panel de streams.'); strmOpen(p,c); return true}
+  if(p==='twitch'&&location.protocol!=='https:'){reply('Twitch solo reproduce desde la página de Chispa por internet, no desde un archivo ni desde la vista previa.'); return true}
+  if(RAD&&RAD.audio) radStop(false); if(AMB&&AMB.kind) ambStop(false); try{if(vidPlayer) vidPlayer.destroy()}catch(e){} vidPlayer=null;
+  STRM.last=p; STRM.cur={p:p,c:c}; strmSave(); hideBig('strm'); hideBig('menu');
+  var box=$('#vidBox'); box.textContent=''; var w=mk('div','strm'); w.appendChild(strmFrame(strmUrl(p,c,false)));
+  if(p==='twitch'&&(STRM.chat||opt.chat)){STRM.chat=true; var cf=strmFrame(strmUrl(p,c,true)); cf.className='sc'; w.appendChild(cf); w.classList.add('wc')}
+  box.appendChild(w); strmOn=true; vidPlaying=true; ytState=-1; ytSince=Date.now();
+  var dk=document.querySelector('.dock'); if(dk) document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px');
+  $('#vid').hidden=false; document.body.classList.add('vidon'); setMood('happy',1500);
+  reply('Te pongo a '+c+' en '+SPL[p].n+'.');
+  return true;
+}
+function strmChat(on){
+  if(!strmOn||!STRM.cur||STRM.cur.p!=='twitch'){reply(strmOn?'Kick no deja mostrar el chat aquí.':'Primero pon un stream.'); return true}
+  STRM.chat=on; strmPlay('twitch',STRM.cur.c); return true;
+}
+function strmFavFind(t){var c=strmClean(t); if(!c) return null; return STRM.fav.filter(function(f){return f.c===c})[0]||null}
+function strmFavAdd(p,c){c=strmClean(c); if(!strmOk(p,c)){reply('No entendí el nombre. Escríbelo en el panel.'); strmOpen(p,c); return true}
+  if(STRM.fav.some(function(f){return f.p===p&&f.c===c})){reply(c+' ya está en tus favoritos.'); return true}
+  STRM.fav.push({p:p,c:c}); strmSave(); strmRender(); chg('favorito '+c,function(){STRM.fav=STRM.fav.filter(function(f){return !(f.p===p&&f.c===c)}); strmSave(); strmRender()}); reply('Guardé a '+c+' en tus favoritos de '+SPL[p].n+'.'); return true}
+function strmFavDel(p,c){var n=STRM.fav.length; STRM.fav=STRM.fav.filter(function(f){return !(f.p===p&&f.c===c)}); strmSave(); strmRender(); return n!==STRM.fav.length}
+function strmAskPlat(c,cb){editAsk={fn:function(r){var q2=norm(r); var p=/kick/.test(q2)?'kick':/twitch/.test(q2)?'twitch':null; if(!p){reply('No entendí. Dime Twitch o Kick.'); return} cb(p)},exp:Date.now()+25000}; reAsk('¿En Twitch o en Kick?')}
+function strmCmd(q,raw){
+  var m, n=q.replace(/[¿?¡!.,]/g,' ').replace(/\bchispa\b/g,' ').replace(/\s+/g,' ').trim();
+  var V='(?:pon|ponme|ponla|abre|abreme|muestra|muestrame|enciende|prende|reproduce|quiero ver|queremos ver|vamos a ver|ver|entra a|entra al|ve a|ponme a)';
+  if(strmOn&&/^(con|muestra|pon|activa|abre)\w*\s+(?:el\s+)?chat$|^(?:el\s+)?chat$|\bcon chat\b/.test(n)) return strmChat(true);
+  if(strmOn&&/^(sin|quita|oculta|cierra|apaga)\w*\s+(?:el\s+)?chat$/.test(n)) return strmChat(false);
+  if(/^(?:cierra|apaga|quita|termina|deten|para|parar)\w*\s+(?:el\s+|la\s+|este\s+)?(?:stream|directo|transmision|twitch|kick|canal)\b/.test(n)){if(strmOn){closeVideo(); reply('Listo, cerré el stream.')} else reply('No hay ningún stream abierto.'); return true}
+  if(/^(?:mis|los)\s+(?:streamers?|canales|favoritos|streams)\b|\b(?:que|cuales)\s+streamers\s+tengo\b|\bmis (?:streamers|canales) favoritos\b|^(?:abre|muestra|ver)\s+(?:el\s+)?(?:panel de\s+)?streams$/.test(n)){strmOpen(); if(STRM.fav.length) reply('Tus favoritos son: '+STRM.fav.map(function(f){return f.c}).join(', ')+'.'); else reply('Aún no tienes favoritos. Escribe un canal y toca la estrella.'); return true}
+  if((m=n.match(/^(?:agrega|anade|guarda|apunta|pon)\w*\s+(?:a\s+)?(.+?)\s+(?:a|en|como)\s+(?:mis\s+)?(?:streamers?\s+)?(?:favoritos?|canales)(?:\s+(?:de|en)\s+(twitch|kick))?$/))){var pf=m[2]||(/\bkick\b/.test(n)?'kick':/\btwitch\b/.test(n)?'twitch':null), cf=m[1].replace(/\b(twitch|kick)\b/g,'');
+    if(pf) return strmFavAdd(pf,cf); strmAskPlat(cf,function(p){strmFavAdd(p,cf)}); return true}
+  if((m=n.match(/^(?:quita|borra|elimina|saca)\w*\s+(?:a\s+)?(.+?)\s+(?:de|del)\s+(?:mis\s+)?(?:streamers?\s+)?(?:favoritos?|canales)$/))){var fv=strmFavFind(m[1]); if(!fv){reply('No tengo a '+strmClean(m[1])+' en tus favoritos.'); return true} strmFavDel(fv.p,fv.c); reply('Listo, quité a '+fv.c+'.'); return true}
+  if((m=n.match(new RegExp('^'+V+'\\s+(?:el\\s+|al\\s+)?(?:stream|directo|canal|en vivo|live|transmision)?\\s*(?:de\\s+|del\\s+|a\\s+)?(.+?)\\s+(?:en|de|por|desde)\\s+(twitch|kick)$')))) return strmPlay(m[2],m[1]);
+  if((m=n.match(new RegExp('^'+V+'\\s+(twitch|kick)\\s+(?:de\\s+|del\\s+|a\\s+|el canal\\s+|canal\\s+)?(.+)$')))) return strmPlay(m[1],m[2]);
+  if((m=n.match(new RegExp('^'+V+'\\s+(?:(?:el|al)\\s+)?(twitch|kick)$')))){strmOpen(m[1]); reply('Elige un canal o escribe uno.'); return true}
+  if((m=n.match(new RegExp('^'+V+'\\s+(?:el\\s+|al\\s+)?(?:stream|directo|canal|transmision|en vivo)\\s+(?:de\\s+|del\\s+)?(.+)$')))){var f2=strmFavFind(m[1]); if(f2) return strmPlay(f2.p,f2.c); var c3=m[1]; strmAskPlat(c3,function(p){strmPlay(p,c3)}); return true}
+  if((m=n.match(new RegExp('^'+V+'\\s+(?:a\\s+)?(.+)$')))&&STRM.fav.length){var f3=strmFavFind(m[1]); if(f3) return strmPlay(f3.p,f3.c)}
+  return false;
+}
+function strmOpen(p,c){
+  var b=document.getElementById('strm'); if(p) STRM.sel=p; else STRM.sel=STRM.sel||STRM.last;
+  strmRender(); if(c) document.getElementById('stI').value=strmClean(c);
+  showBig('strm',240000);
+}
+function strmRender(){
+  var b=document.getElementById('strm'); if(!b) return; var sel=STRM.sel||STRM.last;
+  [].forEach.call(b.querySelectorAll('.stp'),function(x){var on=x.dataset.p===sel; x.classList.toggle('on',on); x.setAttribute('aria-pressed',on); x.style.setProperty('--c',SPL[x.dataset.p].c)});
+  var L=document.getElementById('stF'); L.textContent='';
+  if(!STRM.fav.length) L.appendChild(mk('p','sth','Todavía no tienes favoritos. Escribe un canal y toca ☆ para guardarlo.'));
+  STRM.fav.forEach(function(f){
+    var ch=mk('div','stc'); ch.style.setProperty('--c',SPL[f.p].c);
+    var go=mk('button','stg'); go.type='button'; go.appendChild(mk('i','std')); go.appendChild(mk('b',null,f.c)); go.appendChild(mk('small',null,SPL[f.p].n)); go.onclick=function(){strmPlay(f.p,f.c)};
+    var x=mk('button','stx','×'); x.type='button'; x.setAttribute('aria-label','Quitar '+f.c); x.onclick=function(){strmFavDel(f.p,f.c)};
+    ch.appendChild(go); ch.appendChild(x); L.appendChild(ch)});
+  var w=document.getElementById('stW'); w.hidden=(location.protocol==='https:'); 
+}
+(function(){
+  var st=document.createElement('style'); st.textContent=[
+  '#strm{width:min(94vw,720px)}#strm h2{margin:0 0 4px;font:500 28px var(--font-display)}#strm .cs{margin:0 0 16px;color:var(--muted);font-size:15px}',
+  '.stseg{display:flex;gap:8px;margin-bottom:12px}.stp{flex:1;min-height:48px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);font:700 16px var(--font-body);cursor:pointer}',
+  '.stp.on{background:color-mix(in srgb,var(--c) 22%,transparent);border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 40%,transparent)}',
+  '.strow{display:flex;gap:8px;margin-bottom:6px}.strow input{flex:1;min-width:0;min-height:52px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font:600 18px var(--font-body);padding:0 16px}',
+  '.stgo{min-height:52px;padding:0 22px;border-radius:16px;border:0;background:linear-gradient(135deg,var(--glow),var(--glow2));color:#2a1620;font:800 16px var(--font-body);cursor:pointer}',
+  '.stst{width:52px;min-height:52px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--glow);font-size:22px;cursor:pointer}',
+  '#strm h3{margin:18px 0 8px;font:500 18px var(--font-display);color:var(--glow)}#stF{display:flex;flex-wrap:wrap;gap:8px}',
+  '.stc{display:flex;align-items:center;border-radius:999px;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);background:color-mix(in srgb,var(--c) 12%,transparent);overflow:hidden}',
+  '.stg{display:flex;align-items:center;gap:8px;min-height:46px;padding:0 6px 0 14px;border:0;background:transparent;color:var(--ink);font:600 16px var(--font-body);cursor:pointer}.stg small{color:var(--muted);font-size:12px}.std{width:9px;height:9px;border-radius:50%;background:var(--c)}',
+  '.stx{width:40px;min-height:46px;border:0;background:transparent;color:var(--muted);font-size:20px;cursor:pointer}',
+  '.sth{margin:0;font-size:14px;color:var(--muted)}.stw{margin:14px 0 0;padding:10px 14px;border-radius:14px;background:rgba(255,199,143,.12);color:var(--glow);font-size:14px}',
+  '.strm{display:flex;width:100%;height:100%}.strm iframe{flex:1;min-width:0;height:100%}.strm.wc iframe.sc{flex:none;width:30%;min-width:260px}',
+  '.stp:focus-visible,.stgo:focus-visible,.stst:focus-visible,.stg:focus-visible,.stx:focus-visible,.strow input:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}'
+  ].join(''); document.head.appendChild(st);
+  var c=document.createElement('section'); c.className='bigc'; c.id='strm'; c.hidden=true; c.setAttribute('aria-label','Streams');
+  c.innerHTML='<button class="x" aria-label="Cerrar">✕</button><h2>Streams en vivo</h2><p class="cs">Mira canales de Twitch y Kick. También puedes decir «pon a ibai en Twitch».</p><div class="stseg"><button class="stp" type="button" data-p="twitch">Twitch</button><button class="stp" type="button" data-p="kick">Kick</button></div><div class="strow"><input id="stI" type="text" placeholder="Nombre del canal, por ejemplo ibai" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Nombre del canal"><button class="stgo" id="stGo" type="button">Ver ahora</button><button class="stst" id="stSv" type="button" aria-label="Guardar en favoritos" title="Guardar en favoritos">☆</button></div><h3>Mis favoritos</h3><div id="stF"></div><p class="stw" id="stW" hidden>Para ver streams abre Chispa desde su dirección web (https). Aquí no se pueden reproducir.</p>';
+  document.body.appendChild(c);
+  c.addEventListener('click',function(e){
+    if(e.target.closest('.x')){hideBig('strm'); return}
+    var pb=e.target.closest('.stp'); if(pb){STRM.sel=pb.dataset.p; strmRender()}
+  });
+  var go=function(){var v=document.getElementById('stI').value; if(!strmClean(v)){reply('Escribe el nombre del canal.'); return} strmPlay(STRM.sel||STRM.last,v)};
+  c.querySelector('#stGo').onclick=go; c.querySelector('#stI').addEventListener('keydown',function(e){if(e.key==='Enter') go()});
+  c.querySelector('#stSv').onclick=function(){var v=document.getElementById('stI').value; if(!strmClean(v)){reply('Escribe el nombre del canal.'); return} strmFavAdd(STRM.sel||STRM.last,v)};
 })();
 /* ---------- Control total: editar hábitos y ajustes por voz, con lectura exacta y deshacer ---------- */
 var CHG=[];
@@ -4087,6 +4188,7 @@ var TOOLS=[
   {name:'delete_reminder',description:'Borra una alarma o recordatorio existente.',parameters:{type:'object',properties:{query:{type:'string',description:'Parte del texto, la hora o el número'},kind:{type:'string',enum:['alarma','recordatorio','cualquiera']}},required:['query','kind']}},
   {name:'edit_reminder_text',description:'Cambia el texto de un recordatorio o alarma existente.',parameters:{type:'object',properties:{query:{type:'string'},new_text:{type:'string'}},required:['query','new_text']}},
   {name:'play_radio',description:'Sintoniza una emisora de radio por internet.',parameters:{type:'object',properties:{query:{type:'string',description:'Nombre de la emisora o género (salsa, vallenato, lofi, noticias). Vacío para populares.'}},required:['query']}},
+  {name:'play_stream',description:'Pone un stream en vivo de Twitch o Kick por nombre de canal.',parameters:{type:'object',properties:{platform:{type:'string',enum:['twitch','kick']},channel:{type:'string',description:'Nombre de usuario del canal, sin espacios'}},required:['platform','channel']}},
   {name:'play_video',description:'Busca y reproduce un video en YouTube.',parameters:{type:'object',properties:{query:{type:'string'}},required:['query']}},
   {name:'play_music',description:'Reproduce una canción, artista o playlist.',parameters:{type:'object',properties:{query:{type:'string'}},required:['query']}},
   {name:'play_ambient_sound',description:'Reproduce ruido o sonido ambiente para concentrarse o dormir.',parameters:{type:'object',properties:{kind:{type:'string',enum:['rain','storm','white','pink','brown','waves','wind']},minutes:{type:'integer',minimum:0,maximum:600,description:'Duración en minutos; 0 = hasta que se apague'}},required:['kind','minutes']}},
@@ -4130,6 +4232,7 @@ function runTool(name,a){
     case 'delete_reminder': {var kd=a.kind==='cualquiera'?null:a.kind, rs=findRemT(kd,a.query); if(!rs.r){reply('No encuentro ese pendiente.'); return true} askDeleteRem([rs.r]); return true}
     case 'edit_reminder_text': {var r2=findRemT(null,a.query).r; if(!r2){reply('No encuentro ese pendiente.'); return true} remEditSet(r2,a.new_text); return true}
     case 'play_radio': radPlay('',norm(a.query||'')); return true;
+    case 'play_stream': strmPlay(a.platform,a.channel); return true;
     case 'play_video': playVideo(a.query,{auto:/mix|playlist|hora/i.test(a.query)}); return true;
     case 'play_music': if(spOn()) spPlayQuery(a.query,false); else playVideo(a.query+' audio oficial'); return true;
     case 'play_ambient_sound': ambStart(a.kind,(a.minutes||0)*60); return true;
@@ -4212,6 +4315,7 @@ function handle(raw){
   if(/\b(pideme|activa|pon|vuelve a pedir)\s+(la\s+)?confirmacion\b|\bconfirmame\s+todo\b/.test(q)){CFG.noConfirm=false; saveCfg(); reply('Listo, te confirmo cada cambio.'); return}
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
+  try{if(strmCmd(q,raw)){misses=0; return}}catch(e){dlog('stream error '+e.message)}
   try{if(stCmd(q,raw)){misses=0; return}}catch(e){dlog('st error '+e.message)}
   try{if(editCmd(q,raw)){misses=0; return}}catch(e){dlog('edit error '+e.message)}
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
@@ -4692,12 +4796,12 @@ setInterval(function(){
 function closeVideo(){
   if(resumeMedia) resumeMedia.t=true;
   try{if(vidPlayer) vidPlayer.destroy()}catch(e){}
-  vidPlayer=null; vidPlaying=false; $('#vidBox').textContent=''; $('#vid').hidden=true; document.body.classList.remove('vidon'); document.body.classList.remove('vidfull');
+  vidPlayer=null; vidPlaying=false; strmOn=false; $('#vidBox').textContent=''; $('#vid').hidden=true; document.body.classList.remove('vidon'); document.body.classList.remove('vidfull');
 }
 function showVideo(){
   var it=vidQ[vidI]; if(!it) return;
   var dk=document.querySelector('.dock'); if(dk) document.documentElement.style.setProperty('--dockh',dk.offsetHeight+'px');
-  vidPlaying=true; ytState=-1; ytSince=Date.now();
+  vidPlaying=true; ytState=-1; ytSince=Date.now(); if(strmOn){strmOn=false; try{$('#vidBox').textContent=''}catch(e){}}
   $('#vid').hidden=false; document.body.classList.add('vidon');
   ytApi().then(function(){
     if(vidPlayer){vidPlayer.loadVideoById(it.id); return}
@@ -5039,7 +5143,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-17-transiciones', pendingUpdate=false;
+var APP_VERSION='2026-10-17-streams', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
