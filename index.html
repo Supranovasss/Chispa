@@ -566,8 +566,8 @@ setInterval(function(){
 
 /* ---------- Dormir y despertar ---------- */
 var asleepAt=0;
-function goSleep(){asleep=true; asleepAt=Date.now(); document.body.classList.add('asleep'); setMood('sleepy')}
-function wakeUp(){asleep=false; document.body.classList.remove('asleep'); setMood('surprised',700)}
+function goSleep(){asleep=true; asleepAt=Date.now(); try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
+function wakeUp(){asleep=false; try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
 function act(){lastAct=Date.now(); if(asleep) wakeUp(); if(typeof sbOn!=='undefined'&&sbOn&&Date.now()-sbStart>800) sbExit()}
 addEventListener('pointerdown',act,{passive:true});
 addEventListener('keydown',act);
@@ -3115,13 +3115,13 @@ function sbBuild(){
 }
 function sbShowScene(i){var b=document.querySelectorAll('#sbBg .bg'); for(var k=0;k<b.length;k++) b[k].classList.toggle('on',k===i)}
 function sbEnter(){
-  if(sbOn) return; sbOn=true; sbStart=Date.now(); if(!$('#sbBg').children.length) sbBuild();
+  if(sbOn) return; sbOn=true; sbStart=Date.now(); if(CFG.sbDim!==false) try{ctlSoft('/brightness?level='+(CFG.sbBright||20)+'&save=1')}catch(e){} if(!$('#sbBg').children.length) sbBuild();
   var h=new Date().getHours(); sbScene=(h>=18||h<6)?2:(h>=16?1:Math.floor(Math.random()*SBSC.length)); sbShowScene(sbScene);
   document.body.classList.add('sbon'); clearInterval(sbT); sbT=setInterval(function(){sbScene=(sbScene+1)%SBSC.length; sbShowScene(sbScene); var fg=$('#sbFg'); fg.style.transform='translate('+((Math.random()*2-1)*14).toFixed(0)+'px,'+((Math.random()*2-1)*14).toFixed(0)+'px)'},45000);
   sbRender();
 }
 function sbExit(){
-  if(!sbOn) return; sbOn=false; document.body.classList.remove('sbon'); clearInterval(sbT); lastAct=Date.now();
+  if(!sbOn) return; sbOn=false; try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('sbon'); clearInterval(sbT); lastAct=Date.now();
 }
 function sbRender(){
   var d=new Date(), h=d.getHours(), m=String(d.getMinutes()).padStart(2,'0');
@@ -3430,6 +3430,7 @@ var CMDS=[
  {t:'Agenda, notas y compras',i:'📒',kw:/\b(agenda|notas?|lista|compras|mercado)\b/,x:['Abre la agenda','Anota que … (nota)','Muéstrame mis notas','Agrega leche y huevos a la lista de compras','¿Qué hay en la lista?','Quita la leche de la lista','Borra la última nota','Edita la nota de …']},
  {t:'Conversar y aprender',i:'💬',kw:/\b(chiste|historia|cuento|dato|curioso|anecdota|conversar|pregunta|preguntar|imagen|dibuja)\b/,x:['Cuéntame un chiste','Dime un dato curioso','Cuéntame una historia','Cuéntame una anécdota','Dibújame un gato en la luna','Muéstrame imágenes de Medellín','Hazme preguntas (trivia)','Cualquier pregunta (necesita la llave de IA)']},
  {t:'Juegos y cámara',i:'🎮',kw:/\b(juego|juegos|jugar|camara|vigilar|vigila|baila|bailar)\b/,x:['Vamos a jugar','Piedra, papel o tijera','Adivina el número','Cara o sello / Tira un dado','Juegos con cámara','Sígueme con los ojos','Vigila (modo seguridad)','Baila']},
+ {t:'Tablet (app Chispa Control)',i:'🔆',kw:/\b(brillo|volumen|bateria|tablet|control|molestar)\b/,x:['Sube el brillo / Baja el brillo','Pon el brillo al 30%','Brillo al máximo / al mínimo / automático','Pon el volumen de la tablet al 50%','Mantén la pantalla encendida','Activa No molestar','¿Cuánta batería tiene la tablet?','¿Está conectada la app de control?','Actualiza la app de control','Cuando te duermes o entras al modo ambiente, baja el brillo real solo','Instalación: descarga ChispaControl.apk desde github.com/Supranovasss/Chispa/releases/tag/control-latest, ábrela y toca los 5 pasos']},
  {t:'Pantalla y modos',i:'🌙',kw:/\b(pantalla|dormir|duerme|modo|tablero|actualiza|actualizar|version|confirmacion)\b/,x:['Duérmete / Buenas noches (pantalla oscura)','Oye Chispa (para despertar)','Activa / desactiva el modo ambiente','Oculta / muestra el tablero','No me pidas confirmación / Pídeme confirmación','Cierra todo','Actualízate (busca la versión nueva)','Qué comandos hay (esta lista)']},
  {t:'Confirmar y corregir',i:'✅',kw:/\b(confirmar|corregir|deshacer|correcto)\b/,x:['Cuando Chispa pregunta "¿correcto?": di "correcto" o "sí"','Si algo quedó mal: di "no" y lo deshace','Antes de borrar algo te pregunta: "sí" para borrar']}
 ];
@@ -3478,6 +3479,50 @@ function updCmd(q){
   if(!/\b(actualizate|actualiza(?:te)?|busca(?:r)? actualizaciones|nueva version|ultima version|actualizar)\b/.test(q)||/\b(receta|alarma|recordatorio|nota|lista|agenda|hora|clima)\b/.test(q)) return false;
   reply('Voy a buscar la versión más reciente. Ya vuelvo.').then(function(){setTimeout(hardUpdate,300)}); return true;
 }
+/* ---------- Chispa Control: app auxiliar de la tablet (brillo, volumen, no molestar) ---------- */
+var CTL={base:'http://127.0.0.1:8765',ok:false,v:'',newer:false,chk:0};
+var CTL_HELP='No encuentro la app Chispa Control en la tablet. Instálala y ábrela una vez; los pasos están en la lista de comandos, en Tablet.';
+function ctlCall(path,ms){
+  var c=new AbortController(), t=setTimeout(function(){c.abort()},ms||2500);
+  return fetch(CTL.base+path,{cache:'no-store',signal:c.signal,targetAddressSpace:'loopback'}).then(function(r){clearTimeout(t); return r.json()}).then(function(j){CTL.ok=true; return j},function(e){clearTimeout(t); CTL.ok=false; throw e});
+}
+function ctlPing(){
+  return ctlCall('/ping').then(function(j){CTL.v=j.v||''; if(Date.now()-CTL.chk>3600000){CTL.chk=Date.now(); ctlCall('/update/check',9000).then(function(u){CTL.newer=!!u.newer}).catch(function(){})} return true}).catch(function(){return false});
+}
+function ctlSoft(path){if(CTL.ok) ctlCall(path).catch(function(){})}
+function ctlErr(e){return /ajustes|Modificar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 1, Modificar ajustes del sistema.':/No molestar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 2, No molestar.':/desconocidas|Instalar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 5, Instalar actualizaciones.':'No pude hacerlo: '+(e||'error')+'.'}
+function ctlDo(path,say){
+  return ctlCall(path,path.indexOf('/update')===0?12000:2500).then(function(r){reply(r.ok?(typeof say==='function'?say(r):say):ctlErr(r.err))}).catch(function(){reply(CTL_HELP)});
+}
+setTimeout(ctlPing,3000); setInterval(ctlPing,60000);
+function ctlCmd(q,raw){
+  var N=(q.match(/(\d{1,3})\s*(?:%|por ciento)?/)||[])[1], n=N!==undefined?Math.max(0,Math.min(100,+N)):null;
+  if(/\b(app|aplicacion)\s+de\s+control\b|\bchispa control\b/.test(q)){
+    if(/\b(actualiza|actualizar|actualizacion|nueva version)\b/.test(q)){reply('Busco la versión nueva de la app de control.').then(function(){ctlDo('/update/install',function(r){return r.started?'Descargando. Android te va a pedir confirmar la instalación.':'Ya tienes la última versión de la app de control.'})}); return true}
+    ctlPing().then(function(ok){reply(ok?'La app de control está conectada, versión '+CTL.v+'.'+(CTL.newer?' Hay una versión nueva: di actualiza la app de control.':''):CTL_HELP)}); return true}
+  if(/\b(bateria)\b/.test(q)&&/\b(cuanta|cuanto|nivel|como esta|que|porcentaje|tiene|queda)\b/.test(q)&&!/\b(ahorro|modo)\b/.test(q)){ctlDo('/status',function(r){return 'La tablet tiene '+r.battery+' por ciento de batería'+(r.charging?', cargando':'')+'.'}); return true}
+  if(/\b(brillo|luminosidad)\b|\b(oscurece|aclara|ilumina)\w*\s+(un poco\s+)?(la\s+)?pantalla\b/.test(q)&&!/\b(alarma|recordatorio|temporizador)\b/.test(q)){
+    if(/\b(quita|desactiva|apaga|sin)\b.*\bautomatic/.test(q)){ctlDo('/auto?on=0','Listo, el brillo ya no es automático.'); return true}
+    if(/\bautomatic/.test(q)){ctlDo('/auto?on=1','Listo, el brillo ahora es automático.'); return true}
+    if(/\b(restaura|restablece|devuelvelo|normal|como estaba|de antes)\b/.test(q)){ctlDo('/brightness/restore',function(r){return r.restored?'Listo, devolví el brillo a '+r.brightness+' por ciento.':'El brillo ya estaba como siempre.'}); return true}
+    var lv=null, dl=0;
+    if(n!==null&&/\b(brillo|luminosidad)\b.*\d|\d.*\b(brillo|luminosidad)\b|\bal\s+\d/.test(q)) lv=n;
+    else if(/\b(maximo|al maximo|lo mas alto|completo|lleno)\b/.test(q)) lv=100;
+    else if(/\b(minimo|al minimo|lo mas bajo|muy bajo|casi nada)\b/.test(q)) lv=1;
+    else if(/\bmedio\b/.test(q)) lv=50; else if(/\balto\b/.test(q)) lv=80; else if(/\bbajo\b/.test(q)) lv=15;
+    else if(/\b(sube|subir|aumenta|aumentar|mas|aclara|ilumina)\w*/.test(q)) dl=20;
+    else if(/\b(baja|bajar|disminuye|disminuir|menos|oscurece|atenua)\w*/.test(q)) dl=-20;
+    if(lv===null&&!dl){ctlDo('/status',function(r){return 'El brillo está al '+r.brightness+' por ciento'+(r.auto?', en automático':'')+'.'}); return true}
+    ctlDo(lv!==null?'/brightness?level='+lv:'/brightness?delta='+dl,function(r){return 'Listo, brillo al '+r.brightness+' por ciento.'}); return true}
+  if(/\bvolumen\b/.test(q)&&(/\b(de la tablet|de la tableta|del tablet|del sistema|general|de todo|del equipo|de la pantalla)\b/.test(q)||(!spOn()&&!vidPlayer&&CTL.ok&&/\b(sube|baja|aumenta|disminuye|pon|al)\b/.test(q)))){
+    var vl=null, vd=0; if(n!==null&&/\d/.test(q)) vl=n; else if(/\bmaximo\b/.test(q)) vl=100; else if(/\b(minimo|silencio|mudo)\b/.test(q)) vl=0; else if(/\b(sube|aumenta|mas)\w*/.test(q)) vd=15; else if(/\b(baja|disminuye|menos)\w*/.test(q)) vd=-15;
+    if(vl===null&&!vd){ctlDo('/status',function(r){return 'El volumen está al '+r.volume+' por ciento.'}); return true}
+    ctlDo(vl!==null?'/volume?level='+vl:'/volume?delta='+vd,function(r){return 'Listo, volumen de la tablet al '+r.volume+' por ciento.'}); return true}
+  if(/\b(manten|deja|mantener|mantenme)\w*\s+(la\s+)?pantalla\s+(siempre\s+)?(encendida|prendida)\b|\bpantalla siempre (encendida|prendida)\b/.test(q)){ctlDo('/awake?on=1','Listo, la pantalla se queda encendida.'); return true}
+  if(/\b(que|deja que)\s+(la\s+)?pantalla se (apague|duerma)\b|\b(quita|desactiva|apaga)\w*\s+(la\s+)?pantalla siempre\b|\bya no mantengas la pantalla\b/.test(q)){ctlDo('/awake?on=0','Listo, la pantalla vuelve a apagarse sola.'); return true}
+  if(/\b(no molestar|no me molestes)\b/.test(q)){var off=/\b(desactiva|quita|apaga|termina|sin)\b/.test(q); ctlDo('/dnd?on='+(off?0:1),off?'Listo, quité No molestar.':'Listo, activé No molestar.'); return true}
+  return false;
+}
 /* ---------- Funciones con esquema JSON rígido (la IA llama funciones, no inventa texto) ---------- */
 var YESRE=/^(si|sip|sipi|correcto|claro|dale|ok|okay|okey|listo|exacto|confirmo|confirmado|afirmativo|asi es|esta bien|bien|de una|perfecto|eso es|eso|va|vale|por supuesto|obvio|aja|hazlo|borralo|borrala)\b/;
 var NORE=/^(no|nop|nope|nada|incorrecto|cancela|cancelalo|cancelala|mal|negativo|equivocado|deshaz|deshazlo|deshacer|dejalo|dejala|ese no|asi no|mejor no|todavia no)\b/;
@@ -3504,12 +3549,16 @@ var TOOLS=[
   {name:'morning_briefing',description:'Lee el resumen del día: fecha, clima, pendientes y noticias.',parameters:{type:'object',properties:{},required:[]}},
   {name:'convert_units',description:'Convierte unidades de cocina, peso, volumen, longitud o temperatura y lo muestra en pantalla.',parameters:{type:'object',properties:{value:{type:'number'},from_unit:{type:'string',description:'gramos, kilos, libras, tazas, cucharadas, ml, litros, cm, pulgadas, celsius, fahrenheit...'},to_unit:{type:'string'},ingredient:{type:'string',description:'Ingrediente si pasa de peso a volumen (harina, azúcar...). Vacío si no aplica.'}},required:['value','from_unit','to_unit','ingredient']}},
   {name:'percent_calc',description:'Calcula porcentajes: el X% de una cantidad, sumar o restar un porcentaje (IVA, propina, descuento).',parameters:{type:'object',properties:{base:{type:'number'},percent:{type:'number'},mode:{type:'string',enum:['of','add','subtract']}},required:['base','percent','mode']}},
+  {name:'set_brightness',description:'Cambia el brillo real de la pantalla de la tablet (requiere la app Chispa Control).',parameters:{type:'object',properties:{percent:{type:'integer',minimum:0,maximum:100}},required:['percent']}},
+  {name:'set_system_volume',description:'Cambia el volumen general de la tablet (requiere la app Chispa Control).',parameters:{type:'object',properties:{percent:{type:'integer',minimum:0,maximum:100}},required:['percent']}},
+  {name:'set_do_not_disturb',description:'Activa o desactiva No molestar en la tablet.',parameters:{type:'object',properties:{enabled:{type:'boolean'}},required:['enabled']}},
   {name:'find_recipes',description:'Muestra varias opciones de recetas.',parameters:{type:'object',properties:{dish:{type:'string',description:'Plato o ingrediente; vacío si es libre'},diet:{type:'array',items:{type:'string'},description:'Restricciones: sin azucar, ligera, vegetariana, vegana, sin gluten, rapida'}},required:['dish','diet']}}
 ];
 function schemaCheck(sc,v,path){
   path=path||'args'; var t=sc.type;
   if(t==='object'){ if(!v||typeof v!=='object'||Array.isArray(v)) return path+' debe ser objeto'; var req=sc.required||[]; for(var i=0;i<req.length;i++) if(v[req[i]]===undefined) return path+'.'+req[i]+' falta'; for(var k in (sc.properties||{})) if(v[k]!==undefined){var e=schemaCheck(sc.properties[k],v[k],path+'.'+k); if(e) return e} return null}
   if(t==='array'){ if(!Array.isArray(v)) return path+' debe ser lista'; if(sc.minItems&&v.length<sc.minItems) return path+' vacía'; for(var j=0;j<v.length;j++){var e2=schemaCheck(sc.items||{},v[j],path+'['+j+']'); if(e2) return e2} return null}
+  if(t==='boolean'){if(typeof v!=='boolean') return path+' debe ser verdadero o falso'; return null}
   if(t==='number'){if(typeof v!=='number'||!isFinite(v)) return path+' debe ser número'; return null}
   if(t==='integer'){ if(typeof v!=='number'||Math.floor(v)!==v) return path+' debe ser entero'; if(sc.minimum!==undefined&&v<sc.minimum) return path+' muy bajo'; if(sc.maximum!==undefined&&v>sc.maximum) return path+' muy alto'; return null}
   if(t==='string'){ if(typeof v!=='string') return path+' debe ser texto'; if(sc.enum&&sc.enum.indexOf(v)<0) return path+' valor inválido'; return null}
@@ -3543,6 +3592,9 @@ function runTool(name,a){
     case 'morning_briefing': briefing(true); return true;
     case 'convert_units': {var uf=unitOf(a.from_unit), ut=unitOf(a.to_unit); if(!uf||!ut){reply('No conozco esa unidad.'); return true} return convertUnits(a.value,uf,ut,ingOf(norm(a.ingredient||'')))}
     case 'percent_calc': return pctCalc(a.base,a.percent,a.mode==='subtract'?'sub':a.mode,'');
+    case 'set_brightness': ctlDo('/brightness?level='+a.percent,function(r){return 'Listo, brillo al '+r.brightness+' por ciento.'}); return true;
+    case 'set_system_volume': ctlDo('/volume?level='+a.percent,function(r){return 'Listo, volumen al '+r.volume+' por ciento.'}); return true;
+    case 'set_do_not_disturb': ctlDo('/dnd?on='+(a.enabled?1:0),a.enabled?'Listo, activé No molestar.':'Listo, quité No molestar.'); return true;
     case 'find_recipes': OPTS={dish:a.dish,diet:a.diet||[],list:[]}; optsSeen=[]; optsGen(a.dish,a.diet||[],false); return true;
   }
   return false;
@@ -3612,7 +3664,7 @@ function handle(raw){
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
   try{if(radCtl(q,raw)){misses=0; return} if(radReq(q)){misses=0; radPlay(raw,q); return}}catch(e){dlog('radio error '+e.message)}
   try{if(!(typeof optsOn==='function'&&optsOn()&&selNum(q)!=null)&&ctxMedia(q,raw)){misses=0; return}}catch(e){dlog('ctx error '+e.message)}
-  try{if(cmdsCmd(q,raw)||updCmd(q)||habitCmd(q,raw)||briefCmd(q,raw)||calcViz(q,raw)){misses=0; return}}catch(e){dlog('nuevo error '+e.message)}
+  try{if(cmdsCmd(q,raw)||ctlCmd(q,raw)||updCmd(q)||habitCmd(q,raw)||briefCmd(q,raw)||calcViz(q,raw)){misses=0; return}}catch(e){dlog('nuevo error '+e.message)}
   for(var i=0;i<INTENTS.length;i++){
     if(INTENTS[i][0](q)){misses=0; INTENTS[i][1](q,raw); return}
   }
@@ -4433,7 +4485,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-comandos', pendingUpdate=false;
+var APP_VERSION='2026-10-16-control', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
