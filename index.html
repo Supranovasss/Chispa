@@ -3425,6 +3425,7 @@ var CMDS=[
  {t:'Clima',i:'⛅',kw:/\b(clima|tiempo|lluvia|llover|temperatura|pronostico)\b/,x:['¿Cómo está el clima?','¿Va a llover hoy?','¿Qué temperatura hace?','Pronóstico de las próximas horas']},
  {t:'Alarmas y recordatorios',i:'⏰',kw:/\b(alarma|alarmas|recordatorio|recordatorios|recordar|cumpleanos)\b/,x:['Pon una alarma a las 6 de la mañana','Recuérdame llamar a mi mamá a las 5 de la tarde','Recuérdame ir al gimnasio todos los días a las 4','Alarma de lunes a viernes a las 7','Cumpleaños de Ana el 5 de mayo','¿Qué alarmas tengo?','Cancela la alarma de las 6','Borra todos los recordatorios','Pospón la alarma 10 minutos','Cambia la alarma de las 6 para las 7','Cambia el recordatorio de llamar a mamá para que diga …','Hazlo todos los lunes y miércoles']},
  {t:'Temporizadores',i:'⏳',kw:/\b(temporizador|temporizadores|cronometro|timer)\b/,x:['Pon un temporizador de 10 minutos','Temporizador de pasta de 8 minutos','Temporizador de horno de 20 minutos','Cancela el temporizador de la pasta','Avísame en una hora']},
+ {t:'Editar todo por voz',i:'🛠️',kw:/\b(editar|cambiar|corregir|deshacer|ajustes|configuracion)\b/,x:['Cambia mi meta de agua a 6 en vez de 8','Corrige, llevo 3 vasos','Crea un hábito de leer con meta de 20','Cambia el nombre del hábito leer a lectura','Habla más rápido','Voz más grave','Llámame Juan','Cambia la voz','Brillo al dormir 2','¿Cómo estás configurada?','¿Qué cambios hiciste?','Deshaz el último cambio']},
  {t:'Hábitos diarios',i:'💧',kw:/\b(habito|habitos|agua|vasos?)\b/,x:['Anota un vaso de agua','Me tomé dos vasos de agua','Registra que ya estudié inglés','Registra que ya hice ejercicio','¿Cuántos vasos de agua llevo?','Mi meta de agua es 10 vasos','Quita un vaso de agua','Oculta los hábitos']},
  {t:'Resumen y noticias',i:'📰',kw:/\b(resumen|noticias|titulares|buenos dias|briefing)\b/,x:['Buenos días','Dame el resumen del día','Dame las noticias','Usa el feed https://… (otra fuente de noticias)']},
  {t:'Calculadora y conversor',i:'🧮',kw:/\b(calculadora|calcular|calcula|convertir|conversor|unidades|porcentaje)\b/,x:['Calcula el 19% de 85000','Agrégale 19% a 85.000','150000 con 20% de descuento','Calcula la propina de 85000','¿Cuánto es 85.000 por 3?','¿Qué porcentaje es 20 de 80?','¿Cuánto son 250 gramos en tazas?','¿Cuántos gramos son 2 tazas de harina?','350 grados Fahrenheit en Celsius','Convierte 5 libras a kilos']},
@@ -3568,6 +3569,87 @@ function nightCmd(q,raw){
 }
 nightLoad();
 var BDL=['Que tengas un día lleno de cosas buenas.','Hoy es un buen día para empezar con calma y buena energía.','Un vaso de agua para arrancar y ya vas ganando el día.','Cada día es una página nueva. Hagámosla bonita.','Respira hondo, sonríe, y a por el día.','Tú puedes con todo lo de hoy, y yo te ayudo.'];
+/* ---------- Control total: editar hábitos y ajustes por voz, con lectura exacta y deshacer ---------- */
+var CHG=[];
+function chg(what,undo){CHG.unshift({t:Date.now(),what:what,undo:undo}); if(CHG.length>30) CHG.length=30}
+function askFill(msg,fn){editAsk={fn:fn,exp:Date.now()+25000}; reAsk(msg)}
+var NUMWD={un:1,una:1,uno:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,quince:15,veinte:20,treinta:30};
+function numIn(q){var m=q.match(/\b(\d+(?:[.,]\d+)?)\b/); if(m) return parseFloat(m[1].replace(',','.')); var w=q.match(/\b(un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte|treinta)\b/); return w?NUMWD[w[1]]:null}
+function habFindByText(q){
+  var c=habCat(q); if(c&&habGet(c.k)) return habGet(c.k);
+  var best=null; HB.list.forEach(function(e){var n=norm(e.name); if(n.length>2&&q.indexOf(n)>=0) best=e}); if(best) return best;
+  if(c) return null; return HB.list.length===1?HB.list[0]:undefined;
+}
+function habUnit(e,n){return e.unit?' '+(n===1?e.unit:e.pl):''}
+function habSetGoal(e,n){var old=e.goal; e.goal=n; habSave(); habRender(e.k); chg('meta de '+e.name+' '+old+' → '+n,function(){e.goal=old; habSave(); habRender()});
+  return 'Listo. Tu meta de '+e.name+' pasó de '+old+' a '+n+habUnit(e,n)+' al día. Hoy llevas '+e.n+' de '+n+'.'+(e.n>=n?' ¡Ya la cumpliste!':'')}
+function habSetCount(e,n){var old=e.n; e.n=Math.max(0,n); habSave(); habRender(e.k); chg('conteo de '+e.name+' '+old+' → '+e.n,function(){e.n=old; habSave(); habRender()});
+  return 'Listo. Hoy llevas '+e.n+' de '+e.goal+habUnit(e,e.goal)+' de '+e.name+', antes tenías '+old+'.'}
+function habRename(e,nm){var old=e.name; e.name=nm; habSave(); habRender(e.k); chg('nombre del hábito '+old+' → '+nm,function(){e.name=old; habSave(); habRender()}); return 'Listo. El hábito «'+old+'» ahora se llama «'+nm+'».'}
+function habEdit(q,raw){
+  if(/\b(cual|cuanta|cuantos|cuanto)\b.*\b(meta|objetivo)\b/.test(q)&&HB.list.length){var e0=habFindByText(q); if(e0){reply('Tu meta de '+e0.name+' es '+e0.goal+habUnit(e0,e0.goal)+' al día. Hoy llevas '+e0.n+'.'); return true} reply(HB.list.map(function(e){return e.name+' '+e.goal}).join(', ')+'.'); return true}
+  var cl=q.replace(/\b(en vez de|en lugar de|y no|antes (?:era|eran|tenia)|en vez del|que era)\s+(?:de\s+)?\d+\b/g,' ').replace(/\s+/g,' ');
+  if(/\b(meta|objetivo)\b/.test(cl)&&numIn(cl)!==null&&!/\b(alarma|recordatorio|temporizador)\b/.test(cl)&&/\b(cambia|cambiar|pon|ponme|ponla|quiero|ajusta|ajustar|sea|sube|baja|modifica|edita|es)\b/.test(cl)){
+    var n=numIn(cl); if(n===null||n<1||n>1000) return false; n=Math.round(n);
+    var e=habFindByText(cl);
+    if(e===undefined){askFill('¿La meta de cuál hábito? '+HB.list.map(function(x){return x.name}).join(', ')+'.',function(r2){var q2=norm(r2), e2=habFindByText(q2)||HB.list.filter(function(x){return norm(x.name).indexOf(q2)>=0})[0]; if(e2) reply(habSetGoal(e2,n)); else reply('No encuentro ese hábito.')}); return true}
+    if(e===null){e=habEnsure(habCat(cl))}
+    reply(habSetGoal(e,n)); return true}
+  if(/\b(corrige|corregir|ajusta|ajustar|cambia|cambiar|deja|dejar|modifica)\w*\b/.test(q)&&/\b(llevo|hoy|total|conteo|registro|cuenta|tomado|van)\b|\ben\s+\d+\b|\ba\s+\d+\b/.test(q)&&!/\b(meta|objetivo|nombre|alarma|recordatorio|temporizador|nota|receta|lista)\b/.test(q)&&habCat(q)){
+    var e1=habFindByText(q), n1=numIn(q); if(e1&&n1!==null&&n1>=0&&n1<=1000){reply(habSetCount(e1,Math.round(n1))); return true}}
+  var rn=q.match(/\b(?:cambia|cambiale|cambiar|renombra|renombrar|ponle)\w*\s+(?:el\s+)?(?:nombre\s+)?(?:del\s+habito\s+|de\s+)?(.+?)\s+(?:a|por|como)\s+(.+)$/);
+  if(rn&&/\bhabito\b/.test(q)){var e2=habFindByText(rn[1]); var nn=raw.slice(raw.length-rn[2].length).trim().replace(/[.!?]+$/,''); if(!e2){reply('No encuentro ese hábito.'); return true} reply(habRename(e2,nn)); return true}
+  var cr=q.match(/\b(?:crea|crear|agrega|agregar|anade|nuevo|empieza)\w*\s+(?:un\s+|el\s+)?(?:nuevo\s+)?habito\s+(?:de\s+|para\s+)?(.+?)(?:\s+(?:con\s+)?(?:meta|objetivo)\s+(?:de\s+)?(\d+))?$/);
+  if(cr){var st=cr[0].indexOf(cr[1]), nm=raw.slice(raw.length-cr[0].length+st, raw.length-cr[0].length+st+cr[1].length).trim(); if(!nm) return false; var gl=cr[2]?+cr[2]:1, ex=habGet('c:'+norm(nm)); if(ex){reply('Ese hábito ya existe: '+ex.name+'.'); return true}
+    var ne=habEnsure({k:'c:'+norm(nm),name:nm,icon:'✅',goal:gl,col:'#7be0a0'}); habSave(); habRender(ne.k); chg('hábito nuevo '+nm,function(){HB.list=HB.list.filter(function(x){return x!==ne}); habSave(); habRender()}); reply('Listo. Creé el hábito «'+nm+'» con meta de '+gl+' al día.'); return true}
+  var rs=q.match(/\b(?:reinicia|reiniciar|pon|deja)\w*\s+(?:el\s+|la\s+|los\s+|las\s+)?(?:conteo\s+de\s+)?(.+?)\s+(?:en|a)\s+(?:cero|0)\b/);
+  if(rs){var e3=habFindByText(rs[1]); if(e3){reply(habSetCount(e3,0)); return true}}
+  return false;
+}
+function cfgSet(k,val,say,fmt){
+  var old=CFG[k]; CFG[k]=val; saveCfg(); var f=fmt||function(x){return x};
+  chg(say+' '+f(old)+' → '+f(val),function(){CFG[k]=old; saveCfg()});
+  return 'Listo. '+say+': antes '+f(old)+', ahora '+f(val)+'.';
+}
+function stepPct(v){return Math.round((v||1)*100)+' por ciento'}
+function yn(x){return x?'sí':'no'}
+function voicesEs(){try{var a=speechSynthesis.getVoices()||[], es=a.filter(function(v){return /^es/i.test(v.lang)}); return (es.length?es:a).slice().sort(function(x,y){return voiceScore(y)-voiceScore(x)})}catch(e){return []}}
+function settingsCmd(q,raw){
+  var m;
+  if(/\b(habla|hablame|hables|voz|ritmo)\b/.test(q)&&/\b(rapido|rapida|deprisa|lento|lenta|despacio|velocidad|normal)\b/.test(q)&&!/\b(radio|video|musica)\b/.test(q)){
+    var r=CFG.rate||1, nv=/\b(rapido|rapida|deprisa)\b/.test(q)?r+.15:/\b(lento|lenta|despacio)\b/.test(q)?r-.15:/\bnormal\b/.test(q)?1:null;
+    if(nv===null){reply('Mi velocidad de voz está en '+stepPct(r)+'.'); return true}
+    nv=Math.max(.6,Math.min(1.6,Math.round(nv*100)/100)); reply(cfgSet('rate',nv,'Velocidad de voz',stepPct)); return true}
+  if(/\b(voz|tono)\b/.test(q)&&/\b(grave|aguda|agudo|grueso|gruesa|fina|fino|mas alta|mas baja|tono normal|voz normal)\b/.test(q)&&!/\b(volumen|radio|video)\b/.test(q)){
+    var p=CFG.pitch||1, np=/\b(grave|grueso|gruesa|mas baja)\b/.test(q)?p-.15:/\b(aguda|agudo|fina|fino|mas alta)\b/.test(q)?p+.15:1; np=Math.max(.6,Math.min(1.6,Math.round(np*100)/100)); reply(cfgSet('pitch',np,'Tono de voz',stepPct)); return true}
+  if(/\b(cambia|cambiate|usa|pon|ponte|elige)\w*\b.*\b(la\s+)?voz\b/.test(q)&&!/\b(grave|aguda|rapido|lento|despacio|volumen)\b/.test(q)){
+    var vs=voicesEs(); if(!vs.length){reply('No encuentro otras voces en este navegador.'); return true}
+    var cur=vs.map(function(v){return v.name}).indexOf(CFG.voice), nx=vs[(cur+1)%vs.length];
+    reply(cfgSet('voice',nx.name,'Mi voz',function(x){return x||'automática'})); return true}
+  if((m=raw.match(/\bmi nombre (?:es|ahora es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i))||(m=raw.match(/\bcambia\w*\s+mi nombre\s+(?:a|por)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i))||(m=raw.match(/^\s*ll[aá]mame\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s*$/i))){reply(cfgSet('name',cap(m[1].toLowerCase()),'Tu nombre',function(x){return x||'sin nombre'})); return true}
+  if(/\b(olvida|borra|quita)\w*\s+mi nombre\b/.test(q)){reply(cfgSet('name','','Tu nombre',function(x){return x||'sin nombre'})); return true}
+  if(/\bescucha\w*\s+mientras\s+(hablo|hablas|te hablo)\b/.test(q)||/\bno\s+(me\s+)?escuches\s+mientras\b/.test(q)){var on=!/\bno\s+(me\s+)?escuches\b/.test(q); reply(cfgSet('listenDuring',on,'Escuchar mientras hablo',yn)); return true}
+  if(/\bbrillo\b/.test(q)&&/\b(dormir|dormida|sueno|noche)\b/.test(q)&&numIn(q)!==null&&/\b(pon|cambia|ajusta|deja)\b/.test(q)){var bv=Math.max(1,Math.min(100,Math.round(numIn(q)))); reply(cfgSet('sleepBright',bv,'Brillo al dormir',function(x){return (x||1)+' por ciento'})); return true}
+  if(/\bbrillo\b/.test(q)&&/\b(reloj|reposo|ambiente|espera)\b/.test(q)&&numIn(q)!==null&&/\b(pon|cambia|ajusta|deja)\b/.test(q)){var bw=Math.max(1,Math.min(100,Math.round(numIn(q)))); reply(cfgSet('sbBright',bw,'Brillo de la pantalla del reloj',function(x){return (x||20)+' por ciento'})); return true}
+  if(/\b(abre|abreme|muestra|muestrame)\b.*\b(configuracion|ajustes|permisos)\b/.test(q)){openSheet(); reply('Aquí está la configuración.'); return true}
+  if(/\b(cierra|cerrar|oculta)\b.*\b(configuracion|ajustes|permisos)\b/.test(q)){closeSheet(); reply('Listo.'); return true}
+  if(/\bpantalla completa\b/.test(q)){var inF=!!document.fullscreenElement, off=/\b(sal|salir|quita|desactiva|cierra)\b/.test(q); if(off===inF){el.fs.click(); reply(inF?'Listo, salí de pantalla completa.':'Pantalla completa. Si no cambia, tócala una vez: el navegador a veces lo exige.')} else reply(inF?'Ya estoy en pantalla completa.':'Ya no estoy en pantalla completa.'); return true}
+  if(/\b(apaga|desactiva|enciende|activa|prende)\w*\b.*\b(oye chispa|microfono)\b/.test(q)&&!/\b(modo|camara)\b/.test(q)){var want2=/\b(enciende|activa|prende)\w*\b/.test(q); if(!!wakeOn!==want2){el.wake.click()} reply(want2?'Listo, vuelvo a escucharte.':'Listo, apagué el micrófono. Toca Oye Chispa para encenderlo.'); return true}
+  if(/\bcomo (estas|tienes) configurad[ao]\b|\b(estado|resumen) de (la )?configuracion\b|\bque configuracion tienes\b/.test(q)){
+    var L=['Velocidad de voz: '+stepPct(CFG.rate),'Tono de voz: '+stepPct(CFG.pitch),'Mi voz: '+(CFG.voice||'automática'),'Tu nombre: '+(CFG.name||'sin nombre'),'Despertar: '+wakeTxt(),'Pantalla del reloj: tras '+(CFG.sbMin||10)+' min'+(CFG.sbOff?' (apagada)':''),'Brillo al dormir: '+(CFG.sleepBright||1)+'% · en el reloj: '+(CFG.sbBright||20)+'%','Confirmaciones: '+yn(!CFG.noConfirm),'Tablero: '+(CFG.dash===false?'oculto':'visible'),'Hábitos: '+(HB.list.length?HB.list.map(function(e){return e.name+' '+e.n+'/'+e.goal}).join(', '):'ninguno')];
+    cardShow('Configuración actual','Chispa','',L); reply('Te muestro cómo estoy configurada.'); return true}
+  return false;
+}
+function ctrlCmd(q,raw){
+  if(/\b(que|cuales)\b.*\b(cambios?|modificaciones)\b.*\b(hiciste|has hecho|hecho|hicimos)\b|\bhistorial de cambios\b/.test(q)){
+    if(!CHG.length){reply('Todavía no he hecho cambios en esta sesión.'); return true}
+    cardShow('Últimos cambios','Cambios','',CHG.slice(0,8).map(function(c){return new Date(c.t).toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'})+' · '+c.what})); reply('Los últimos cambios fueron: '+CHG.slice(0,3).map(function(c){return c.what}).join('. ')+'.'); return true}
+  if(CHG.length&&/^(deshaz|deshacer|revierte|revertir|vuelve atras|ponlo como estaba|dejalo como estaba)\b|\bdeshaz\w*\s+(el\s+)?(ultimo\s+)?cambio\b/.test(q)&&!/\b(vaso|alarma|recordatorio|nota)\b/.test(q)){
+    var c=CHG.shift(); try{c.undo()}catch(e){} reply('Listo, deshice: '+c.what+'.'); return true}
+  try{if(habEdit(q,raw)) return true}catch(e){dlog('habEdit '+e.message)}
+  try{if(settingsCmd(q,raw)) return true}catch(e){dlog('settings '+e.message)}
+  return false;
+}
 /* ---------- Funciones con esquema JSON rígido (la IA llama funciones, no inventa texto) ---------- */
 var YESRE=/^(si|sip|sipi|correcto|claro|dale|ok|okay|okey|listo|exacto|confirmo|confirmado|afirmativo|asi es|esta bien|bien|de una|perfecto|eso es|eso|va|vale|por supuesto|obvio|aja|hazlo|borralo|borrala)\b/;
 var NORE=/^(no|nop|nope|nada|incorrecto|cancela|cancelalo|cancelala|mal|negativo|equivocado|deshaz|deshazlo|deshacer|dejalo|dejala|ese no|asi no|mejor no|todavia no)\b/;
@@ -3709,7 +3791,7 @@ function handle(raw){
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
   try{if(radCtl(q,raw)){misses=0; return} if(radReq(q)){misses=0; radPlay(raw,q); return}}catch(e){dlog('radio error '+e.message)}
   try{if(!(typeof optsOn==='function'&&optsOn()&&selNum(q)!=null)&&ctxMedia(q,raw)){misses=0; return}}catch(e){dlog('ctx error '+e.message)}
-  try{if(nightCmd(q,raw)||cmdsCmd(q,raw)||ctlCmd(q,raw)||updCmd(q)||habitCmd(q,raw)||briefCmd(q,raw)||calcViz(q,raw)){misses=0; return}}catch(e){dlog('nuevo error '+e.message)}
+  try{if(nightCmd(q,raw)||cmdsCmd(q,raw)||ctlCmd(q,raw)||updCmd(q)||ctrlCmd(q,raw)||habitCmd(q,raw)||briefCmd(q,raw)||calcViz(q,raw)){misses=0; return}}catch(e){dlog('nuevo error '+e.message)}
   for(var i=0;i<INTENTS.length;i++){
     if(INTENTS[i][0](q)){misses=0; INTENTS[i][1](q,raw); return}
   }
@@ -4530,7 +4612,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-noche', pendingUpdate=false;
+var APP_VERSION='2026-10-17-control-total', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
