@@ -1,0 +1,176 @@
+package com.chispa.control;
+
+import android.app.NotificationManager;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
+import android.media.AudioManager;
+import android.net.Uri;
+import android.os.BatteryManager;
+import android.provider.Settings;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.Map;
+
+/** Acciones sobre la tablet. Cada una devuelve un JSON con ok true/false. */
+public class Control {
+    public static final String CHISPA_URL = "https://supranovasss.github.io/Chispa/";
+    private final Context ctx;
+    private final SharedPreferences sp;
+
+    public Control(Context c) {
+        ctx = c.getApplicationContext();
+        sp = ctx.getSharedPreferences("control", Context.MODE_PRIVATE);
+    }
+
+    private JSONObject err(String m) {
+        try { return new JSONObject().put("ok", false).put("err", m); } catch (Exception e) { return new JSONObject(); }
+    }
+
+    private int num(Map<String, String> q, String k, int d) {
+        try { return Integer.parseInt(q.get(k)); } catch (Exception e) { return d; }
+    }
+
+    private boolean on(Map<String, String> q, String k) {
+        String v = q.get(k);
+        return v != null && (v.equals("1") || v.equals("true") || v.equals("on") || v.equals("si"));
+    }
+
+    public JSONObject handle(String path, Map<String, String> q) {
+        try {
+            switch (path) {
+                case "/ping": return ping();
+                case "/status": return status();
+                case "/brightness": return brightness(q);
+                case "/brightness/restore": return restoreBrightness();
+                case "/auto": return autoBrightness(on(q, "on"));
+                case "/volume": return volume(q);
+                case "/awake": return awake(on(q, "on"));
+                case "/dnd": return dnd(on(q, "on"));
+                case "/open": return open(q.get("url"));
+                case "/update/check": return Updater.check(ctx);
+                case "/update/install": return Updater.install(ctx);
+                default: return err("ruta desconocida");
+            }
+        } catch (SecurityException e) {
+            return err("sin permiso");
+        } catch (Exception e) {
+            return err(String.valueOf(e.getMessage()));
+        }
+    }
+
+    private JSONObject ping() throws Exception {
+        JSONArray caps = new JSONArray();
+        for (String c : new String[]{"brightness", "auto", "volume", "awake", "dnd", "open", "update"}) caps.put(c);
+        return new JSONObject().put("ok", true).put("v", BuildConfig.VERSION_NAME).put("code", BuildConfig.VERSION_CODE).put("caps", caps);
+    }
+
+    public boolean canWrite() { return Settings.System.canWrite(ctx); }
+    public boolean canDnd() { return ((NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE)).isNotificationPolicyAccessGranted(); }
+
+    private JSONObject status() throws Exception {
+        ContentResolver cr = ctx.getContentResolver();
+        int b = Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS, 128);
+        int mode = Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, 0);
+        AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+        int vmax = Math.max(1, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+        Intent bat = ctx.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        int level = -1, charging = 0;
+        if (bat != null) {
+            int l = bat.getIntExtra(BatteryManager.EXTRA_LEVEL, -1), s = bat.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+            level = s > 0 ? Math.round(l * 100f / s) : -1;
+            int st = bat.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+            charging = (st == BatteryManager.BATTERY_STATUS_CHARGING || st == BatteryManager.BATTERY_STATUS_FULL) ? 1 : 0;
+        }
+        return new JSONObject().put("ok", true)
+                .put("brightness", Math.round(b * 100f / 255f)).put("auto", mode == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC)
+                .put("volume", Math.round(am.getStreamVolume(AudioManager.STREAM_MUSIC) * 100f / vmax))
+                .put("battery", level).put("charging", charging == 1)
+                .put("canWrite", canWrite()).put("canDnd", canDnd())
+                .put("savedBrightness", sp.getInt("saved_b", -1) >= 0);
+    }
+
+    private JSONObject brightness(Map<String, String> q) throws Exception {
+        if (!canWrite()) return err("falta el permiso Modificar ajustes del sistema");
+        ContentResolver cr = ctx.getContentResolver();
+        int pct = num(q, "level", -1);
+        if (pct < 0) {
+            int delta = num(q, "delta", 0);
+            int cur = Math.round(Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS, 128) * 100f / 255f);
+            pct = cur + delta;
+        }
+        pct = Math.max(0, Math.min(100, pct));
+        if (on(q, "save") && sp.getInt("saved_b", -1) < 0) {
+            sp.edit().putInt("saved_b", Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS, 128))
+                    .putInt("saved_m", Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, 0)).apply();
+        }
+        int raw = Math.max(1, Math.round(pct * 255f / 100f));
+        Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
+        Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, raw);
+        return new JSONObject().put("ok", true).put("brightness", pct);
+    }
+
+    private JSONObject restoreBrightness() throws Exception {
+        if (!canWrite()) return err("falta el permiso Modificar ajustes del sistema");
+        int b = sp.getInt("saved_b", -1);
+        if (b < 0) return new JSONObject().put("ok", true).put("restored", false);
+        ContentResolver cr = ctx.getContentResolver();
+        Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, b);
+        Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, sp.getInt("saved_m", 0));
+        sp.edit().remove("saved_b").remove("saved_m").apply();
+        return new JSONObject().put("ok", true).put("restored", true).put("brightness", Math.round(b * 100f / 255f));
+    }
+
+    private JSONObject autoBrightness(boolean on) throws Exception {
+        if (!canWrite()) return err("falta el permiso Modificar ajustes del sistema");
+        Settings.System.putInt(ctx.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS_MODE,
+                on ? Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC : Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
+        return new JSONObject().put("ok", true).put("auto", on);
+    }
+
+    private JSONObject volume(Map<String, String> q) throws Exception {
+        AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+        String s = q.get("stream") == null ? "music" : q.get("stream");
+        int st = s.equals("alarm") ? AudioManager.STREAM_ALARM : s.equals("ring") ? AudioManager.STREAM_RING
+                : s.equals("notification") ? AudioManager.STREAM_NOTIFICATION : AudioManager.STREAM_MUSIC;
+        int max = Math.max(1, am.getStreamMaxVolume(st));
+        int pct = num(q, "level", -1);
+        if (pct < 0) pct = Math.round(am.getStreamVolume(st) * 100f / max) + num(q, "delta", 0);
+        pct = Math.max(0, Math.min(100, pct));
+        am.setStreamVolume(st, Math.round(pct * max / 100f), 0);
+        return new JSONObject().put("ok", true).put("volume", pct);
+    }
+
+    private JSONObject awake(boolean on) throws Exception {
+        if (!canWrite()) return err("falta el permiso Modificar ajustes del sistema");
+        ContentResolver cr = ctx.getContentResolver();
+        if (on) {
+            if (sp.getInt("saved_t", -1) < 0) sp.edit().putInt("saved_t", Settings.System.getInt(cr, Settings.System.SCREEN_OFF_TIMEOUT, 120000)).apply();
+            Settings.System.putInt(cr, Settings.System.SCREEN_OFF_TIMEOUT, Integer.MAX_VALUE);
+        } else {
+            int t = sp.getInt("saved_t", 120000);
+            Settings.System.putInt(cr, Settings.System.SCREEN_OFF_TIMEOUT, t);
+            sp.edit().remove("saved_t").apply();
+        }
+        return new JSONObject().put("ok", true).put("awake", on);
+    }
+
+    private JSONObject dnd(boolean on) throws Exception {
+        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (!nm.isNotificationPolicyAccessGranted()) return err("falta el permiso No molestar");
+        nm.setInterruptionFilter(on ? NotificationManager.INTERRUPTION_FILTER_PRIORITY : NotificationManager.INTERRUPTION_FILTER_ALL);
+        return new JSONObject().put("ok", true).put("dnd", on);
+    }
+
+    private JSONObject open(String url) throws Exception {
+        if (url == null || !url.startsWith(CHISPA_URL)) url = CHISPA_URL;
+        Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        i.setPackage("com.android.chrome");
+        try { ctx.startActivity(i); } catch (Exception e) { i.setPackage(null); ctx.startActivity(i); }
+        return new JSONObject().put("ok", true);
+    }
+}

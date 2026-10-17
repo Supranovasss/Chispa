@@ -1,0 +1,30 @@
+name: Chispa Control APK
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/control-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Compilar
+        working-directory: android
+        run: gradle --no-daemon -PvCode=${{ github.run_number }} assembleRelease
+      - name: Publicar APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk ChispaControl.apk
+          gh release delete control-latest --yes --cleanup-tag || true
+          gh release create control-latest ChispaControl.apk --target ${{ github.sha }} --title "Chispa Control 1.0.${{ github.run_number }}" --notes "code:${{ github.run_number }}"
