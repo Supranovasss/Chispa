@@ -801,6 +801,8 @@ function mmss(ms){
 function addTimer(sec,msg,name){
   timers.push({id:++tid,end:Date.now()+sec*1000,total:sec,label:durText(sec),msg:msg||'',name:name||''});
   renderTimers();
+  var tobj=timers[timers.length-1];
+  if(confirmOn()&&!msg){undoReply('Configuré el temporizador'+(name?' de '+name:'')+' en '+durText(sec)+', ¿correcto?',function(){timers=timers.filter(function(x){return x!==tobj}); renderTimers(); try{saveTimers()}catch(e){}}); return}
   reply(name?'Listo, temporizador de '+name+' por '+durText(sec)+'.':msg?'Listo, te lo recuerdo en '+durText(sec)+': '+msg+'.':'Listo, temporizador de '+durText(sec)+'.');
 }
 function renderTimers(){
@@ -1691,7 +1693,8 @@ function addRem(kind,at,msg,rp){
   var o={id:Date.now()+Math.random(),at:at.getTime(),kind:kind,msg:msg||''}; if(rp&&rp.length) o.rep=rp; if(pendYearly){o.yearly=true; pendYearly=false}
   REMS.push(o); saveRem(); renderRems(); popCard('acard',14000);
   var t=o.yearly?'cada año el '+new Intl.DateTimeFormat('es-CO',{day:'numeric',month:'long'}).format(at)+' '+atText(at):rp&&rp.length?repText(rp)+' '+atText(at):dayText(at)+' '+atText(at);
-  reply(kind==='alarma'?'Listo, alarma '+t+(msg?': '+msg:'')+'.':'Listo, te lo recuerdo '+t+(msg?': '+msg:'')+'.');
+  if(confirmOn()) undoReply((kind==='alarma'?'Configuré la alarma ':'Configuré el recordatorio ')+t+(msg?': '+msg:'')+', ¿correcto?',function(){REMS=REMS.filter(function(x){return x!==o}); saveRem(); renderRems()});
+  else reply(kind==='alarma'?'Listo, alarma '+t+(msg?': '+msg:'')+'.':'Listo, te lo recuerdo '+t+(msg?': '+msg:'')+'.');
 }
 /* ---------- Recordatorios y alarmas que se repiten ---------- */
 var DNAME=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
@@ -2428,8 +2431,8 @@ function remEdit(q){
         nd.setHours(hh,np.at.getMinutes(),0,0);
         if(nd.getTime()<=Date.now()) nd.setDate(nd.getDate()+1);
       }
-      res.r.at=nd.getTime(); saveRem(); renderRems(); popCard('acard',12000);
-      reply('Listo, moví '+(kind==='alarma'?'la alarma':'el recordatorio')+' '+dayText(nd)+' '+atText(nd)+'.');
+      var oldAt=res.r.at, rr=res.r; rr.at=nd.getTime(); saveRem(); renderRems(); popCard('acard',12000);
+      undoReply('Moví '+(kind==='alarma'?'la alarma':'el recordatorio')+' '+dayText(nd)+' '+atText(nd)+', ¿correcto?',function(){rr.at=oldAt; saveRem(); renderRems()});
     };
   }
   if((m=q.match(/^(pospon|pospone|posponer|atrasa|atrasar|aplaza|aplazar|retrasa|retrasar|adelanta|adelantar)\w*\s+(?:el |la |mi |esa |esta )?(alarma|recordatorio)\b/))&&parseDur(q)>0){
@@ -2440,8 +2443,8 @@ function remEdit(q){
       if(!res.r){reply(res.list.length?'No encuentro esa alarma.':'No tienes alarmas pendientes.'); return}
       var nt=res.r.at+dur;
       if(nt<=Date.now()+5000){reply('Eso ya quedaría en el pasado.'); return}
-      res.r.at=nt; saveRem(); renderRems(); popCard('acard',12000);
-      var d2=new Date(nt); reply('Listo, ahora suena '+dayText(d2)+' '+atText(d2)+'.');
+      var oldAt2=res.r.at, rr2=res.r; rr2.at=nt; saveRem(); renderRems(); popCard('acard',12000);
+      var d2=new Date(nt); undoReply('Ahora suena '+dayText(d2)+' '+atText(d2)+', ¿correcto?',function(){rr2.at=oldAt2; saveRem(); renderRems()});
     };
   }
   if((m=q.match(/^(?:cancela|cancelar|borra|borrar|elimina|eliminar|quita|quitar|desactiva|desactivar|apaga)\w*\s+(?:el |la |mi |esa |esta |ese |este )?(alarma|recordatorio)\s+(?:(?:de|del|que esta|a)\s+(?:las?\s+)?(.+)|((?:numero|nro|#)\s*\d+|primera|segunda|tercera|ultima))$/))&&!/\b(todas|todos)\b/.test(q)){
@@ -2449,8 +2452,7 @@ function remEdit(q){
     return function(){
       var res=remMatch(kind3,txt3);
       if(!res.r){reply('No encuentro '+(kind3==='alarma'?'esa alarma':'ese recordatorio')+'.'); return}
-      REMS=REMS.filter(function(x){return x!==res.r}); saveRem(); renderRems(); popCard('acard',12000);
-      var d3=new Date(res.r.at); reply('Listo, cancelé '+(kind3==='alarma'?'la alarma ':'el recordatorio ')+dayText(d3)+' '+atText(d3)+'.');
+      askDeleteRem([res.r]);
     };
   }
   if(/(cual|cuando|a que hora)\b.*\b(proxima|siguiente)\b.*\b(alarma|recordatorio)|^(?:la )?proxima (alarma|recordatorio)$|a que hora (suena|es) la alarma/.test(q)) return function(){
@@ -2511,8 +2513,7 @@ var INTENTS=[
   [function(q){return /(cancela|borra|elimina|quita|desactiva|apaga)\s+(todas\s+)?(las\s+|los\s+|la\s+|el\s+|mi\s+|mis\s+|esa\s+|ese\s+)?(alarmas?|recordatorios?)/.test(q)},
    function(q){var kind=/alarma/.test(q)?'alarma':'recordatorio', all=/(todas|todos|alarmas|recordatorios)/.test(q), mine=REMS.filter(function(r){return r.kind===kind}).sort(function(a,b){return a.at-b.at});
      if(!mine.length){reply('No tengo '+(kind==='alarma'?'alarmas':'recordatorios')+' pendientes.'); return}
-     var del=all?mine:[mine[0]]; REMS=REMS.filter(function(r){return del.indexOf(r)<0}); saveRem(); renderRems(); popCard('acard',12000);
-     reply(all?'Listo, borré '+del.length+(kind==='alarma'?' alarmas.':' recordatorios.'):'Listo, cancelé la próxima '+kind+'.')}],
+     var del=all?mine:[mine[0]]; askDeleteRem(del)}],
   [function(q){return !!repParse(q).days&&/(recuerd|avis|alarma|notific|agend|senal|rutina|recordatorio|despiert|despert)/.test(q)&&!/\b(cancela|borra|elimina|quita|cuales|que alarmas|que recordatorios)\b/.test(q)}, function(q,raw){handleRem(raw,/(alarma|despiert|despert)/.test(q)?'alarma':'recordatorio')}],
   [function(q){return /(despiertame|despertame|\b(pon|ponme|programa|crea|configura|activa)\b.*\balarma\b|\balarma\s+(a|para|de|en|manana|hoy|el)\b)/.test(q)}, function(q,raw){handleRem(raw,'alarma')}],
   [function(q){return /(recuerdame|recuerdalo|avisame|recordatorio|recuerda que|no (me )?dejes (que )?(se me )?olvid)/.test(q)}, function(q,raw){handleRem(raw,'recordatorio')}],
@@ -2816,8 +2817,8 @@ function strongSep(n,from){
 var TIMEISH=/^(?:(?:a\s+)?(?:las?\s+)?\d{1,2}(?:[:.]\d{2})?\s*(?:y\s+\w+\s*)?(?:de la\s+\w+|am|pm|a\.?m\.?|p\.?m\.?|en punto|\b)?|(?:manana|hoy|pasado manana|el\s+(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo))\b)/;
 function refreshEdits(){renderRems(); if(!$('#hub').hidden) renderHub()}
 function remEditSet(r,txt,label){
-  r.msg=clean1(txt); saveRem(); refreshEdits(); popCard('acard',12000);
-  reply('Listo, '+(label||'ahora dice')+': '+r.msg+'.');
+  var oldMsg=r.msg; r.msg=clean1(txt); saveRem(); refreshEdits(); popCard('acard',12000);
+  undoReply((label||'Ahora dice')+': '+r.msg+', ¿correcto?',function(){r.msg=oldMsg; saveRem(); refreshEdits()});
 }
 function remEditRep(r,days,yearly){
   var d=new Date(r.at);
@@ -3166,6 +3167,109 @@ function amb2(q,raw){
   if(/\b(muestra|pon|activa|enciende)\w*\b.*\b(tablero|panel del dia|resumen del dia)\b/.test(q)){CFG.dash=true; saveCfg(); reply('Aquí está el tablero.'); return true}
   return false;
 }
+/* ---------- Funciones con esquema JSON rígido (la IA llama funciones, no inventa texto) ---------- */
+var YESRE=/^(si|sip|sipi|correcto|claro|dale|ok|okay|okey|listo|exacto|confirmo|confirmado|afirmativo|asi es|esta bien|bien|de una|perfecto|eso es|eso|va|vale|por supuesto|obvio|aja|hazlo|borralo|borrala)\b/;
+var NORE=/^(no|nop|nope|nada|incorrecto|cancela|cancelalo|cancelala|mal|negativo|equivocado|deshaz|deshazlo|deshacer|dejalo|dejala|ese no|asi no|mejor no|todavia no)\b/;
+var confAsk=null;
+function confirmOn(){return CFG.noConfirm!==true}
+function confirmQ(msg,yes,no){confAsk={yes:yes,no:no,exp:Date.now()+25000}; reAsk(msg)}
+var TOOLS=[
+  {name:'set_timer',description:'Programa un temporizador de cuenta regresiva.',parameters:{type:'object',properties:{seconds:{type:'integer',minimum:1,maximum:86400,description:'Duración total en segundos'},label:{type:'string',description:'Etiqueta corta, ej. pasta u horno. Vacío si no hay.'}},required:['seconds','label']}},
+  {name:'set_alarm',description:'Crea una alarma a una hora concreta.',parameters:{type:'object',properties:{hour:{type:'integer',minimum:0,maximum:23},minute:{type:'integer',minimum:0,maximum:59},date:{type:'string',description:'Fecha YYYY-MM-DD o vacío para la próxima vez que llegue esa hora'},repeat_days:{type:'array',items:{type:'integer',minimum:0,maximum:6},description:'Días que se repite, 0=domingo..6=sábado. Lista vacía si no se repite.'},label:{type:'string'}},required:['hour','minute','date','repeat_days','label']}},
+  {name:'set_reminder',description:'Crea un recordatorio con texto a una hora concreta.',parameters:{type:'object',properties:{hour:{type:'integer',minimum:0,maximum:23},minute:{type:'integer',minimum:0,maximum:59},date:{type:'string',description:'Fecha YYYY-MM-DD o vacío'},repeat_days:{type:'array',items:{type:'integer',minimum:0,maximum:6},description:'0=domingo..6=sábado; vacío si no se repite'},text:{type:'string',description:'Qué recordar'}},required:['hour','minute','date','repeat_days','text']}},
+  {name:'delete_reminder',description:'Borra una alarma o recordatorio existente.',parameters:{type:'object',properties:{query:{type:'string',description:'Parte del texto, la hora o el número'},kind:{type:'string',enum:['alarma','recordatorio','cualquiera']}},required:['query','kind']}},
+  {name:'edit_reminder_text',description:'Cambia el texto de un recordatorio o alarma existente.',parameters:{type:'object',properties:{query:{type:'string'},new_text:{type:'string'}},required:['query','new_text']}},
+  {name:'play_radio',description:'Sintoniza una emisora de radio por internet.',parameters:{type:'object',properties:{query:{type:'string',description:'Nombre de la emisora o género (salsa, vallenato, lofi, noticias). Vacío para populares.'}},required:['query']}},
+  {name:'play_video',description:'Busca y reproduce un video en YouTube.',parameters:{type:'object',properties:{query:{type:'string'}},required:['query']}},
+  {name:'play_music',description:'Reproduce una canción, artista o playlist.',parameters:{type:'object',properties:{query:{type:'string'}},required:['query']}},
+  {name:'play_ambient_sound',description:'Reproduce ruido o sonido ambiente para concentrarse o dormir.',parameters:{type:'object',properties:{kind:{type:'string',enum:['rain','storm','white','pink','brown','waves','wind']},minutes:{type:'integer',minimum:0,maximum:600,description:'Duración en minutos; 0 = hasta que se apague'}},required:['kind','minutes']}},
+  {name:'stop_media',description:'Detiene la música, radio, video o ruido que esté sonando y cierra ventanas.',parameters:{type:'object',properties:{},required:[]}},
+  {name:'get_weather',description:'Muestra y dice el clima actual.',parameters:{type:'object',properties:{},required:[]}},
+  {name:'get_time',description:'Dice la hora actual.',parameters:{type:'object',properties:{},required:[]}},
+  {name:'show_agenda',description:'Muestra la agenda con recordatorios y alarmas.',parameters:{type:'object',properties:{},required:[]}},
+  {name:'add_shopping_items',description:'Agrega productos a la lista de compras.',parameters:{type:'object',properties:{items:{type:'array',items:{type:'string'},minItems:1}},required:['items']}},
+  {name:'add_note',description:'Guarda una nota.',parameters:{type:'object',properties:{text:{type:'string'}},required:['text']}},
+  {name:'find_recipes',description:'Muestra varias opciones de recetas.',parameters:{type:'object',properties:{dish:{type:'string',description:'Plato o ingrediente; vacío si es libre'},diet:{type:'array',items:{type:'string'},description:'Restricciones: sin azucar, ligera, vegetariana, vegana, sin gluten, rapida'}},required:['dish','diet']}}
+];
+function schemaCheck(sc,v,path){
+  path=path||'args'; var t=sc.type;
+  if(t==='object'){ if(!v||typeof v!=='object'||Array.isArray(v)) return path+' debe ser objeto'; var req=sc.required||[]; for(var i=0;i<req.length;i++) if(v[req[i]]===undefined) return path+'.'+req[i]+' falta'; for(var k in (sc.properties||{})) if(v[k]!==undefined){var e=schemaCheck(sc.properties[k],v[k],path+'.'+k); if(e) return e} return null}
+  if(t==='array'){ if(!Array.isArray(v)) return path+' debe ser lista'; if(sc.minItems&&v.length<sc.minItems) return path+' vacía'; for(var j=0;j<v.length;j++){var e2=schemaCheck(sc.items||{},v[j],path+'['+j+']'); if(e2) return e2} return null}
+  if(t==='integer'){ if(typeof v!=='number'||Math.floor(v)!==v) return path+' debe ser entero'; if(sc.minimum!==undefined&&v<sc.minimum) return path+' muy bajo'; if(sc.maximum!==undefined&&v>sc.maximum) return path+' muy alto'; return null}
+  if(t==='string'){ if(typeof v!=='string') return path+' debe ser texto'; if(sc.enum&&sc.enum.indexOf(v)<0) return path+' valor inválido'; return null}
+  return null;
+}
+function atFrom(a){
+  var now=new Date(), rp=a.repeat_days||[];
+  if(rp.length) return nextOcc(rp,a.hour,a.minute);
+  var d; if(a.date&&/^\d{4}-\d{2}-\d{2}$/.test(a.date)){var p=a.date.split('-'); d=new Date(+p[0],+p[1]-1,+p[2],a.hour,a.minute,0,0)}
+  else {d=new Date(now.getFullYear(),now.getMonth(),now.getDate(),a.hour,a.minute,0,0); if(d.getTime()<=now.getTime()) d=new Date(d.getTime()+86400000)}
+  return d;
+}
+function runTool(name,a){
+  switch(name){
+    case 'set_timer': addTimer(a.seconds,'',a.label||''); return true;
+    case 'set_alarm': addRem('alarma',atFrom(a),a.label||'',(a.repeat_days&&a.repeat_days.length)?a.repeat_days:null); return true;
+    case 'set_reminder': addRem('recordatorio',atFrom(a),a.text,(a.repeat_days&&a.repeat_days.length)?a.repeat_days:null); return true;
+    case 'delete_reminder': {var kd=a.kind==='cualquiera'?null:a.kind, rs=findRemT(kd,a.query); if(!rs.r){reply('No encuentro ese pendiente.'); return true} askDeleteRem([rs.r]); return true}
+    case 'edit_reminder_text': {var r2=findRemT(null,a.query).r; if(!r2){reply('No encuentro ese pendiente.'); return true} remEditSet(r2,a.new_text); return true}
+    case 'play_radio': radPlay('',norm(a.query||'')); return true;
+    case 'play_video': playVideo(a.query,{auto:/mix|playlist|hora/i.test(a.query)}); return true;
+    case 'play_music': if(spOn()) spPlayQuery(a.query,false); else playVideo(a.query+' audio oficial'); return true;
+    case 'play_ambient_sound': ambStart(a.kind,(a.minutes||0)*60); return true;
+    case 'stop_media': {closeAll(); radStop(false); ambStop(false); try{if(spOn()&&spPlaying) spCtl('pause')}catch(e){} reply('Listo.'); return true}
+    case 'get_weather': askWeather(); return true;
+    case 'get_time': reply(horaHablada()); return true;
+    case 'show_agenda': openHub('agenda'); reply('Aquí está tu agenda.'); return true;
+    case 'add_shopping_items': {var added=[]; a.items.forEach(function(it){it=String(it).trim(); if(it&&!SHOP.some(function(s){return norm(s)===norm(it)})){SHOP.push(it); added.push(it)}}); saveShop(); renderShop(); popCard('lcard',14000); reply(added.length?'Listo, agregué '+added.join(', ')+' a la lista.':'Eso ya estaba en la lista.'); return true}
+    case 'add_note': addNote(a.text); reply('Listo, anoté: '+a.text); return true;
+    case 'find_recipes': OPTS={dish:a.dish,diet:a.diet||[],list:[]}; optsSeen=[]; optsGen(a.dish,a.diet||[],false); return true;
+  }
+  return false;
+}
+function toGem(sc){
+  if(!sc||typeof sc!=='object') return sc; var o={}; for(var k in sc){var v=sc[k]; if(k==='type') o.type=String(v).toUpperCase(); else if(k==='properties'){o.properties={}; for(var p in v) o.properties[p]=toGem(v[p])} else if(k==='items') o.items=toGem(v); else o[k]=v}
+  return o;
+}
+function toolSys(){
+  var n=new Date(), iso=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')+' '+String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+  return persona('chat')+' REGLAS: cuando la persona pida una acción (temporizador, alarma, recordatorio, radio, video, música, ruido, clima, hora, agenda, lista, nota, recetas, detener), llama SIEMPRE la función correspondiente con parámetros exactos; no describas la acción en texto. Convierte horas relativas usando la fecha y hora actual: '+iso+' (zona America/Bogota, hora local). Si solo es conversación, responde en texto breve.';
+}
+function aiTool(raw){
+  var sys=toolSys(), msgs=hist.concat([{role:'user',content:raw}]);
+  if(CFG.aiProv==='claude'){
+    return fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':CFG.aiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:600,system:sys,messages:msgs,tools:TOOLS.map(function(t){return {name:t.name,description:t.description,input_schema:t.parameters}}),tool_choice:{type:'auto'}})
+    }).then(function(r){if(!r.ok){var e=new Error('http'+r.status); e.status=r.status; throw e} return r.json()}).then(function(j){
+      var c=j.content||[], tu=c.filter(function(b){return b.type==='tool_use'})[0];
+      if(tu) return {name:tu.name,args:tu.input||{}};
+      var t=c.map(function(b){return b.text||''}).join('').trim(); if(!t) throw new Error('empty'); return {text:t};
+    });
+  }
+  var list=[CFG.aiModel||'gemini-3.5-flash-lite','gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.1-flash-lite'].filter(function(m,k,a){return a.indexOf(m)===k}), i=0;
+  function go(){
+    return fetch('https://generativelanguage.googleapis.com/v1beta/models/'+list[i]+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':CFG.aiKey.trim()},
+      body:JSON.stringify({systemInstruction:{parts:[{text:sys}]},contents:msgs.map(function(m){return {role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}}),
+        tools:[{functionDeclarations:TOOLS.map(function(t){return {name:t.name,description:t.description,parameters:toGem(t.parameters)}})}],toolConfig:{functionCallingConfig:{mode:'AUTO'}},generationConfig:{maxOutputTokens:600,temperature:.4}})
+    }).then(function(r){if(!r.ok){var e=new Error('http'+r.status); e.status=r.status; throw e} return r.json()}).then(function(j){
+      var c=j.candidates&&j.candidates[0], ps=(c&&c.content&&c.content.parts)||[], fc=ps.filter(function(p){return p.functionCall})[0];
+      if(fc) return {name:fc.functionCall.name,args:fc.functionCall.args||{}};
+      var t=ps.map(function(p){return p.text||''}).join('').trim(); if(!t) throw new Error('empty'); return {text:t};
+    }).catch(function(e){if(e&&(e.status===404||e.status===429||e.status===503)&&i<list.length-1){i++; return go()} throw e});
+  }
+  return go();
+}
+function askDeleteRem(list){
+  var one=list.length===1, r=list[0], d=new Date(r.at);
+  var q=one?'¿Borro '+(r.kind==='alarma'?'la alarma ':'el recordatorio ')+(r.msg?'«'+r.msg+'» ':'')+(r.rep?repText(r.rep):dayText(d))+' '+atText(d)+'?':'¿Borro estos '+list.length+' pendientes?';
+  var doit=function(){REMS=REMS.filter(function(x){return list.indexOf(x)<0}); saveRem(); renderRems(); if(!$('#hub').hidden) renderHub(); popCard('acard',12000); reply(one?'Listo, lo borré.':'Listo, borré '+list.length+'.')};
+  if(!confirmOn()){doit(); return}
+  confirmQ(q,doit,function(){reply('Listo, lo dejo como está.')});
+}
+function undoReply(msg,undo){
+  if(!confirmOn()){reply(msg.replace(/,?\s*¿correcto\?$/,'.')); return}
+  confirmQ(msg,function(){setMood('happy',900)},function(){undo(); reply('Listo, lo deshice.')});
+}
 function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return; var raw0=raw; try{raw=latinFix(raw)||raw}catch(e){} if(raw!==raw0) dlog('  español latino: «'+raw0+'» → «'+raw+'»'); dlog('HANDLE «'+raw+'»');
   act(); note('Tú: '+raw);
@@ -3178,6 +3282,10 @@ function handle(raw){
   if(askVideoNext){askVideoNext=false; if(/^(no|nada|cancela|olvidalo|ya no)\b/.test(q)){reply('Listo, no pongo nada.'); return} playVideo(raw.replace(/chispa[,\s]*/ig,' ').trim()); return}
   if(editAsk&&editAsk.exp<Date.now()) editAsk=null;
   if(editAsk){var ea=editAsk; editAsk=null; if(/^(no|nada|cancela|olvidalo|ya no|deja)\b/.test(q)){reply('Listo, lo dejo así.'); return} ea.fn(raw); return}
+  if(confAsk&&confAsk.exp<Date.now()) confAsk=null;
+  if(confAsk){var ca=confAsk; confAsk=null; if(YESRE.test(q)){if(ca.yes) ca.yes(); return} if(NORE.test(q)){if(ca.no) ca.no(); return}}
+  if(/\b(sin|no)\s+(me\s+)?(pidas|preguntes|pida|pregunte)?\s*confirmacion\b|\bno\s+(me\s+)?(confirmes|confirmar)\b|\bdeja\s+de\s+confirmar\b/.test(q)){CFG.noConfirm=true; saveCfg(); reply('Listo, ya no te pido confirmación.'); return}
+  if(/\b(pideme|activa|pon|vuelve a pedir)\s+(la\s+)?confirmacion\b|\bconfirmame\s+todo\b/.test(q)){CFG.noConfirm=false; saveCfg(); reply('Listo, te confirmo cada cambio.'); return}
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
   try{if(editCmd(q,raw)){misses=0; return}}catch(e){dlog('edit error '+e.message)}
@@ -3301,6 +3409,22 @@ function askClaude(raw){
     if(misses===2){reply('Sigo sin entender. Di ayuda para ver lo que sé hacer.'); return}
     misses=0; reply(fallback+' Para conversar de cualquier cosa, pon la llave de IA en Voz y permisos.'); return}
   setMood('thinking'); el.bubble.textContent='Pensando…';
+  if(CFG.aiKey&&CFG.useTools!==false){
+    aiTool(raw).then(function(res){
+      misses=0;
+      if(res.name){
+        var tl=TOOLS.filter(function(x){return x.name===res.name})[0], err=tl?schemaCheck(tl.parameters,res.args||{}):'función desconocida';
+        dlog('  función: '+res.name+' '+JSON.stringify(res.args)+(err?' ✗ '+err:' ✓'));
+        if(!err){hist.push({role:'user',content:raw},{role:'assistant',content:'(hice: '+res.name+')'}); hist=hist.slice(-6); setMood(baseline()); if(runTool(res.name,res.args)) return}
+        return aiAsk(raw,{kind:'chat'}).then(function(t){t=cleanAi(t); hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6); reply(t)});
+      }
+      var t2=cleanAi(res.text); hist.push({role:'user',content:raw},{role:'assistant',content:t2}); hist=hist.slice(-6); reply(t2);
+    }).catch(function(e){
+      dlog('  función falló: '+(e&&e.message)+' → chat libre');
+      return aiAsk(raw,{kind:'chat'}).then(function(t){misses=0; t=cleanAi(t); hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6); reply(t)}).catch(function(e2){setMood(baseline()); reply(aiError(e2))});
+    });
+    return;
+  }
   aiAsk(raw,{kind:'chat'}).then(function(t){
     misses=0; t=cleanAi(t); hist.push({role:'user',content:raw},{role:'assistant',content:t}); hist=hist.slice(-6);
     reply(t);
@@ -3988,7 +4112,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-16-ambiente', pendingUpdate=false;
+var APP_VERSION='2026-10-16-funciones', pendingUpdate=false;
 function checkUpdate(){
   fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(j&&j.v&&j.v!==APP_VERSION){pendingUpdate=true; fetch('index.html',{cache:'reload'}).catch(function(){})}
