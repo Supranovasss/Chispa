@@ -605,8 +605,8 @@ addEventListener('keydown',act);
 /* La pantalla solo se atenúa cuando se le ordena dormir; no hay modo dormir automático. */
 
 /* ---------- Voz de salida ---------- */
-var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false,ntTopic:''};
-try{var sv=JSON.parse(localStorage.getItem('chispa.cfg')||'{}'); for(var kk in sv) if(kk in CFG) CFG[kk]=sv[kk]}catch(e){}
+var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false,ntTopic:'',dash:false,dashMig:0,ntfOff:false};
+try{var sv=JSON.parse(localStorage.getItem('chispa.cfg')||'{}'); for(var kk in sv) if(kk in CFG) CFG[kk]=sv[kk]; if(!CFG.dashMig){CFG.dash=false; CFG.dashMig=1; localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}}catch(e){}
 function saveCfg(){try{localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}catch(e){}}
 var speakId=0, lastSaid='', lastSaidEnd=0, storyId=0, storyOn=false;
 function voiceScore(v){
@@ -902,7 +902,7 @@ function loadWeather(){
     WX={t:cur.temperature_2m,feel:cur.apparent_temperature,hum:cur.relative_humidity_2m,code:cur.weather_code,
         desc:WCODE(cur.weather_code),min:j.daily.temperature_2m_min[0],max:j.daily.temperature_2m_max[0],rain:rain};
     try{var th=j.hourly.temperature_2m||[]; WX.hours=[]; for(var hh=1;hh<=12&&WX.hours.length<6;hh+=2){var ix=idx+hh; if(th[ix]!==undefined){var hr=new Date(j.hourly.time[ix]).getHours(); WX.hours.push({h:(hr%12||12)+(hr<12?'a':'p'),t:th[ix],p:hp[ix]||0})}}}catch(e){}
-    wxErr=''; renderWx(); return true;
+    wxErr=''; renderWx(); try{ntRain()}catch(e0){} return true;
   }).catch(function(){
     if(!WX){wxErr='Sin conexión al clima en esta vista.'; renderWx()}
     return false;
@@ -1724,7 +1724,7 @@ function renderShop(){
 function addRem(kind,at,msg,rp){
   if(rp&&rp.length) at=nextOcc(rp,at.getHours(),at.getMinutes());
   var o={id:Date.now()+Math.random(),at:at.getTime(),kind:kind,msg:msg||''}; if(rp&&rp.length) o.rep=rp; if(pendYearly){o.yearly=true; pendYearly=false}
-  REMS.push(o); saveRem(); renderRems(); popCard('acard',14000); ST.last={ent:'aviso',id:String(o.id)};
+  REMS.push(o); saveRem(); renderRems(); try{ntNewRem(o,at)}catch(e0){} ST.last={ent:'aviso',id:String(o.id)};
   var t=o.yearly?'cada año el '+new Intl.DateTimeFormat('es-CO',{day:'numeric',month:'long'}).format(at)+' '+atText(at):rp&&rp.length?repText(rp)+' '+atText(at):dayText(at)+' '+atText(at);
   if(confirmOn()) undoReply((kind==='alarma'?'Configuré la alarma ':'Configuré el recordatorio ')+t+(msg?': '+msg:'')+', ¿correcto?',function(){REMS=REMS.filter(function(x){return x!==o}); saveRem(); renderRems()});
   else reply(kind==='alarma'?'Listo, alarma '+t+(msg?': '+msg:'')+'.':'Listo, te lo recuerdo '+t+(msg?': '+msg:'')+'.');
@@ -4041,7 +4041,8 @@ function avEnter(e){
   });
 }
 function avLeave(e){
-  var L=e.log; if(L){L.dur=Math.max(0,Math.round((e.seen-e.first)/1000)); L.min=+e.min.toFixed(2); avSave()}
+  var L=e.log; try{if(L&&!e.test) notify('Pasó un avión',(avFlightNo(e)||e.a.reg||'Avión')+(avAirline(e)?' · '+avAirline(e):'')+(e.info&&e.info.route&&e.info.route.origin&&e.info.route.destination?' · '+avPlace(e.info.route.origin)+' → '+avPlace(e.info.route.destination):''),{icon:'✈️',log:true})}catch(e0){}
+  if(L){L.dur=Math.max(0,Math.round((e.seen-e.first)/1000)); L.min=+e.min.toFixed(2); avSave()}
   delete AVL.map[e.hex];
   if(AVL.shown&&AVL.shown.e===e){if(AVL.fol===e.hex) AVL.shown.out=true; else AVL.shown.gone=true; if(AVL.fol!==e.hex){clearTimeout(AVL.hideT); AVL.hideT=setTimeout(function(){if(AVL.shown&&AVL.shown.e===e&&AVL.fol!==e.hex){AVL.shown=null; avCardRender()}},30000)}}
   avCardRender();
@@ -4336,6 +4337,110 @@ function avCmd(q,raw){
   return false;
 }
 if(AVN.on&&AVN.lat!=null) setTimeout(avStart,4000);
+/* ---------- Notificaciones: un globito que aparece cuando llega algo y se cierra solo ---------- */
+var NT={list:[],t:0,open:false,tab:'avisos',cur:null,seenKey:{},hu:{}};
+try{NT.list=JSON.parse(localStorage.getItem('chispa.notifs')||'[]')||[]; if(!Array.isArray(NT.list)) NT.list=[]}catch(e){NT.list=[]}
+var NT_MS=25000;
+function ntSave(){try{localStorage.setItem('chispa.notifs',JSON.stringify(NT.list.slice(0,30)))}catch(e){}}
+function ntUnread(){return NT.list.filter(function(n){return !n.read}).length}
+/* notify(título, texto, {icon, key, log}) — log:true la guarda en la lista sin mostrar el globito */
+function notify(title,body,o){
+  o=o||{};
+  if(o.key){var k=o.key, last=NT.seenKey[k]||0; if(Date.now()-last<(o.every||3600000)) return null; NT.seenKey[k]=Date.now()}
+  var n={id:Date.now()+Math.random(),t:Date.now(),icon:o.icon||'🔔',title:String(title||''),body:String(body||''),read:false};
+  NT.list.unshift(n); if(NT.list.length>30) NT.list.length=30; ntSave();
+  if(o.log||asleep||CFG.ntfOff){ntBadge(); return n}
+  NT.cur=n; ntShow(); if(!mediaOn()&&!talking&&!ringing){try{beep([784,988])}catch(e){}}
+  return n;
+}
+function ntArm(){clearTimeout(NT.t); NT.t=setTimeout(ntClose,NT_MS)}
+function ntShow(){
+  var f=document.getElementById('ntf'); if(!f) return;
+  if(NT.open){ntRender()} else {ntRender(); f.hidden=false; f.classList.remove('in'); void f.offsetWidth; f.classList.add('in')}
+  ntArm();
+}
+function ntClose(){clearTimeout(NT.t); NT.open=false; var f=document.getElementById('ntf'); if(f) f.hidden=true; ntBadge()}
+function ntBadge(){}
+function ntOpen(tab){
+  var f=document.getElementById('ntf'); if(!f) return; NT.open=true; NT.tab=tab||'avisos';
+  NT.list.forEach(function(n){n.read=true}); ntSave(); ntRender(); f.hidden=false; f.classList.remove('in'); void f.offsetWidth; f.classList.add('in'); ntArm();
+}
+function ntAgo(t){var m=Math.round((Date.now()-t)/60000); return m<1?'ahora':m<60?'hace '+m+' min':m<1440?'hace '+Math.round(m/60)+' h':new Date(t).toLocaleDateString('es-CO',{day:'numeric',month:'short'})}
+function ntRender(){
+  var f=document.getElementById('ntf'); if(!f) return; var bub=f.querySelector('.nbub'), pan=f.querySelector('.npan');
+  bub.hidden=NT.open; pan.hidden=!NT.open;
+  if(!NT.open){
+    var n=NT.cur||NT.list[0]; if(!n){f.hidden=true; return}
+    bub.querySelector('.nbi').textContent=n.icon; bub.querySelector('b').textContent=n.title; bub.querySelector('small').textContent=n.body;
+    var u=ntUnread(); var c=bub.querySelector('.nbc'); c.textContent=u>1?'+'+(u-1):''; c.hidden=u<=1;
+    return;
+  }
+  [].forEach.call(pan.querySelectorAll('.ntab'),function(b){var on=b.dataset.tab===NT.tab; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on)});
+  var L=pan.querySelector('.nlist'); L.textContent='';
+  if(NT.tab==='avisos'){
+    if(!NT.list.length) L.appendChild(mk('p','nem','Nada nuevo por ahora.'));
+    NT.list.slice(0,12).forEach(function(n){
+      var it=mk('div','nit'); it.appendChild(mk('span','nii',n.icon)); var tx=mk('div','nix'); var h=mk('b',null,n.title); tx.appendChild(h); if(n.body) tx.appendChild(mk('p',null,n.body)); tx.appendChild(mk('small',null,ntAgo(n.t))); it.appendChild(tx); L.appendChild(it)});
+  } else {
+    var now=new Date(), eod=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1).getTime(), list=REMS.slice().sort(function(a,b){return a.at-b.at}).filter(function(r){return r.at>=Date.now()-60000});
+    var today=list.filter(function(r){return r.at<eod}), later=list.filter(function(r){return r.at>=eod}).slice(0,5);
+    function row(r){var it=mk('div','nit'); it.appendChild(mk('span','nii',r.kind==='alarma'?'⏰':'🔔')); var tx=mk('div','nix'); tx.appendChild(mk('b',null,r.msg||(r.kind==='alarma'?'Alarma':'Recordatorio'))); tx.appendChild(mk('small',null,atText(new Date(r.at))+' · '+(r.rep?cap(repText(r.rep)):cap(dayText(new Date(r.at)))))); it.appendChild(tx); return it}
+    L.appendChild(mk('h4',null,'Para hoy')); if(!today.length) L.appendChild(mk('p','nem','Nada pendiente para hoy.')); today.forEach(function(r){L.appendChild(row(r))});
+    if(later.length){L.appendChild(mk('h4',null,'Próximos')); later.forEach(function(r){L.appendChild(row(r))})}
+    var ts=(typeof TASKS!=='undefined'?TASKS:[]).filter(function(t){return !t.done});
+    if(ts.length){L.appendChild(mk('h4',null,'Tareas')); ts.slice(0,6).forEach(function(t){var it=mk('div','nit'); it.appendChild(mk('span','nii','✅')); var tx=mk('div','nix'); tx.appendChild(mk('b',null,t.text)); tx.appendChild(mk('small',null,Math.round((t.n||0)/(t.goal||1)*100)+'% completada')); it.appendChild(tx); L.appendChild(it)})}
+  }
+}
+(function(){
+  var st=document.createElement('style'); st.textContent=[
+  '#ntf{position:fixed;z-index:14;right:14px;top:14px;width:min(34vw,360px);max-height:calc(100dvh - var(--dockh,130px) - 28px);display:flex;flex-direction:column;align-items:stretch;color:#eaf3fb}#ntf[hidden]{display:none}',
+  '#ntf.in{animation:ntin .35s cubic-bezier(.2,.9,.3,1.1)}@keyframes ntin{from{opacity:0;transform:translateX(30px) scale(.96)}to{opacity:1;transform:none}}',
+  '.nbub{position:relative;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;text-align:left;border-radius:24px;border:1px solid rgba(255,255,255,.18);background:rgba(19,35,58,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 32px rgba(0,0,0,.4);color:inherit;font-family:var(--font-body);cursor:pointer}.nbub[hidden]{display:none}',
+  '.nbi{flex:none;width:40px;height:40px;border-radius:14px;display:grid;place-items:center;font-size:22px;background:rgba(255,199,143,.2)}.nbt{min-width:0;flex:1}.nbt b{display:block;font:600 15px/1.2 var(--font-body)}.nbt small{display:block;margin-top:2px;font-size:13px;line-height:1.3;color:rgba(234,243,251,.8);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
+  '.nbc{flex:none;min-width:26px;height:26px;padding:0 7px;border-radius:13px;background:#ff8a6b;color:#2a1208;font:800 13px/26px var(--font-body);text-align:center}.nbc[hidden]{display:none}',
+  '.npan{display:flex;flex-direction:column;max-height:calc(100dvh - var(--dockh,130px) - 28px);padding:14px;border-radius:24px;border:1px solid rgba(255,255,255,.18);background:rgba(13,23,34,.9);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 14px 44px rgba(0,0,0,.5)}.npan[hidden]{display:none}',
+  '.nhd{display:flex;align-items:center;gap:8px;margin-bottom:10px}.ntab{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:transparent;color:inherit;font:700 14px var(--font-body);cursor:pointer}.ntab.on{background:rgba(255,199,143,.22);border-color:#ffc78f}',
+  '.nx{margin-left:auto;width:40px;height:40px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font-size:17px;cursor:pointer}',
+  '.nlist{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch}.nlist h4{margin:6px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.65}',
+  '.nit{display:flex;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.07)}.nii{flex:none;font-size:20px;line-height:1.2}.nix{min-width:0}.nix b{display:block;font:600 15px/1.25 var(--font-body)}.nix p{margin:3px 0 0;font-size:14px;line-height:1.35;color:rgba(234,243,251,.9);word-break:break-word}.nix small{display:block;margin-top:3px;font-size:12px;color:rgba(234,243,251,.6)}.nem{margin:0;font-size:14px;color:rgba(234,243,251,.65)}',
+  '.nft{display:flex;gap:8px;margin-top:10px}.nft button{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:inherit;font:700 13px var(--font-body);cursor:pointer}',
+  '#ntf button:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}',
+  '@media (orientation:portrait){#ntf{left:10px;right:10px;top:10px;width:auto}}'
+  ].join(''); document.head.appendChild(st);
+  var f=document.createElement('aside'); f.id='ntf'; f.hidden=true; f.setAttribute('aria-live','polite'); f.setAttribute('aria-label','Notificaciones');
+  f.innerHTML='<button class="nbub" type="button" aria-label="Abrir la notificación"><span class="nbi"></span><span class="nbt"><b></b><small></small></span><span class="nbc" hidden></span></button>'
+   +'<section class="npan" hidden><div class="nhd"><button class="ntab" type="button" data-tab="avisos">Avisos</button><button class="ntab" type="button" data-tab="pend">Pendientes</button><button class="nx" type="button" aria-label="Cerrar">✕</button></div><div class="nlist"></div><div class="nft"><button class="nclr" type="button">Borrar avisos</button></div></section>';
+  document.body.appendChild(f);
+  f.querySelector('.nbub').onclick=function(){ntOpen('avisos')};
+  f.querySelector('.nx').onclick=ntClose;
+  f.querySelector('.nclr').onclick=function(){NT.list=[]; NT.cur=null; ntSave(); ntRender()};
+  [].forEach.call(f.querySelectorAll('.ntab'),function(b){b.onclick=function(){NT.tab=b.dataset.tab; ntRender(); ntArm()}});
+  ['pointerdown','scroll','wheel','touchmove'].forEach(function(ev){f.addEventListener(ev,function(){if(NT.open) ntArm()},{passive:true,capture:true})});
+})();
+/* Un pendiente nuevo, aviso previo de 10 minutos, lluvia y aviones pasados */
+function ntNewRem(o,at){
+  var t=(o.yearly?'cada año el '+new Intl.DateTimeFormat('es-CO',{day:'numeric',month:'long'}).format(at):o.rep&&o.rep.length?repText(o.rep):dayText(at))+' '+atText(at);
+  notify(o.kind==='alarma'?'Alarma programada':'Recordatorio nuevo',cap(t)+(o.msg?' · '+o.msg:''),{icon:o.kind==='alarma'?'⏰':'🔔'});
+}
+function ntSoon(){
+  var now=Date.now();
+  REMS.forEach(function(r){var d=r.at-now; if(d>0&&d<=10*60000&&d>9*60000-5000&&!NT.hu[r.id]){NT.hu[r.id]=1; notify('En 10 minutos',(r.kind==='alarma'?'⏰ ':'')+(r.msg||(r.kind==='alarma'?'Alarma':'Recordatorio'))+' · '+atText(new Date(r.at)),{icon:'⏳'})} else if(d>0&&d<9*60000-5000) NT.hu[r.id]=1});
+}
+setInterval(function(){try{ntSoon()}catch(e){}},15000);
+function ntRain(){
+  if(!WX||WX.rain<50) return;
+  notify('Puede llover','Hay '+Math.round(WX.rain)+'% de probabilidad de lluvia en las próximas horas. Lleva paraguas.',{icon:'🌧️',key:'rain',every:4*3600000});
+}
+/* Comandos */
+function ntCmd(q,raw){
+  var n=q.replace(/[¿?¡!.,;:]/g,' ').replace(/\bchispa\b/g,' ').replace(/\s+/g,' ').trim();
+  if(!/\bnotificacion(?:es)?\b|\bglobito\b|\bavisos\b/.test(n)) return false;
+  if(/\b(?:borra|limpia|elimina|vacia|quita)\w*\b/.test(n)){var c=NT.list.length; NT.list=[]; NT.cur=null; ntSave(); ntClose(); reply(c?'Listo, borré las notificaciones.':'No había notificaciones.'); return true}
+  if(/\b(?:apaga|desactiva|silencia|no quiero|oculta|deshabilita)\w*\b/.test(n)){CFG.ntfOff=true; saveCfg(); ntClose(); reply('Listo, ya no muestro el globito. Las notificaciones se guardan y las ves diciendo «muestra las notificaciones».'); return true}
+  if(/\b(?:activa|enciende|prende|habilita|vuelve a|reactiva)\w*\b/.test(n)){CFG.ntfOff=false; saveCfg(); reply('Listo, el globito de notificaciones está activo.'); return true}
+  if(/\b(?:muestra|abre|ver|revisa|dame|cuales|que|tengo|hay|mis|las)\b/.test(n)){var u=ntUnread(); ntOpen('avisos'); reply(NT.list.length?(u?'Tienes '+u+(u===1?' notificación nueva.':' notificaciones nuevas.'):'Estas son tus últimas notificaciones.'):'No tienes notificaciones.'); return true}
+  return false;
+}
 /* ---------- Control total: editar hábitos y ajustes por voz, con lectura exacta y deshacer ---------- */
 var CHG=[];
 function chg(what,undo){CHG.unshift({t:Date.now(),what:what,undo:undo}); if(CHG.length>30) CHG.length=30}
@@ -4502,7 +4607,7 @@ function stExec(op,a){
     case 'habito_meta': {var g=Math.round(+a.n); if(!(g>=1&&g<=1000)){res.motivo='invalido'; return stRes(res)} res.antes=it.goal; it.goal=g; res.despues=g; break}
     case 'habito_crear': {var nm=String(a.nombre||'').trim(); if(!nm){res.motivo='invalido'; return stRes(res)} var cat=habCat(norm(nm)), key=cat?cat.k:'c:'+norm(nm); if(habGet(key)){res.motivo='ya_existe'; res.id=key; res.label=habGet(key).name; return stRes(res)} it=cat?habEnsure(cat):habEnsure({k:key,name:nm,icon:'✅',goal:Math.max(1,Math.round(a.meta||1)),col:'#7be0a0'}); if(cat&&a.meta) it.goal=Math.round(a.meta); res.id=it.k; res.label=it.name; res.nombre=it.name; res.meta=it.goal; break}
     case 'habito_borrar': res.nombre=it.name; HB.list=HB.list.filter(function(x){return x!==it}); break;
-    case 'tarea_crear': {var tx=String(a.texto||'').trim(); if(!tx){res.motivo='invalido'; return stRes(res)} it={id:stNew(),text:tx,n:0,goal:Math.max(1,Math.round(a.meta||100)),done:false,at:Date.now()}; TASKS.push(it); res.id=it.id; res.label=tx; res.nombre=tx; res.antes=null; res.despues=0; break}
+    case 'tarea_crear': {var tx=String(a.texto||'').trim(); if(!tx){res.motivo='invalido'; return stRes(res)} it={id:stNew(),text:tx,n:0,goal:Math.max(1,Math.round(a.meta||100)),done:false,at:Date.now()}; TASKS.push(it); try{notify('Tarea nueva',tx,{icon:'✅'})}catch(e0){} res.id=it.id; res.label=tx; res.nombre=tx; res.antes=null; res.despues=0; break}
     case 'tarea_progreso': {var g2=it.goal||1, nv; if(a.porcentaje!=null) nv=Math.round(g2*Math.max(0,Math.min(100,+a.porcentaje))/100); else if(a.valor!=null) nv=Math.round(+a.valor); else if(a.delta!=null) nv=it.n+Math.round(+a.delta); else {res.motivo='invalido'; return stRes(res)} nv=Math.max(0,Math.min(g2,nv)); res.antes=Math.round(it.n/g2*100); it.n=nv; it.done=nv>=g2; res.despues=Math.round(nv/g2*100); res.pct=res.despues; res.completa=it.done; break}
     case 'tarea_completar': res.antes=Math.round(it.n/(it.goal||1)*100); it.n=it.goal||1; it.done=true; res.despues=100; res.pct=100; res.completa=true; break;
     case 'tarea_reabrir': res.antes=Math.round(it.n/(it.goal||1)*100); it.done=false; if(it.n>=(it.goal||1)) it.n=0; res.despues=Math.round(it.n/(it.goal||1)*100); break;
@@ -4802,6 +4907,7 @@ function handle(raw){
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
   try{if(strmCmd(q,raw)){misses=0; return}}catch(e){dlog('stream error '+e.message)}
   try{if(avCmd(q,raw)){misses=0; return}}catch(e){dlog('avion error '+e.message)}
+  try{if(ntCmd(q,raw)){misses=0; return}}catch(e){dlog('notif error '+e.message)}
   try{if(stCmd(q,raw)){misses=0; return}}catch(e){dlog('st error '+e.message)}
   try{if(editCmd(q,raw)){misses=0; return}}catch(e){dlog('edit error '+e.message)}
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
@@ -5699,7 +5805,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-aviones2', pendingUpdate=false;
+var APP_VERSION='2026-10-21-globito', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
