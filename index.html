@@ -4044,7 +4044,7 @@ function avEnter(e){
   var a=e.a, L={t:e.first,hex:e.hex,call:a.call,reg:a.reg,type:a.type,alt:a.alt,min:+a.d.toFixed(2),dur:0};
   e.log=L; AVN.log.unshift(L); if(AVN.log.length>100) AVN.log.length=100; avSave();
   AVL.last=e;
-  if(!asleep&&!(AVL.fol&&AVL.shown&&AVL.shown.e.hex===AVL.fol)){clearTimeout(AVL.hideT); AVL.shown={e:e,gone:false}; avCardRender()}
+  if(!asleep&&!(AVL.fol&&AVL.shown&&AVL.shown.e.hex===AVL.fol)){clearTimeout(AVL.hideT); AVL.shown={e:e,gone:false}; avCardRender(); try{if(MM.on&&MM.big) mmSize(false)}catch(e0){}}
   var snd=avCanSpeak(); if(snd) beep([523,784]);
   Promise.race([avInfo(e),new Promise(function(r){setTimeout(r,2500)})]).then(function(){
     var o=e.info||{}, f=o.route; if(f){L.from=avPlace(f.origin); L.to=avPlace(f.destination); L.air=avAirline(e); L.no=avFlightNo(e)} var t=avTypeName(e); if(t) L.model=t; avSave();
@@ -4181,17 +4181,17 @@ function avRow(L,e,live){
 }
 (function(){
   var st=document.createElement('style'); st.textContent=[
-  '#avc{position:fixed;z-index:15;left:16px;bottom:122px;width:min(94vw,560px);display:grid;grid-template-columns:auto 1fr;gap:6px 16px;padding:16px;border-radius:24px;background:rgba(13,23,34,.9);border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 44px rgba(0,0,0,.5);color:#eaf3fb;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}#avc[hidden]{display:none}',
+  '#avc{position:fixed;z-index:15;left:10px;top:50%;transform:translateY(-50%);width:min(94vw,372px);display:grid;grid-template-columns:auto 1fr;gap:6px 12px;padding:13px;border-radius:24px;background:rgba(13,23,34,.9);border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 44px rgba(0,0,0,.5);color:#eaf3fb;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}#avc[hidden]{display:none}',
   '#avc .x{position:absolute;top:8px;right:8px;width:40px;height:40px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font-size:18px;cursor:pointer}',
-  '#avc .avph{grid-row:1/3;width:190px;display:flex;flex-direction:column;gap:4px}#avc .avph a{display:block;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.07);min-height:120px}#avc .avph img{display:block;width:100%;height:auto;min-height:120px;object-fit:cover}#avc .avph.no a{display:none}#avc .avph.no{width:auto}#avc .avph small{font-size:11px;color:rgba(234,243,251,.65);line-height:1.3}',
-  '#avc .avm{min-width:0;padding-right:40px}#avc .avh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}#avc .avh b{font:600 30px/1 var(--font-display);letter-spacing:.02em}',
+  '#avc .avph{grid-row:1/3;width:124px;display:flex;flex-direction:column;gap:4px}#avc .avph a{display:block;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.07);min-height:92px}#avc .avph img{display:block;width:100%;height:auto;min-height:92px;object-fit:cover}#avc .avph.no a{display:none}#avc .avph.no{width:auto}#avc .avph small{font-size:11px;color:rgba(234,243,251,.65);line-height:1.3}',
+  '#avc .avm{min-width:0;padding-right:40px}#avc .avh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}#avc .avh b{font:600 25px/1 var(--font-display);letter-spacing:.02em}',
   '.avbd{font:700 12px var(--font-body);padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.14)}.avbd.n{background:#2f7d57;color:#eafff3}.avbd.f{background:#2c6ea8;color:#e9f5ff}.avbd.t{background:#a8742c;color:#fff4e2}.avbd.g{background:rgba(255,255,255,.14)}',
-  '#avAir{margin-top:2px;color:#ffc78f;font-weight:600}#avRt{display:flex;align-items:center;gap:12px;margin-top:8px}.avp1 b{display:block;font:600 24px/1 var(--font-display)}.avp1 small{display:block;font-size:13px;color:rgba(234,243,251,.75)}.avar{font-size:22px;color:#ffc78f}.avnr{color:rgba(234,243,251,.65)}',
-  '#avCh{grid-column:1/3;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:6px}.avchp{padding:7px 10px;border-radius:12px;background:rgba(255,255,255,.07)}.avchp small{display:block;font-size:11px;color:rgba(234,243,251,.65)}.avchp b{font:600 15px/1.2 var(--font-body)}',
-  '#avRd{position:absolute;right:12px;top:52px;width:86px;height:86px;opacity:.95}',
+  '#avAir{margin-top:2px;color:#ffc78f;font-weight:600}#avRt{display:flex;align-items:center;gap:12px;margin-top:8px}.avp1 b{display:block;font:600 20px/1 var(--font-display)}.avp1 small{display:block;font-size:13px;color:rgba(234,243,251,.75)}.avar{font-size:22px;color:#ffc78f}.avnr{color:rgba(234,243,251,.65)}',
+  '#avCh{grid-column:1/3;display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:5px;margin-top:4px}.avchp{padding:7px 10px;border-radius:12px;background:rgba(255,255,255,.07)}.avchp small{display:block;font-size:11px;color:rgba(234,243,251,.65)}.avchp b{font:600 13.5px/1.2 var(--font-body)}',
+  '#avRd{position:absolute;right:10px;top:50px;width:66px;height:66px;opacity:.95}',
   '#avc .avb{grid-column:1/3;display:flex;gap:8px;margin-top:4px}#avc .avb button,.avsw,.avbtn{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#eaf3fb;font:700 14px var(--font-body);cursor:pointer}',
   '#avc .avb button[hidden]{display:none}#avc button:focus-visible,#avp button:focus-visible,#avp input:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}',
-  '@media (max-width:640px){#avc{grid-template-columns:1fr}#avc .avph{grid-row:auto;width:100%}#avCh,#avc .avb{grid-column:1}#avRd{display:none}}',
+  '@media (max-width:640px){#avc{grid-template-columns:1fr;left:10px;top:auto;bottom:122px;transform:none}#avc .avph{grid-row:auto;width:100%}#avCh,#avc .avb{grid-column:1}#avRd{display:none}}',
   '#avp{width:min(94vw,760px)}#avp h2{margin:0 40px 4px 0;font:500 28px var(--font-display)}#avp h3{margin:20px 0 8px;font:500 18px var(--font-display);color:#ffc78f}#avp .avs{margin:0 0 10px;color:rgba(234,243,251,.75);font-size:15px}',
   '.avsw.on{background:rgba(47,125,87,.5);border-color:#5fd49a}.avrow3{display:flex;gap:8px;flex-wrap:wrap;align-items:center}#avp input[type=text],#avp input[type=time]{min-height:44px;border-radius:14px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#eaf3fb;font:600 16px var(--font-body);padding:0 12px}#avLoc{flex:1;min-width:200px}',
   '#avp input[type=range]{flex:1;min-width:160px;height:36px}#avp label{display:flex;align-items:center;gap:8px;font-size:15px}#avp input[type=checkbox]{width:22px;height:22px}',
@@ -4474,6 +4474,7 @@ function ntCmd(q,raw){
 /* ---------- Mapa de aviones en 2D (sin librerías: mosaicos + capas propias) ---------- */
 var MM={layer:(function(){try{return JSON.parse(localStorage.getItem('chispa.cfg')||'{}').mapLayer==='sat'?'sat':'osm'}catch(e){return 'osm'}})(),on:false,big:false,lat:0,lon:0,z:11,p:{},sel:'',fol:false,t:0,tk:0,tiles:{},err:0,osm:false,W:0,H:0,ok:0,fail:0,n:0};
 var MM_COL=[[1000,'#ffd166'],[3000,'#7be0a0'],[6000,'#5fd4ff'],[9000,'#8fa2ff']];
+function mmColP(p){return p.a.d!=null&&AVN.lat!=null&&p.a.d<=AVN.r?'#ff5d8f':mmCol(p.a.alt)}
 function mmCol(ft){var m=(ft||0)*0.3048; for(var i=0;i<MM_COL.length;i++) if(m<MM_COL[i][0]) return MM_COL[i][1]; return '#d19cff'}
 function mmPx(lat,lon,z){var s=256*Math.pow(2,z), r=lat*Math.PI/180; return [(lon+180)/360*s,(1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*s]}
 function mmLL(x,y,z){var s=256*Math.pow(2,z), n=Math.PI-2*Math.PI*y/s; return [180/Math.PI*Math.atan(.5*(Math.exp(n)-Math.exp(-n))),x/s*360-180]}
@@ -4507,11 +4508,11 @@ function mmOverlay(){
   if(AVN.lat!=null){var h=mmPx(AVN.lat,AVN.lon,z), hx=h[0]-x0, hy=h[1]-y0, rr=AVN.r*1000/mmMpp();
     s+='<circle cx="'+hx.toFixed(1)+'" cy="'+hy.toFixed(1)+'" r="'+rr.toFixed(1)+'" fill="rgba(255,199,143,.08)" stroke="#ffc78f" stroke-width="1.5" stroke-dasharray="6 5"/><circle cx="'+hx.toFixed(1)+'" cy="'+hy.toFixed(1)+'" r="6" fill="#7fc4ff" stroke="#fff" stroke-width="2"/>'}
   Object.keys(MM.p).forEach(function(k){var p=MM.p[k]; if(p.tr.length<2) return; var d=''; p.tr.forEach(function(q,i){var c=mmPx(q[0],q[1],z); d+=(i?'L':'M')+(c[0]-x0).toFixed(1)+' '+(c[1]-y0).toFixed(1)}); var c2=mmPx.apply(null,mmPos(p,now).concat([z])); d+='L'+(c2[0]-x0).toFixed(1)+' '+(c2[1]-y0).toFixed(1);
-    s+='<path d="'+d+'" fill="none" stroke="'+mmCol(p.a.alt)+'" stroke-opacity="'+(k===MM.sel?.95:.5)+'" stroke-width="'+(k===MM.sel?3:2)+'" stroke-linecap="round" stroke-linejoin="round"/>'});
+    s+='<path d="'+d+'" fill="none" stroke="'+mmColP(p)+'" stroke-opacity="'+(k===MM.sel?.95:.5)+'" stroke-width="'+(k===MM.sel?3:2)+'" stroke-linecap="round" stroke-linejoin="round"/>'});
   sv.innerHTML=s;
   Object.keys(MM.p).forEach(function(k){var p=MM.p[k], c=mmPx.apply(null,mmPos(p,now).concat([z])); var x=c[0]-x0, y=c[1]-y0;
     if(!p.el){var e=document.createElement('div'); e.className='mp'; e.dataset.h=k; e.innerHTML='<i class="mi"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 1.5l2.2 7.3 8.3 4.7v2.2l-8.3-2.4-.9 5.3 3 2.4v1.6L12 21.6l-4.3 1 0-1.6 3-2.4-.9-5.3-8.3 2.4v-2.2l8.3-4.7z" fill="currentColor" stroke="#0d1722" stroke-width="1.1" stroke-linejoin="round"/></svg></i><span class="ml"></span>'; document.getElementById('mmPl').appendChild(e); p.el=e}
-    var i=p.el.firstChild; i.style.transform='rotate('+(p.a.trk||0)+'deg)'; i.style.color=mmCol(p.a.alt);
+    var i=p.el.firstChild; i.style.transform='rotate('+(p.a.trk||0)+'deg)'; i.style.color=mmColP(p);
     p.el.style.transform='translate('+x.toFixed(1)+'px,'+y.toFixed(1)+'px)'; p.el.classList.toggle('sel',k===MM.sel); p.el.classList.toggle('near',p.a.d!=null&&p.a.d<=AVN.r);
     p.el.querySelector('.ml').textContent=p.a.call||p.a.reg||''; p.el.style.display=(x<-40||y<-40||x>MM.W+40||y>MM.H+40)?'none':'';
   });
@@ -4533,7 +4534,7 @@ function mmOpen(big){
   else if(big!==undefined&&!!big!==MM.big) mmSize(big);
   try{hideBig('avp')}catch(e){} return true;
 }
-function mmClose(){MM.on=false; clearTimeout(MM.t); clearInterval(MM.tk); var m=document.getElementById('avm'); if(m) m.hidden=true; Object.keys(MM.p).forEach(function(k){if(MM.p[k].el) MM.p[k].el.remove()}); MM.p={}; MM.sel=''; MM.fol=false}
+function mmClose(){clearTimeout(MM.it); MM.on=false; clearTimeout(MM.t); clearInterval(MM.tk); var m=document.getElementById('avm'); if(m) m.hidden=true; Object.keys(MM.p).forEach(function(k){if(MM.p[k].el) MM.p[k].el.remove()}); MM.p={}; MM.sel=''; MM.fol=false}
 function mmStatus(){
   var s=document.getElementById('mmSt'), n=Object.keys(MM.p).length, near=Object.keys(MM.p).filter(function(k){return MM.p[k].a.d<=AVN.r}).length, msg='';
   if(MM.fail>=2&&!MM.ok) msg=AVL.why==='old'?'Falta actualizar la app Chispa Control.':AVL.why==='noctl'?'No pude conectar con Chispa Control. Ábrela en la tablet.':'No pude conectar con la fuente de aviones. Reintentando…';
@@ -4559,9 +4560,11 @@ function mmPoll(now){
     if(MM.sel) mmInfo();
   }).catch(function(){MM.fail++}).then(function(){mmStatus(); mmOverlay(); if(MM.on) MM.t=setTimeout(mmPoll,4000)});
 }
+var MM_IT=20000;
 function mmSelect(k){
-  MM.sel=k||''; var info=document.getElementById('mmInfo'); if(!k){info.hidden=true; MM.fol=false; mmOverlay(); return}
+  clearTimeout(MM.it); MM.sel=k||''; var info=document.getElementById('mmInfo'); if(!k){info.hidden=true; MM.fol=false; mmOverlay(); return}
   var p=MM.p[k]; if(!p) return; info.hidden=false; mmInfo(); avInfo(p).then(function(){if(MM.sel===k) mmInfo()}); mmOverlay();
+  MM.it=setTimeout(function(){if(MM.sel!==k) return; info.hidden=true; if(!MM.fol){MM.sel=''; mmOverlay()}},MM_IT);
 }
 function mmInfo(){
   var p=MM.p[MM.sel], info=document.getElementById('mmInfo'); if(!p){info.hidden=true; return}
@@ -4585,9 +4588,9 @@ function mmInfo(){
   '#mmMap{position:relative;flex:1;min-height:0;overflow:hidden;background:#0b1118;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}#mmTiles,#mmPl{position:absolute;inset:0}#mmSvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}',
   '#mmTiles.dk .mt{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.7)}.mt{position:absolute;left:0;top:0;width:256px;height:256px;max-width:none;pointer-events:none}',
   '.mp{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none}.mp .mi{position:absolute;left:-18px;top:-18px;width:36px;height:36px;display:grid;place-items:center;pointer-events:auto;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));transition:transform .5s linear}',
-  '.mp .ml{position:absolute;left:14px;top:-8px;padding:1px 5px;border-radius:6px;background:rgba(13,23,34,.78);font:700 11px var(--font-body);white-space:nowrap;pointer-events:none}.mp.near .mi{filter:drop-shadow(0 0 6px #ffc78f) drop-shadow(0 0 2px #ffc78f)}.mp.sel .mi{filter:drop-shadow(0 0 8px #fff)}.mp.sel .ml{background:#fff;color:#0d1722}',
+  '.mp .ml{position:absolute;left:14px;top:-8px;padding:1px 5px;border-radius:6px;background:rgba(13,23,34,.78);font:700 11px var(--font-body);white-space:nowrap;pointer-events:none}.mp.near .mi{filter:drop-shadow(0 0 7px #ff5d8f) drop-shadow(0 0 2px #ff5d8f);transform-origin:center}.mp.near .ml{background:#ff5d8f;color:#fff}.mp.sel .mi{filter:drop-shadow(0 0 8px #fff)}.mp.sel .ml{background:#fff;color:#0d1722}',
   '.mz{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:6px}.mz button{width:44px;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:rgba(13,23,34,.85);color:#fff;font:700 22px var(--font-body);cursor:pointer}',
-  '.mat{position:absolute;right:6px;bottom:3px;font-size:10px;color:rgba(255,255,255,.6);background:rgba(13,23,34,.6);padding:1px 5px;border-radius:5px;pointer-events:none}',
+  '.mat{position:absolute;right:6px;top:3px;font-size:10px;color:rgba(255,255,255,.6);background:rgba(13,23,34,.6);padding:1px 5px;border-radius:5px;pointer-events:none}',
   '.mlg{position:absolute;left:10px;bottom:6px;display:flex;gap:8px;font-size:10px;color:rgba(255,255,255,.75);background:rgba(13,23,34,.7);padding:3px 8px;border-radius:8px;pointer-events:none}.mlg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}',
   '.mst{position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:6px 12px;border-radius:12px;background:rgba(13,23,34,.88);font-size:13px;text-align:center;max-width:80%}.mst[hidden]{display:none}',
   '#mmInfo{position:absolute;left:8px;right:8px;bottom:26px;max-height:58%;overflow:auto;padding:10px 12px;border-radius:16px;background:rgba(13,23,34,.94);border:1px solid rgba(255,255,255,.2);cursor:default}#mmInfo[hidden]{display:none}',
@@ -4597,7 +4600,7 @@ function mmInfo(){
   '#avm button:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}'
   ].join(''); document.head.appendChild(st);
   var m=document.createElement('section'); m.id='avm'; m.className='mini'; m.hidden=true; m.setAttribute('aria-label','Mapa de aviones');
-  m.innerHTML='<div class="mh"><b>Aviones</b><span id="mmN"></span><button id="mmLy" type="button">Satélite</button><button id="mmSz" type="button">Agrandar</button><button id="mmHm" type="button" aria-label="Centrar en mi casa">◎</button><button id="mmX" type="button" aria-label="Cerrar el mapa">✕</button></div><div id="mmMap"><div id="mmTiles"></div><svg id="mmSvg"></svg><div id="mmPl"></div><div class="mz"><button id="mmZi" type="button" aria-label="Acercar">+</button><button id="mmZo" type="button" aria-label="Alejar">−</button></div><div class="mlg"><span><i style="background:#ffd166"></i>&lt;1 km</span><span><i style="background:#7be0a0"></i>&lt;3</span><span><i style="background:#5fd4ff"></i>&lt;6</span><span><i style="background:#8fa2ff"></i>&lt;9</span><span><i style="background:#d19cff"></i>más alto</span></div><div class="mat" id="mmAt"></div><div id="mmSt" class="mst" hidden></div><div id="mmInfo" hidden></div></div>';
+  m.innerHTML='<div class="mh"><b>Aviones</b><span id="mmN"></span><button id="mmLy" type="button">Satélite</button><button id="mmSz" type="button">Agrandar</button><button id="mmHm" type="button" aria-label="Centrar en mi casa">◎</button><button id="mmX" type="button" aria-label="Cerrar el mapa">✕</button></div><div id="mmMap"><div id="mmTiles"></div><svg id="mmSvg"></svg><div id="mmPl"></div><div class="mz"><button id="mmZi" type="button" aria-label="Acercar">+</button><button id="mmZo" type="button" aria-label="Alejar">−</button></div><div class="mlg"><span><i style="background:#ffd166"></i>&lt;1 km</span><span><i style="background:#7be0a0"></i>&lt;3</span><span><i style="background:#5fd4ff"></i>&lt;6</span><span><i style="background:#8fa2ff"></i>&lt;9</span><span><i style="background:#d19cff"></i>más alto</span><span><i style="background:#ff5d8f"></i>en tu radio</span></div><div class="mat" id="mmAt"></div><div id="mmSt" class="mst" hidden></div><div id="mmInfo" hidden></div></div>';
   document.body.appendChild(m);
   m.querySelector('#mmLy').onclick=function(){mmLayer(MM.layer==='sat'?'osm':'sat')}; mmAttr(); m.querySelector('#mmX').onclick=mmClose; m.querySelector('#mmSz').onclick=function(){mmSize(!MM.big)}; m.querySelector('#mmHm').onclick=mmHomeGo;
   m.querySelector('#mmZi').onclick=function(){mmZoom(1)}; m.querySelector('#mmZo').onclick=function(){mmZoom(-1)};
@@ -5994,7 +5997,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-mapacalles', pendingUpdate=false;
+var APP_VERSION='2026-10-21-avionpaso', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
