@@ -69,7 +69,7 @@ public class Control {
     }
 
     /** Consulta un sitio de aviones por la página (las webs de aviones no dejan que el navegador las lea directo). Solo sitios permitidos. */
-    private static final String[] FETCH_OK = {"api.adsb.lol", "api.airplanes.live", "opendata.adsb.fi", "api.adsbdb.com"};
+    private static final String[] FETCH_OK = {"api.adsb.lol", "api.airplanes.live", "opendata.adsb.fi", "api.adsbdb.com", "decapi.me", "earthquake.usgs.gov", "api.wheretheiss.at", "calendar.google.com", "outlook.live.com", "outlook.office365.com"};
 
     private JSONObject fetch(String u) throws Exception {
         if (u == null || u.isEmpty()) return err("falta la direccion");
@@ -82,7 +82,7 @@ public class Control {
         c.setConnectTimeout(6000);
         c.setReadTimeout(8000);
         c.setRequestProperty("User-Agent", "Chispa/1.0 (+https://github.com/Supranovasss/Chispa)");
-        c.setRequestProperty("Accept", "application/json");
+        c.setRequestProperty("Accept", "*/*");
         int code = c.getResponseCode();
         InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
         String body = "";
@@ -90,7 +90,7 @@ public class Control {
             try (InputStream is = in; ByteArrayOutputStream bo = new ByteArrayOutputStream()) {
                 byte[] b = new byte[8192];
                 int n, total = 0;
-                while ((n = is.read(b)) > 0 && total < 600000) { bo.write(b, 0, n); total += n; }
+                while ((n = is.read(b)) > 0 && total < 3000000) { bo.write(b, 0, n); total += n; }
                 body = bo.toString("UTF-8");
             }
         }

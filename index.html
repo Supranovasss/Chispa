@@ -4123,7 +4123,7 @@ function avEnter(e){
 }
 function avLeave(e){
   if(e.quiet){delete AVL.map[e.hex]; return}
-  var L=e.log; try{if(L&&!e.test) notify('Pasó un avión',(avFlightNo(e)||e.a.reg||'Avión')+(avAirline(e)?' · '+avAirline(e):'')+(e.info&&e.info.route&&e.info.route.origin&&e.info.route.destination?' · '+avPlace(e.info.route.origin)+' → '+avPlace(e.info.route.destination):''),{icon:'✈️',log:true})}catch(e0){}
+  var L=e.log;
   if(L){L.dur=Math.max(0,Math.round((e.seen-e.first)/1000)); L.min=+e.min.toFixed(2); avSave()}
   delete AVL.map[e.hex];
   if(AVL.shown&&AVL.shown.e===e){if(AVL.fol===e.hex) AVL.shown.out=true; else AVL.shown.gone=true; if(AVL.fol!==e.hex){avAutoHide(e,Math.max(1500,(AVL.hideAt||0)-Date.now()>0?(AVL.hideAt-Date.now()):AV_CARD_MS))}}
@@ -4540,6 +4540,282 @@ function ntCmd(q,raw){
   if(/\b(?:muestra|abre|ver|revisa|dame|cuales|que|tengo|hay|mis|las)\b/.test(n)){var u=ntUnread(); ntOpen('avisos'); reply(NT.list.length?(u?'Tienes '+u+(u===1?' notificación nueva.':' notificaciones nuevas.'):'Estas son tus últimas notificaciones.'):'No tienes notificaciones.'); return true}
   return false;
 }
+/* ---------- Avisos extra: batería, sismos, astronomía, Twitch en vivo y calendario ---------- */
+var XA={bat:true,sis:true,ast:true,ttv:true,ttvList:[],cal:true,calUrl:'',sisMin:4,sisKm:400,sisSeen:{},astSeen:{},ttvAt:{},calSeen:{},calDay:''};
+try{var _xa=JSON.parse(localStorage.getItem('chispa.xa')||'null'); if(_xa) Object.keys(_xa).forEach(function(k){if(k in XA) XA[k]=_xa[k]})}catch(e){}
+function xaSave(){try{localStorage.setItem('chispa.xa',JSON.stringify(XA))}catch(e){}}
+var XL={bat:{},ev:[],evAt:0,evErr:'',ttv:{},iss:0};
+/* Descarga de texto: directo, o a través de Chispa Control (que no tiene el bloqueo CORS del navegador) */
+function xaGet(url,viaFirst,ms){
+  ms=ms||9000;
+  function direct(){
+    var c=new AbortController(), t=setTimeout(function(){c.abort()},ms);
+    return fetch(url,{signal:c.signal,cache:'no-store'}).then(function(r){clearTimeout(t); if(!r.ok) throw new Error('http '+r.status); return r.text()},function(e){clearTimeout(t); throw e});
+  }
+  function viaCtl(){
+    return ctlCall('/fetch?url='+encodeURIComponent(url),ms+6000).then(function(j){if(!j||!j.ok||j.status>=400) throw new Error((j&&j.err)||'ctl'); return j.body});
+  }
+  return viaFirst?viaCtl().catch(direct):direct().catch(viaCtl);
+}
+function xaOn(k){return XA[k]!==false}
+/* --- Batería --- */
+function xaBatCheck(lvl,chg){
+  if(lvl==null||lvl<0) return;
+  var B=XL.bat;
+  if(chg||lvl>=30){B.w15=false; B.w7=false; return}
+  if(!xaOn('bat')) return;
+  if(lvl<=7&&!B.w7){B.w7=true; B.w15=true; notify('Batería muy baja','La tablet está al '+lvl+' %. Conéctala ya al cargador.',{icon:'🪫',key:'bat7',every:30*60000}); return}
+  if(lvl<=15&&!B.w15){B.w15=true; notify('Batería baja','La tablet está al '+lvl+' %. Conéctala al cargador.',{icon:'🔋',key:'bat15',every:30*60000})}
+}
+function xaBat(){
+  if(!xaOn('bat')) return;
+  if(navigator.getBattery){navigator.getBattery().then(function(b){xaBatCheck(Math.round(b.level*100),b.charging)}).catch(function(){}); return}
+  ctlCall('/status',3000).then(function(j){if(j&&j.ok) xaBatCheck(j.battery,j.charging)}).catch(function(){});
+}
+/* --- Sismos (USGS) --- */
+function xaSis(){
+  if(!xaOn('sis')) return;
+  var la=(typeof AVN!=='undefined'&&AVN.lat!=null)?AVN.lat:LAT, lo=(typeof AVN!=='undefined'&&AVN.lon!=null)?AVN.lon:LON;
+  var since=new Date(Date.now()-4*3600000).toISOString().slice(0,19);
+  var url='https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude='+la.toFixed(3)+'&longitude='+lo.toFixed(3)+'&maxradiuskm=3000&minmagnitude=3.5&orderby=time&limit=30&starttime='+since;
+  xaGet(url,false).then(function(t){
+    var j=JSON.parse(t), now=Date.now(), seen=XA.sisSeen, n=0;
+    Object.keys(seen).forEach(function(k){if(now-seen[k]>864e5) delete seen[k]});
+    ((j&&j.features)||[]).forEach(function(f){
+      var p=f.properties||{}, g=(f.geometry&&f.geometry.coordinates)||[]; if(g.length<2||p.mag==null) return;
+      if(seen[f.id]||now-p.time>3*3600000) return;
+      var d=avKm(la,lo,g[1],g[0]), m=+p.mag;
+      var near=d<=XA.sisKm&&m>=XA.sisMin, big=m>=6.0&&d<=3000;
+      if(!near&&!big) return;
+      seen[f.id]=now; n++;
+      var dir=avDir(avBrg(la,lo,g[1],g[0])), mins=Math.max(1,Math.round((now-p.time)/60000));
+      notify('Sismo de magnitud '+m.toFixed(1),(d<30?'Muy cerca de tu casa':'A unos '+Math.round(d/10)*10+' km al '+dir)+' · hace '+(mins<60?mins+' min':Math.round(mins/60)+' h')+(p.place?' · '+p.place:''),{icon:'🌋'});
+    });
+    if(n) xaSave();
+  }).catch(function(){});
+}
+/* --- Astronomía --- */
+var XA_MOON=[[2026,10,26,4,12,'f'],[2026,11,9,7,2,'n'],[2026,11,24,14,53,'f'],[2026,12,9,0,52,'n'],[2026,12,24,1,28,'f'],
+ [2027,1,7,20,24,'n'],[2027,1,22,12,17,'f'],[2027,2,6,15,56,'n'],[2027,2,20,23,23,'f'],[2027,3,8,9,29,'n'],[2027,3,22,10,44,'f'],[2027,4,6,23,51,'n'],[2027,4,20,22,27,'f'],
+ [2027,5,6,10,58,'n'],[2027,5,20,10,59,'f'],[2027,6,4,19,40,'n'],[2027,6,19,0,44,'f'],[2027,7,4,3,2,'n'],[2027,7,18,15,45,'f'],[2027,8,2,10,5,'n'],[2027,8,17,7,29,'f'],
+ [2027,8,31,17,41,'n'],[2027,9,15,23,3,'f'],[2027,9,30,2,36,'n'],[2027,10,15,13,47,'f'],[2027,10,29,13,36,'n'],[2027,11,14,3,26,'f'],[2027,11,28,3,24,'n'],[2027,12,13,16,9,'f'],[2027,12,27,20,12,'n']];
+var XA_RAIN=[[1,3,'Cuadrántidas'],[4,22,'Líridas'],[5,6,'Eta Acuáridas'],[8,12,'Perseidas'],[10,21,'Oriónidas'],[11,5,'Táuridas'],[11,17,'Leónidas'],[12,13,'Gemínidas']];
+function xaDay(d){return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
+function xaAst(){
+  if(!xaOn('ast')) return;
+  var now=new Date(), h=now.getHours(); if(h<16||h>=22) return;   /* se avisa en la tarde del mismo día */
+  var today=xaDay(now), out=[];
+  XA_MOON.forEach(function(m){
+    var t=new Date(Date.UTC(m[0],m[1]-1,m[2],m[3],m[4])); /* hora UTC → local */
+    if(xaDay(t)===today){
+      var k='moon'+m[0]+'-'+m[1]+'-'+m[2]; if(XA.astSeen[k]) return; XA.astSeen[k]=1;
+      out.push(m[5]==='f'?['Luna llena esta noche','Sale poco después de las 6 de la tarde por el oriente. Buen momento para mirarla.','🌕']:['Luna nueva esta noche','Cielo muy oscuro: ideal para ver estrellas y la Vía Láctea si no hay nubes.','🌑']);
+    }
+  });
+  XA_RAIN.forEach(function(r){
+    if(now.getMonth()+1===r[0]&&now.getDate()===r[1]){var k='rain'+now.getFullYear()+r[2]; if(XA.astSeen[k]) return; XA.astSeen[k]=1; out.push(['Lluvia de meteoros: '+r[2],'Hoy es el pico. Lo mejor es mirar después de la medianoche, lejos de las luces.','☄️'])}
+  });
+  Object.keys(XA.astSeen).forEach(function(k){});
+  if(out.length){out.forEach(function(o){notify(o[0],o[1],{icon:o[2]})}); xaSave()}
+}
+/* Estación Espacial Internacional: solo de noche, cuando pasa alta sobre la casa y le da el sol */
+function xaIss(){
+  if(!xaOn('ast')||asleep) return;
+  var h=new Date().getHours(); if(h>=6&&h<18) return;
+  var la=(typeof AVN!=='undefined'&&AVN.lat!=null)?AVN.lat:LAT, lo=(typeof AVN!=='undefined'&&AVN.lon!=null)?AVN.lon:LON;
+  xaGet('https://api.wheretheiss.at/v1/satellites/25544',false,6000).then(function(t){
+    var s=JSON.parse(t); if(s.visibility==='eclipsed') return;
+    var R=6371, hh=s.altitude||420, g=avKm(la,lo,s.latitude,s.longitude)/R, el=Math.atan((Math.cos(g)-R/(R+hh))/Math.sin(Math.max(g,1e-6)))*180/Math.PI;
+    if(el>=25){notify('La Estación Espacial pasa ahora','Mírala hacia el '+avDir(avBrg(la,lo,s.latitude,s.longitude))+': un punto muy brillante que se mueve rápido, a unos '+Math.round(el)+'° de altura.',{icon:'🛰️',key:'iss',every:50*60000})}
+  }).catch(function(){});
+}
+/* --- Twitch en vivo (sin llave, con decapi.me) --- */
+function xaTtvList(){
+  var l=(XA.ttvList||[]).slice();
+  try{STRM.fav.forEach(function(f){if(f.p==='twitch'&&l.indexOf(f.c)<0) l.push(f.c)})}catch(e){}
+  return l.filter(function(c){return /^[a-z0-9_]{3,25}$/.test(c)}).slice(0,20);
+}
+function xaTtv(){
+  if(!xaOn('ttv')) return;
+  var l=xaTtvList(); if(!l.length) return;
+  l.forEach(function(c,i){setTimeout(function(){
+    xaGet('https://decapi.me/twitch/uptime/'+encodeURIComponent(c),false,7000).then(function(t){
+      t=String(t||'').trim(); var live=!!t&&!/offline|not found|error|no existe|does not exist|invalid/i.test(t)&&t.length<80;
+      var was=XL.ttv[c]; XL.ttv[c]=live;
+      if(live&&(was===false||was===undefined)&&Date.now()-(XA.ttvAt[c]||0)>6*3600000){
+        XA.ttvAt[c]=Date.now(); xaSave();
+        notify(c+' está en vivo','Lleva '+t+' transmitiendo en Twitch. Dime «pon a '+c+' en Twitch» para verlo.',{icon:'🟣'});
+      }
+    }).catch(function(){});
+  },i*1500)});
+}
+/* --- Calendario (dirección iCal secreta) --- */
+function xaUnfold(t){return t.replace(/\r?\n[ \t]/g,'').split(/\r?\n/)}
+var XA_DTF={};
+function xaTzOff(ms,tz){
+  try{var f=XA_DTF[tz]||(XA_DTF[tz]=new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',second:'numeric'})), p=f.formatToParts(new Date(ms)), o={};
+    p.forEach(function(x){o[x.type]=+x.value}); return Date.UTC(o.year,o.month-1,o.day,o.hour,o.minute,o.second)-Math.floor(ms/1000)*1000}catch(e){return -5*3600000}
+}
+function xaWall(y,m,d,hh,mm,tz){ /* hora de pared en tz → ms UTC */
+  var g=Date.UTC(y,m-1,d,hh,mm,0); if(!tz) return g;
+  var o=xaTzOff(g,tz); var r=g-o; o=xaTzOff(r,tz); return g-o;
+}
+function xaDt(v,params){ /* → {y,m,d,hh,mm,tz,allDay,utc:true?} */
+  var m=/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/.exec(v); if(!m) return null;
+  var tz=(/TZID=([^;:]+)/.exec(params||'')||[])[1];
+  var o={y:+m[1],m:+m[2],d:+m[3],hh:+(m[4]||0),mm:+(m[5]||0),allDay:!m[4],tz:null};
+  if(m[7]) o.tz='UTC'; else if(tz) o.tz=tz.replace(/"/g,''); else o.tz=m[4]?TZ:null;
+  return o;
+}
+function xaMs(o){return o.tz==='UTC'?Date.UTC(o.y,o.m-1,o.d,o.hh,o.mm):xaWall(o.y,o.m,o.d,o.hh,o.mm,o.tz||TZ)}
+var XA_WD={SU:0,MO:1,TU:2,WE:3,TH:4,FR:5,SA:6};
+function xaParse(txt,from,to){
+  var lines=xaUnfold(txt), evs=[], cur=null, over={};
+  lines.forEach(function(L){
+    if(L==='BEGIN:VEVENT'){cur={ex:[]}; return}
+    if(L==='END:VEVENT'){if(cur&&cur.start) evs.push(cur); cur=null; return}
+    if(!cur) return;
+    var i=L.indexOf(':'); if(i<0) return; var key=L.slice(0,i), val=L.slice(i+1), name=key.split(';')[0].toUpperCase();
+    if(name==='DTSTART') cur.start=xaDt(val,key);
+    else if(name==='SUMMARY') cur.sum=val.replace(/\\,/g,',').replace(/\;/g,';').replace(/\\n/g,' ').replace(/\\\\/g,'\\');
+    else if(name==='UID') cur.uid=val;
+    else if(name==='RRULE') cur.rr=val;
+    else if(name==='EXDATE'){val.split(',').forEach(function(x){var d=xaDt(x,key); if(d) cur.ex.push(xaMs(d))})}
+    else if(name==='RECURRENCE-ID'){var d=xaDt(val,key); if(d) cur.rid=xaMs(d)}
+    else if(name==='STATUS') cur.st=val;
+  });
+  var out=[];
+  evs.forEach(function(e){if(e.rid!=null){over[e.uid+'|'+e.rid]=1}});
+  evs.forEach(function(e){
+    if(e.st==='CANCELLED') return;
+    var s=e.start, base=xaMs(s);
+    function add(ms,allDay){if((allDay?ms+864e5>from:ms>=from)&&ms<=to&&e.ex.indexOf(ms)<0&&!(e.rid==null&&over[e.uid+'|'+ms])) out.push({uid:e.uid||'',t:ms,sum:e.sum||'Evento',all:allDay})}
+    if(!e.rr){add(base,s.allDay); return}
+    var r={}; e.rr.split(';').forEach(function(p){var q=p.split('='); r[q[0]]=q[1]});
+    var f=r.FREQ, iv=+r.INTERVAL||1, cnt=+r.COUNT||0, until=null;
+    if(r.UNTIL){var u=xaDt(r.UNTIL,''); if(u){until=u.allDay?Date.UTC(u.y,u.m-1,u.d,23,59):xaMs(u)}}
+    var bd=(r.BYDAY||'').split(',').filter(Boolean), n=0, guard=0;
+    function emit(y,mo,d){ /* hora de pared del evento */
+      var rough=Date.UTC(y,mo-1,d,s.hh,s.mm);
+      if(rough<base-864e5) return true;
+      if(until&&rough>until+864e5) return false;
+      if(rough<from-2*864e5){n++; if(cnt&&n>cnt) return false; return true}
+      if(rough>to+2*864e5) return false;
+      var ms=s.tz==='UTC'?rough:xaWall(y,mo,d,s.hh,s.mm,s.tz||TZ);
+      if(ms<base) return true;
+      if(until&&ms>until) return false;
+      n++; if(cnt&&n>cnt) return false;
+      add(ms,s.allDay); return ms<=to;
+    }
+    var cur=new Date(Date.UTC(s.y,s.m-1,s.d));
+    if(f==='DAILY'){while(guard++<4000){if(!emit(cur.getUTCFullYear(),cur.getUTCMonth()+1,cur.getUTCDate())) break; cur=new Date(cur.getTime()+iv*864e5)}}
+    else if(f==='WEEKLY'){
+      var days=bd.length?bd.map(function(x){return XA_WD[x.slice(-2)]}):[cur.getUTCDay()];
+      var ws=new Date(cur.getTime()-cur.getUTCDay()*864e5); /* domingo de esa semana */
+      while(guard++<1500){var stop=false;
+        for(var k=0;k<7&&!stop;k++){if(days.indexOf(k)<0) continue; var dd=new Date(ws.getTime()+k*864e5); if(dd<cur) continue; if(!emit(dd.getUTCFullYear(),dd.getUTCMonth()+1,dd.getUTCDate())) stop=true}
+        if(stop) break; ws=new Date(ws.getTime()+iv*7*864e5)}
+    }
+    else if(f==='MONTHLY'){
+      var y=s.y, mo=s.m;
+      while(guard++<600){
+        var dl=[];
+        if(r.BYMONTHDAY) dl=r.BYMONTHDAY.split(',').map(Number);
+        else if(bd.length&&/^-?\d/.test(bd[0])){var m2=/^(-?\d+)([A-Z]{2})$/.exec(bd[0]); var wd=XA_WD[m2[2]], nth=+m2[1]; var first=new Date(Date.UTC(y,mo-1,1)).getUTCDay(), dim=new Date(Date.UTC(y,mo,0)).getUTCDate(); var all=[]; for(var q=1;q<=dim;q++) if((first+q-1)%7===wd) all.push(q); var pick=nth>0?all[nth-1]:all[all.length+nth]; if(pick) dl=[pick]}
+        else dl=[s.d];
+        var stop2=false; dl.sort(function(a,b){return a-b}).forEach(function(d){if(!stop2&&!emit(y,mo,d)) stop2=true});
+        if(stop2) break;
+        mo+=iv; while(mo>12){mo-=12; y++}
+      }
+    }
+    else if(f==='YEARLY'){var yy=s.y; while(guard++<200){if(!emit(yy,s.m,s.d)) break; yy+=iv}}
+  });
+  out.sort(function(a,b){return a.t-b.t});
+  return out;
+}
+function xaCal(force){
+  if(!xaOn('cal')||!XA.calUrl) return Promise.resolve(null);
+  var url=XA.calUrl.trim().replace(/^webcal:/i,'https:');
+  if(!/^https:\/\//i.test(url)) return Promise.resolve(null);
+  return xaGet(url,true,15000).then(function(txt){
+    var now=Date.now(), ev=xaParse(txt,now-3600000,now+36*3600000); XL.ev=ev; XL.evAt=now; XL.evErr=''; xaCalTick(); return ev;
+  }).catch(function(e){XL.evErr=String(e&&e.message||e); return null});
+}
+function xaCalTick(){
+  if(!xaOn('cal')||!XL.ev.length) return;
+  var now=Date.now(), today=xaDay(new Date());
+  if(XA.calDay!==today&&new Date().getHours()>=6){
+    XA.calDay=today; var td=XL.ev.filter(function(e){return xaDay(new Date(e.t))===today&&(e.all||e.t>=now)});
+    if(td.length){notify('Hoy en tu calendario',td.slice(0,4).map(function(e){return (e.all?'Todo el día':atText(new Date(e.t)))+' · '+e.sum}).join('\n')+(td.length>4?'\n… y '+(td.length-4)+' más':''),{icon:'📅'})}
+    xaSave();
+  }
+  XL.ev.forEach(function(e){
+    if(e.all) return; var d=e.t-now, k=e.uid+'|'+e.t;
+    if(d>0&&d<=15*60000&&!XA.calSeen[k]){XA.calSeen[k]=now; notify('En '+Math.max(1,Math.round(d/60000))+' minutos',e.sum+' · '+atText(new Date(e.t)),{icon:'📅'}); xaSave()}
+  });
+  Object.keys(XA.calSeen).forEach(function(k){if(now-XA.calSeen[k]>864e5) delete XA.calSeen[k]});
+}
+/* --- Arranque y ciclos --- */
+setTimeout(function(){xaBat(); xaSis(); xaAst(); xaTtv(); xaCal()},25000);
+setInterval(function(){try{xaBat()}catch(e){}},120000);
+setInterval(function(){try{xaSis()}catch(e){}},300000);
+setInterval(function(){try{xaAst()}catch(e){}},900000);
+setInterval(function(){try{xaIss()}catch(e){}},30000);
+setInterval(function(){try{xaTtv()}catch(e){}},180000);
+setInterval(function(){try{xaCal()}catch(e){}},1800000);
+setInterval(function(){try{xaCalTick()}catch(e){}},30000);
+/* --- Comandos de voz --- */
+function xaCmd(q,raw){
+  var n=q.replace(/[¿?¡!.,;:]/g,' ').replace(/\bchispa\b/g,' ').replace(/\s+/g,' ').trim(), m;
+  if((m=/\bavisame (?:cuando|si) (?:el |la |los )?(?:canal |streamer )?([a-z0-9_ ]{3,30}?) (?:este|esta|salga|empiece|entre|haga)\b.*(?:vivo|directo|stream)/.exec(n))||(m=/\bavisame (?:cuando|si) (?:el |la )?([a-z0-9_ ]{3,30}?) (?:este|esta) en (?:vivo|directo)/.exec(n))){
+    var c=strmClean(m[1]); if(!c||c.length<3) return false;
+    if(XA.ttvList.indexOf(c)<0){XA.ttvList.push(c); xaSave()}
+    reply('Listo, te aviso cuando '+c+' esté en vivo en Twitch.'); setTimeout(xaTtv,500); return true;
+  }
+  if((m=/\b(?:deja de|ya no|no) avisar(?:me)? (?:de |cuando )?(?:el |la )?([a-z0-9_ ]{3,30})$/.exec(n))&&XA.ttvList.length){
+    var c2=strmClean(m[1]); if(XA.ttvList.indexOf(c2)>=0){XA.ttvList=XA.ttvList.filter(function(x){return x!==c2}); xaSave(); reply('Listo, ya no te aviso de '+c2+'.'); return true}
+  }
+  if(/\b(?:que|cuales) canales\b.*\b(?:vigilas|avisas|sigues)\b|\bde que canales me avisas\b/.test(n)){var l=xaTtvList(); reply(l.length?'Te aviso cuando estén en vivo: '+l.join(', ')+'.':'Todavía no vigilo ningún canal. Dime «avísame cuando ibai esté en vivo».'); return true}
+  return false;
+}
+/* --- Ajustes: sección "Avisos extra" --- */
+function xaUi(){
+  var sh=document.getElementById('sheet'); if(!sh||document.getElementById('xaSec')) return;
+  var secs=[].slice.call(sh.querySelectorAll('section.acc')), last=secs[secs.length-1]; if(!last||!last.parentNode) return;
+  var d=mnEl('section'); d.className='acc'; d.id='xaSec';
+  var b=mnEl('button','ah'); b.type='button'; b.appendChild(mnEl('span','ai','🔔')); b.appendChild(mnEl('span','at','Avisos extra')); var chip=mnEl('span','as',''); b.appendChild(chip); b.appendChild(mnEl('span','av','›'));
+  var body=mnEl('div','ab');
+  function row(k,label,hint){
+    var w=mnEl('label'); w.style.cssText='display:flex;gap:10px;align-items:flex-start;margin:8px 0;font-size:14px';
+    var c=document.createElement('input'); c.type='checkbox'; c.checked=xaOn(k); c.style.cssText='margin-top:3px;width:18px;height:18px;flex:none';
+    c.addEventListener('change',function(){XA[k]=c.checked; xaSave(); upd(); if(c.checked){ if(k==='cal') xaCal(); if(k==='ttv') xaTtv(); if(k==='sis') xaSis(); if(k==='bat') xaBat() }});
+    var t=mnEl('span'); t.appendChild(mnEl('b',null,label)); if(hint){var s=mnEl('small',null,hint); s.style.cssText='display:block;opacity:.7;font-size:12px'; t.appendChild(s)}
+    w.appendChild(c); w.appendChild(t); body.appendChild(w); return c;
+  }
+  function upd(){var n=['bat','sis','ast','ttv','cal'].filter(xaOn).length; chip.textContent=n+' de 5'; chip.className='as '+(n?'ok':'')}
+  row('bat','Batería baja','Avisa al 15 % y al 7 % si no está cargando.');
+  row('sis','Sismos','Magnitud 4 o más a menos de 400 km, y los de 6 o más hasta 3000 km. Datos de USGS; pueden tardar unos minutos.');
+  row('ast','Astronomía','Luna llena y nueva, lluvias de meteoros y cuando la Estación Espacial pasa alta de noche.');
+  row('ttv','Streamer en vivo (Twitch)','Avisa cuando un canal de tu lista empiece directo. También vigila tus favoritos de Twitch.');
+  var ta=document.createElement('input'); ta.type='text'; ta.placeholder='canales separados por coma: ibai, auronplay'; ta.value=(XA.ttvList||[]).join(', ');
+  ta.style.cssText='width:100%;box-sizing:border-box;border-radius:10px;background:#0b1520;color:#ffe;border:1px solid #345;padding:8px;font-size:13px;margin:0 0 6px';
+  ta.addEventListener('change',function(){XA.ttvList=ta.value.split(/[ ,;]+/).map(strmClean).filter(Boolean); xaSave(); xaTtv(); ta.value=XA.ttvList.join(', ')});
+  body.appendChild(ta);
+  row('cal','Calendario','Avisa 15 minutos antes de cada evento y un resumen del día. Pega abajo la dirección iCal secreta.');
+  var cu=document.createElement('input'); cu.type='password'; cu.placeholder='https://calendar.google.com/calendar/ical/…/basic.ics'; cu.value=XA.calUrl||''; cu.autocomplete='off';
+  cu.style.cssText='width:100%;box-sizing:border-box;border-radius:10px;background:#0b1520;color:#ffe;border:1px solid #345;padding:8px;font-size:12px';
+  var st=mnEl('small',null,'En Google Calendar: Configuración › tu calendario › «Dirección secreta en formato iCal». Quien tenga ese enlace puede ver tu calendario; aquí solo se guarda en este dispositivo.'); st.style.cssText='display:block;opacity:.7;font-size:12px;margin:6px 0';
+  var bt=mnEl('button','btn','Guardar y probar'); bt.type='button'; bt.style.cssText='width:100%;padding:10px;border-radius:12px;border:0;background:#FFC78F;color:#2b1a14;font-weight:700;margin-top:4px';
+  bt.addEventListener('click',function(){
+    XA.calUrl=cu.value.trim(); xaSave(); if(!XA.calUrl){st.textContent='Calendario sin dirección.'; return}
+    st.textContent='Probando…'; XA.calDay='';
+    xaCal().then(function(ev){st.textContent=ev?('Listo: '+ev.length+' evento'+(ev.length===1?'':'s')+' en las próximas 36 horas.'+(ev.length?' Próximo: '+ev[0].sum+'.':'')):'No pude leer el calendario ('+(XL.evErr||'revisa la dirección')+'). En computador necesita la app Chispa Control en Android o un enlace que permita CORS.'});
+  });
+  body.appendChild(cu); body.appendChild(st); body.appendChild(bt);
+  d.appendChild(b); d.appendChild(body); b.addEventListener('click',function(){d.classList.toggle('open')});
+  last.parentNode.insertBefore(d,last.nextSibling); upd();
+}
+setTimeout(xaUi,1500);
 /* ---------- Mapa de aviones en 2D (sin librerías: mosaicos + capas propias) ---------- */
 var MM={layer:(function(){try{return JSON.parse(localStorage.getItem('chispa.cfg')||'{}').mapLayer==='sat'?'sat':'osm'}catch(e){return 'osm'}})(),on:false,big:false,lat:0,lon:0,z:11,p:{},sel:'',fol:false,t:0,tk:0,tiles:{},err:0,osm:false,W:0,H:0,ok:0,fail:0,n:0};
 var MM_COL=[[1000,'#ffd166'],[3000,'#7be0a0'],[6000,'#5fd4ff'],[9000,'#8fa2ff']];
@@ -5169,6 +5445,7 @@ function handle(raw){
   try{if(strmCmd(q,raw)){misses=0; return}}catch(e){dlog('stream error '+e.message)}
   try{if(mmCmd(q,raw)||avCmd(q,raw)){misses=0; return}}catch(e){dlog('avion error '+e.message)}
   try{if(ntCmd(q,raw)){misses=0; return}}catch(e){dlog('notif error '+e.message)}
+  try{if(xaCmd(q,raw)){misses=0; return}}catch(e){dlog('xa error '+e.message)}
   try{if(stCmd(q,raw)){misses=0; return}}catch(e){dlog('st error '+e.message)}
   try{if(editCmd(q,raw)){misses=0; return}}catch(e){dlog('edit error '+e.message)}
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
@@ -6066,7 +6343,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-campana2', pendingUpdate=false;
+var APP_VERSION='2026-10-21-avisos', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
