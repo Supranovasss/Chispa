@@ -169,7 +169,11 @@ public class ChispaActivity extends Activity {
         if (f) immersive();
     }
 
-    @Override protected void onResume() { super.onResume(); web.onResume(); }
+    @Override protected void onResume() {
+        super.onResume();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        web.onResume();
+    }
 
     @Override protected void onPause() {
         super.onPause();
@@ -217,6 +221,16 @@ public class ChispaActivity extends Activity {
                 final String js = "window.__ctl&&window.__ctl(" + org.json.JSONObject.quote(id) + "," + org.json.JSONObject.quote(out) + ")";
                 runOnUiThread(() -> { try { web.evaluateJavascript(js, null); } catch (Exception ignored) { } });
             }).start();
+        }
+
+        @JavascriptInterface public void keepAwake(final boolean on) {
+            runOnUiThread(() -> { if (on) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); });
+        }
+
+        /** Suelta la pantalla: Android la apaga y la bloquea con su propio tiempo. */
+        @JavascriptInterface public void screenOff() {
+            keepAwake(false);
+            new Thread(() -> { try { control.handle("/awake", new java.util.HashMap<String, String>()); } catch (Exception ignored) { } }).start();
         }
 
         @JavascriptInterface public void exit() { runOnUiThread(ChispaActivity.this::finish); }

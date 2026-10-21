@@ -186,6 +186,7 @@ public class Control {
             if (sp.getInt("saved_t", -1) < 0) sp.edit().putInt("saved_t", Settings.System.getInt(cr, Settings.System.SCREEN_OFF_TIMEOUT, 120000)).apply();
             Settings.System.putInt(cr, Settings.System.SCREEN_OFF_TIMEOUT, Integer.MAX_VALUE);
         } else {
+            if (sp.getInt("saved_t", -1) < 0) return new JSONObject().put("ok", true).put("awake", false);
             int t = sp.getInt("saved_t", 120000);
             Settings.System.putInt(cr, Settings.System.SCREEN_OFF_TIMEOUT, t);
             sp.edit().remove("saved_t").apply();

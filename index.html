@@ -597,9 +597,16 @@ var asleepAt=0;
 var camSusp=false;
 function camSuspend(){if(camMode==='follow'&&stream){clearInterval(camTimer); stream.getTracks().forEach(function(t){t.stop()}); stream=null; el.cam.srcObject=null; camMode=null; camSusp=true; syncCam()}}
 function camResume(){if(camSusp){camSusp=false; if(CFG.follow) setTimeout(function(){if(!asleep) startFollow(true)},400)}}
-function goSleep(){asleep=true; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
-function wakeUp(){asleep=false; try{camResume()}catch(e){} try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
-function act(){lastAct=Date.now(); if(typeof GENT!=='undefined'&&GENT.t&&Date.now()-GENT.start>3000) gentleStop(); if(asleep) wakeUp(); if(typeof sbOn!=='undefined'&&sbOn&&Date.now()-sbStart>800) sbExit()}
+var idleSleep=false, ACT_V=false, lockSent=false, idleTaps=[];
+function goSleep(idle){asleep=true; idleSleep=!!idle===true; if(!idleSleep) lockSent=false; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
+function wakeUp(){asleep=false; idleSleep=false; lockSent=false; try{camResume()}catch(e){} try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
+function actV(){ACT_V=true; try{act()}finally{ACT_V=false}}
+function act(){
+  if(asleep&&idleSleep&&!ACT_V){ /* dormida por inactividad: solo despierta la voz; 3 toques seguidos son la salida de emergencia */
+    var tn=Date.now(); idleTaps=idleTaps.filter(function(t){return tn-t<1600}); idleTaps.push(tn);
+    if(idleTaps.length<3) return; idleTaps=[];
+  }
+  lastAct=Date.now(); if(typeof GENT!=='undefined'&&GENT.t&&Date.now()-GENT.start>3000) gentleStop(); if(asleep) wakeUp(); if(typeof sbOn!=='undefined'&&sbOn&&Date.now()-sbStart>800) sbExit()}
 addEventListener('pointerdown',act,{passive:true});
 addEventListener('keydown',act);
 /* La pantalla solo se atenúa cuando se le ordena dormir; no hay modo dormir automático. */
@@ -853,7 +860,7 @@ el.tlist.addEventListener('click',function(e){
   timers=timers.filter(function(t){return String(t.id)!==id}); renderTimers();
 });
 function ring(t){
-  act(); setMood('alert',9000); beep([880,1175,880,1175]);
+  actV(); setMood('alert',9000); beep([880,1175,880,1175]);
   setTimeout(function(){reply(t.name?'¡Listo! Terminó el temporizador de '+t.name+'.':t.msg?'Te recuerdo: '+t.msg+'.':'¡Listo! Terminó tu temporizador de '+t.label+'.'); setMood('alert',9000)},1300);
 }
 
@@ -955,7 +962,7 @@ function pushAlert(msg,force){
     .then(function(r){return r.ok}).catch(function(){return false});
 }
 function motion(){
-  act(); logWatch('Movimiento detectado',true);
+  actV(); logWatch('Movimiento detectado',true);
   pushAlert('Chispa detecto movimiento a las '+new Date().toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'}));
   document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
   setMood('alert',4000); beep([660,880]);
@@ -1277,7 +1284,7 @@ function startListen(continuous){
         if(talking||Date.now()-lastSaidEnd<1800){dlog('  ignorado: Chispa hablando o recién habló'); continue}
         var n=norm(txt).trim(), wm=wakeMatch(alts);
         if(!res.isFinal){
-          if(wm&&!wakeEarly){wakeEarly=true; act(); wakeBlue(12000); setMood('listening',8000); armedUntil=Math.max(armedUntil,Date.now()+25000)}
+          if(wm&&!wakeEarly){wakeEarly=true; actV(); wakeBlue(12000); setMood('listening',8000); armedUntil=Math.max(armedUntil,Date.now()+25000)}
           else if(!wm&&Date.now()<armedUntil&&n.length>1){lastInterim={t:n,at:Date.now()}; armedUntil=Math.max(armedUntil,Date.now()+SILENCE_MS+8000)}
           continue;
         }
@@ -1285,7 +1292,7 @@ function startListen(continuous){
         if(n.length>3&&Date.now()-lastSaidEnd<6000&&lastSaid.indexOf(n)>=0){dlog('  ignorado: parece eco de lo que dijo Chispa'); continue}
         if(wm){
           var rest=wm.m[1].trim();
-          act(); lastInterim=null;
+          actV(); lastInterim=null;
           if(rest){armedUntil=Date.now()+25000; wakeBlue(25000); lastInterim={t:rest,at:Date.now()}; note('Escuchando: «'+rest+'»'); dlog('  espero a que termine de hablar: «'+rest+'»')}
           else {armedUntil=0; wakeBlue(25000); arm()}
         }else if(Date.now()<armedUntil){
@@ -1327,7 +1334,7 @@ function startListen(continuous){
   try{r.start(); return true}catch(err){return false}
 }
 function oneShot(){
-  act();
+  actV();
   var rm={v:false,s:false,t:false,r:false};
   if(RAD.playing&&RAD.audio){try{RAD.audio.pause(); rm.r=true}catch(e){}}
   if(vidPlaying&&vidPlayer){try{vidPlayer.pauseVideo(); rm.v=true}catch(e){}}
@@ -1849,7 +1856,7 @@ function snoozeRing(){
 function fireRem(r,late){
   if(r.rep&&r.rep.length){var nx=nextOcc(r.rep,new Date(r.at).getHours(),new Date(r.at).getMinutes(),new Date(Math.max(Date.now(),r.at)+1000)); r.at=nx.getTime()} else if(r.yearly){var dy=new Date(r.at); r.at=new Date(dy.getFullYear()+1,dy.getMonth(),dy.getDate(),dy.getHours(),dy.getMinutes()).getTime()} else REMS=REMS.filter(function(x){return x.id!==r.id});
   saveRem(); renderRems();
-  act(); ringing=r; $('#ringT').textContent=(r.yearly||/cumple/i.test(r.msg||'')?'🎂 Cumpleaños':r.kind==='alarma'?'⏰ Alarma':'🔔 Recordatorio'); $('#ringM').textContent=r.msg||new Date().toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'});
+  actV(); ringing=r; $('#ringT').textContent=(r.yearly||/cumple/i.test(r.msg||'')?'🎂 Cumpleaños':r.kind==='alarma'?'⏰ Alarma':'🔔 Recordatorio'); $('#ringM').textContent=r.msg||new Date().toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'});
   $('#ring').hidden=false; setMood('alert',60000); var go=function(){beep([880,1175,880,1175])}; go(); clearInterval(ringLoop); ringLoop=setInterval(go,5000);
   clearTimeout(ringT); ringT=setTimeout(stopRing,120000);
   var say=(late?'Se te pasó esto: ':(r.kind==='alarma'?'¡Alarma! ':'Te recuerdo: '))+(r.msg||(r.kind==='alarma'?'es la hora.':'es la hora.'));
@@ -3213,12 +3220,21 @@ function dashRender(){
   timerCards($('#dTim'),false); $('#dTh').hidden=!timers.length; $('#dTim').hidden=!timers.length;
   var A=$('#dAmb'); A.textContent=''; if(AMB.kind){var c=mk('div','amb','🎧 '+cap(AMBN[AMB.kind])+(AMB.end?' · quedan '+mmss(AMB.end-Date.now()):'')), b=mk('button',null,'⏹'); b.dataset.ambstop='1'; c.appendChild(b); A.appendChild(c)}
 }
+/* A las 2 h dormida por inactividad: se suelta la pantalla para que Android la apague y la bloquee */
+function idleLockTick(){
+  if(!asleep||!idleSleep||lockSent||CFG.idleSleep===false) return;
+  if(Date.now()-lastAct<(CFG.lockMin||120)*60000) return;
+  lockSent=true;
+  try{if(window.ChispaApp&&ChispaApp.screenOff) ChispaApp.screenOff()}catch(e){}
+}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&lockSent){lockSent=false; try{if(window.ChispaApp&&ChispaApp.keepAwake) ChispaApp.keepAwake(true)}catch(e){} actV()}});
 function dashTick(){
   var on=(CFG.dash!==false)&&!winBlocking(), D=$('#dash');
   document.body.classList.toggle('dashon',on); D.hidden=!on; if(on) dashRender();
-  nightTick(); habRoll(); var hbx=$('#habs'); if(hbx) hbx.hidden=!!CFG.habOff||!HB.list.length||winBlocking();
+  idleLockTick(); nightTick(); habRoll(); var hbx=$('#habs'); if(hbx) hbx.hidden=!!CFG.habOff||!HB.list.length||winBlocking();
   if(sbOn){sbRender()}
-  else if(CFG.sbOff!==true&&Date.now()-lastAct>(CFG.sbMin||10)*60000&&!asleep&&!talking&&!mediaOn()&&!winBlocking()&&Date.now()>armedUntil&&!(listening&&!wakeOn)&&camMode!=='rps'&&camMode!=='gestures') sbEnter();
+  else if(CFG.idleSleep!==false&&Date.now()-lastAct>(CFG.idleMin||10)*60000&&!asleep&&!talking&&!ringing&&!mediaOn()&&!winBlocking()&&Date.now()>armedUntil&&!game&&!recipe&&camMode!=='rps'&&camMode!=='gestures') goSleep(true);
+  else if(CFG.idleSleep===false&&CFG.sbOff!==true&&Date.now()-lastAct>(CFG.sbMin||10)*60000&&!asleep&&!talking&&!mediaOn()&&!winBlocking()&&Date.now()>armedUntil&&!(listening&&!wakeOn)&&camMode!=='rps'&&camMode!=='gestures') sbEnter();
 }
 setInterval(dashTick,1000);
 function amb2(q,raw){
@@ -4427,7 +4443,7 @@ if(AVN.on&&AVN.lat!=null) setTimeout(avStart,4000);
 /* ---------- Notificaciones: un globito que aparece cuando llega algo y se cierra solo ---------- */
 var NT={list:[],t:0,open:false,tab:'avisos',cur:null,seenKey:{},hu:{}};
 try{NT.list=JSON.parse(localStorage.getItem('chispa.notifs')||'[]')||[]; if(!Array.isArray(NT.list)) NT.list=[]}catch(e){NT.list=[]}
-var NT_MS=25000;
+var NT_MS=12000;
 function ntSave(){try{localStorage.setItem('chispa.notifs',JSON.stringify(NT.list.slice(0,30)))}catch(e){}}
 function ntUnread(){return NT.list.filter(function(n){return !n.read}).length}
 /* notify(título, texto, {icon, key, log}) — log:true la guarda en la lista sin mostrar el globito */
@@ -4442,11 +4458,16 @@ function notify(title,body,o){
 }
 function ntArm(){clearTimeout(NT.t); NT.t=setTimeout(ntClose,NT_MS)}
 function ntShow(){
-  var f=document.getElementById('ntf'); if(!f) return;
+  var f=document.getElementById('ntf'); if(!f) return; ntUnhide(f);
   if(NT.open){ntRender()} else {ntRender(); f.hidden=false; f.classList.remove('in'); void f.offsetWidth; f.classList.add('in')}
   ntArm();
 }
-function ntClose(){clearTimeout(NT.t); NT.open=false; var f=document.getElementById('ntf'); if(f){f.hidden=true; f.classList.remove('open')} ntBadge()}
+function ntClose(){
+  clearTimeout(NT.t); NT.open=false; var f=document.getElementById('ntf');
+  if(f&&!f.hidden){f.classList.remove('in'); f.classList.add('out'); clearTimeout(NT.ho); NT.ho=setTimeout(function(){f.hidden=true; f.classList.remove('open','out')},320)}
+  ntBadge();
+}
+function ntUnhide(f){clearTimeout(NT.ho); f.classList.remove('out')}
 function ntBadge(){ntBell()}
 function ntBell(){
   var b=document.getElementById('ntb'); if(!b) return; var u=ntUnread();
@@ -4455,7 +4476,7 @@ function ntBell(){
   b.setAttribute('aria-label',u?u+(u===1?' notificación nueva':' notificaciones nuevas'):'Notificaciones, ninguna nueva');
 }
 function ntOpen(tab){
-  var f=document.getElementById('ntf'); if(!f) return; NT.open=true; NT.tab=tab||'avisos';
+  var f=document.getElementById('ntf'); if(!f) return; ntUnhide(f); NT.open=true; NT.tab=tab||'avisos';
   NT.list.forEach(function(n){n.read=true}); ntSave(); ntRender(); f.hidden=false; f.classList.remove('in'); void f.offsetWidth; f.classList.add('in'); ntArm();
 }
 function ntAgo(t){var m=Math.round((Date.now()-t)/60000); return m<1?'ahora':m<60?'hace '+m+' min':m<1440?'hace '+Math.round(m/60)+' h':new Date(t).toLocaleDateString('es-CO',{day:'numeric',month:'short'})}
@@ -4487,6 +4508,7 @@ function ntRender(){
 (function(){
   var st=document.createElement('style'); st.textContent=[
   '#ntf{position:fixed;z-index:14;right:14px;top:14px;width:min(34vw,360px);max-height:calc(100dvh - var(--dockh,130px) - 28px);display:flex;flex-direction:column;align-items:stretch;color:#eaf3fb}#ntf[hidden]{display:none}',
+  '#ntf.out{animation:ntout .3s ease-in forwards;pointer-events:none}@keyframes ntout{to{opacity:0;transform:translateX(30px) scale(.96)}}',
   '#ntf.in{animation:ntin .35s cubic-bezier(.2,.9,.3,1.1)}@keyframes ntin{from{opacity:0;transform:translateX(30px) scale(.96)}to{opacity:1;transform:none}}',
   '.nbub{position:relative;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;text-align:left;border-radius:24px;border:1px solid rgba(255,255,255,.18);background:rgba(19,35,58,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 32px rgba(0,0,0,.4);color:inherit;font-family:var(--font-body);cursor:pointer}.nbub[hidden]{display:none}',
   '.nbi{flex:none;width:40px;height:40px;border-radius:14px;display:grid;place-items:center;font-size:22px;background:rgba(255,199,143,.2)}.nbt{min-width:0;flex:1}.nbt b{display:block;font:600 15px/1.2 var(--font-body)}.nbt small{display:block;margin-top:2px;font-size:13px;line-height:1.3;color:rgba(234,243,251,.8);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
@@ -4775,6 +4797,8 @@ function xaCmd(q,raw){
   if((m=/\b(?:deja de|ya no|no) avisar(?:me)? (?:de |cuando )?(?:el |la )?([a-z0-9_ ]{3,30})$/.exec(n))&&XA.ttvList.length){
     var c2=strmClean(m[1]); if(XA.ttvList.indexOf(c2)>=0){XA.ttvList=XA.ttvList.filter(function(x){return x!==c2}); xaSave(); reply('Listo, ya no te aviso de '+c2+'.'); return true}
   }
+  if(/\b(?:desactiva|apaga|quita|no quiero)\w*\b.*\b(?:dormir|dormida|sueno)\b.*\b(?:inactividad|solo|sola)\b|\bno te duermas\b/.test(n)){CFG.idleSleep=false; saveCfg(); reply('Listo, ya no me duermo sola por inactividad.'); return true}
+  if(/\b(?:activa|enciende|prende|vuelve a)\w*\b.*\b(?:dormir|dormida|sueno)\b.*\b(?:inactividad|solo|sola)\b/.test(n)){CFG.idleSleep=true; saveCfg(); reply('Listo, me duermo a los '+(CFG.idleMin||10)+' minutos sin uso y despierto cuando me llames.'); return true}
   if(/\b(?:que|cuales) canales\b.*\b(?:vigilas|avisas|sigues)\b|\bde que canales me avisas\b/.test(n)){var l=xaTtvList(); reply(l.length?'Te aviso cuando estén en vivo: '+l.join(', ')+'.':'Todavía no vigilo ningún canal. Dime «avísame cuando ibai esté en vivo».'); return true}
   return false;
 }
@@ -5426,7 +5450,7 @@ function undoReply(msg,undo){
 }
 function handle(raw){
   raw=String(raw||'').trim(); if(!raw) return; var raw0=raw; try{raw=latinFix(raw)||raw}catch(e){} if(raw!==raw0) dlog('  español latino: «'+raw0+'» → «'+raw+'»'); dlog('HANDLE «'+raw+'»');
-  act(); note('Tú: '+raw);
+  actV(); note('Tú: '+raw);
   var q=norm(raw);
   if(HEADONLY.test(q)&&!headPending()){pendHead={t:q,exp:Date.now()+15000}; note('Te escucho… dime qué más'); wakeBlue(15000); setMood('listening',8000); if(wakeOn){armedUntil=Date.now()+25000; lastInterim=null} else startListen(false); return}
   if(q.replace(/[^a-z0-9]/g,'').length<2||/^(e+h+|m+|a+h+|u+m+|e+m+|hm+)$/.test(q.trim())){reAsk('',true); return}
@@ -6343,7 +6367,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-avisos', pendingUpdate=false;
+var APP_VERSION='2026-10-21-sueno', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
