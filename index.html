@@ -603,10 +603,6 @@ function goSleep(idle){appHz(false); asleep=true; idleSleep=!!idle===true; if(!i
 function wakeUp(){appHz(true); asleep=false; idleSleep=false; lockSent=false; try{camResume()}catch(e){} try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
 function actV(){ACT_V=true; try{act()}finally{ACT_V=false}}
 function act(){
-  if(asleep&&idleSleep&&!ACT_V){ /* dormida por inactividad: solo despierta la voz; 3 toques seguidos son la salida de emergencia */
-    var tn=Date.now(); idleTaps=idleTaps.filter(function(t){return tn-t<1600}); idleTaps.push(tn);
-    if(idleTaps.length<3) return; idleTaps=[];
-  }
   lastAct=Date.now(); if(typeof GENT!=='undefined'&&GENT.t&&Date.now()-GENT.start>3000) gentleStop(); if(asleep) wakeUp(); if(typeof sbOn!=='undefined'&&sbOn&&Date.now()-sbStart>800) sbExit()}
 addEventListener('pointerdown',act,{passive:true});
 addEventListener('keydown',act);
@@ -6423,7 +6419,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-120hz', pendingUpdate=false;
+var APP_VERSION='2026-10-21-despierta', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
