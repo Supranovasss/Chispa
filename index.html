@@ -4572,7 +4572,7 @@ function ntCmd(q,raw){
   return false;
 }
 /* ---------- Avisos extra: batería, sismos, astronomía, Twitch en vivo y calendario ---------- */
-var XA={bat:true,sis:true,ast:true,ttv:true,ttvList:[],cal:true,calUrl:'',sisMin:4,sisKm:400,sisSeen:{},astSeen:{},ttvAt:{},calSeen:{},calDay:''};
+var XA={ttvId:'',ttvTok:'',ttvExp:0,ttvUser:'',bat:true,sis:true,ast:true,ttv:true,ttvList:[],cal:true,calUrl:'',sisMin:4,sisKm:400,sisSeen:{},astSeen:{},ttvAt:{},calSeen:{},calDay:''};
 try{var _xa=JSON.parse(localStorage.getItem('chispa.xa')||'null'); if(_xa) Object.keys(_xa).forEach(function(k){if(k in XA) XA[k]=_xa[k]})}catch(e){}
 function xaSave(){try{localStorage.setItem('chispa.xa',JSON.stringify(XA))}catch(e){}}
 var XL={bat:{},ev:[],evAt:0,evErr:'',ttv:{},iss:0};
@@ -4666,17 +4666,56 @@ function xaTtvList(){
   try{STRM.fav.forEach(function(f){if(f.p==='twitch'&&l.indexOf(f.c)<0) l.push(f.c)})}catch(e){}
   return l.filter(function(c){return /^[a-z0-9_]{3,25}$/.test(c)}).slice(0,20);
 }
+function xaTtvRedirect(){return location.origin+location.pathname}
+function xaTtvConnect(){
+  if(!XA.ttvId||!/^[a-z0-9]{20,40}$/i.test(XA.ttvId)) return false;
+  location.href='https://id.twitch.tv/oauth2/authorize?client_id='+encodeURIComponent(XA.ttvId)+'&redirect_uri='+encodeURIComponent(xaTtvRedirect())+'&response_type=token&scope='+encodeURIComponent('user:read:follows')+'&force_verify=true';
+  return true;
+}
+/* Al volver de Twitch el permiso llega en la dirección (#access_token=…) */
+(function(){
+  try{
+    var h=location.hash||''; if(h.indexOf('access_token=')<0) return;
+    var p={}; h.replace(/^#/,'').split('&').forEach(function(x){var q=x.split('='); p[q[0]]=decodeURIComponent(q[1]||'')});
+    if(p.access_token){XA.ttvTok=p.access_token; XA.ttvExp=Date.now()+((+p.expires_in)||4*3600)*1000-60000; XA.ttvUser=''; XA.ttvConnected=true; xaSave()}
+    history.replaceState(null,'',location.pathname+location.search);
+  }catch(e){}
+})();
+function xaTtvApi(path){
+  return fetch('https://api.twitch.tv/helix/'+path,{headers:{'Authorization':'Bearer '+XA.ttvTok,'Client-Id':XA.ttvId},cache:'no-store'}).then(function(r){
+    if(r.status===401){var e=new Error('401'); e.auth=true; throw e}
+    if(!r.ok) throw new Error('http '+r.status); return r.json()});
+}
+function xaTtvAnnounce(c,label,info){
+  var was=XL.ttv[c]; XL.ttv[c]=true;
+  if((was===false||was===undefined)&&Date.now()-(XA.ttvAt[c]||0)>6*3600000){
+    XA.ttvAt[c]=Date.now(); xaSave();
+    notify(label+' está en vivo',info,{icon:'🟣'});
+  }
+}
+function xaTtvFollowed(){
+  if(!XA.ttvTok||!XA.ttvId) return Promise.resolve(false);
+  if(XA.ttvExp&&Date.now()>XA.ttvExp){xaTtvExpired(); return Promise.resolve(false)}
+  var getUser=XA.ttvUser?Promise.resolve(XA.ttvUser):xaTtvApi('users').then(function(j){var u=j.data&&j.data[0]; if(!u) throw new Error('sin usuario'); XA.ttvUser=u.id; XA.ttvName=u.display_name; xaSave(); return u.id});
+  return getUser.then(function(id){return xaTtvApi('streams/followed?user_id='+encodeURIComponent(id)+'&first=100')}).then(function(j){
+    var live={}; (j.data||[]).forEach(function(s){live[s.user_login]=1;
+      xaTtvAnnounce(s.user_login,s.user_name,(s.game_name?'Juega '+s.game_name+' · ':'')+(s.title||'Transmitiendo en Twitch')+' · '+(s.viewer_count||0)+' viendo. Dime «pon a '+s.user_login+' en Twitch».')});
+    Object.keys(XL.ttv).forEach(function(c){if(!live[c]&&XL.ttvF&&XL.ttvF[c]) XL.ttv[c]=false});
+    XL.ttvF={}; Object.keys(live).forEach(function(c){XL.ttvF[c]=1}); XL.ttvErr=''; return true;
+  }).catch(function(e){if(e&&e.auth) xaTtvExpired(); XL.ttvErr=String(e&&e.message||e); return false});
+}
+function xaTtvExpired(){
+  XA.ttvTok=''; XA.ttvUser=''; xaSave();
+  notify('Twitch desconectado','El permiso de Twitch venció. Entra a Ajustes › Avisos extra y pulsa «Conectar con Twitch».',{icon:'🟣',key:'ttvexp',every:12*3600000});
+}
 function xaTtv(){
   if(!xaOn('ttv')) return;
+  xaTtvFollowed();
   var l=xaTtvList(); if(!l.length) return;
   l.forEach(function(c,i){setTimeout(function(){
     xaGet('https://decapi.me/twitch/uptime/'+encodeURIComponent(c),false,7000).then(function(t){
       t=String(t||'').trim(); var live=!!t&&!/offline|not found|error|no existe|does not exist|invalid/i.test(t)&&t.length<80;
-      var was=XL.ttv[c]; XL.ttv[c]=live;
-      if(live&&(was===false||was===undefined)&&Date.now()-(XA.ttvAt[c]||0)>6*3600000){
-        XA.ttvAt[c]=Date.now(); xaSave();
-        notify(c+' está en vivo','Lleva '+t+' transmitiendo en Twitch. Dime «pon a '+c+' en Twitch» para verlo.',{icon:'🟣'});
-      }
+      if(live) xaTtvAnnounce(c,c,'Lleva '+t+' transmitiendo en Twitch. Dime «pon a '+c+' en Twitch» para verlo.'); else XL.ttv[c]=false;
     }).catch(function(){});
   },i*1500)});
 }
@@ -4834,6 +4873,13 @@ function xaUi(){
   ta.style.cssText='width:100%;box-sizing:border-box;border-radius:10px;background:#0b1520;color:#ffe;border:1px solid #345;padding:8px;font-size:13px;margin:0 0 6px';
   ta.addEventListener('change',function(){XA.ttvList=ta.value.split(/[ ,;]+/).map(strmClean).filter(Boolean); xaSave(); xaTtv(); ta.value=XA.ttvList.join(', ')});
   body.appendChild(ta);
+  var tc=document.createElement('input'); tc.type='text'; tc.placeholder='Client ID de tu aplicación de Twitch (opcional, para ver todos los que sigues)'; tc.value=XA.ttvId||''; tc.autocomplete='off'; tc.autocapitalize='none'; tc.spellcheck=false;
+  tc.style.cssText='width:100%;box-sizing:border-box;border-radius:10px;background:#0b1520;color:#ffe;border:1px solid #345;padding:8px;font-size:12px;margin:2px 0 6px';
+  tc.addEventListener('change',function(){XA.ttvId=tc.value.trim(); xaSave()});
+  var tb=mnEl('button','btn',XA.ttvTok?'Twitch conectado ✓ (volver a conectar)':'Conectar con Twitch'); tb.type='button'; tb.style.cssText='width:100%;padding:10px;border-radius:12px;border:0;background:#a970ff;color:#fff;font-weight:700';
+  var tn=mnEl('small',null,'Dirección de retorno para registrar en Twitch: '+xaTtvRedirect()); tn.style.cssText='display:block;opacity:.7;font-size:12px;margin:6px 0 10px;word-break:break-all';
+  tb.addEventListener('click',function(){XA.ttvId=tc.value.trim(); xaSave(); if(!xaTtvConnect()){tn.textContent='Pega primero el Client ID (letras y números, unos 30 caracteres).'}});
+  body.appendChild(tc); body.appendChild(tb); body.appendChild(tn);
   row('cal','Calendario','Avisa 15 minutos antes de cada evento y un resumen del día. Pega abajo la dirección iCal secreta.');
   var cu=document.createElement('input'); cu.type='password'; cu.placeholder='https://calendar.google.com/calendar/ical/…/basic.ics'; cu.value=XA.calUrl||''; cu.autocomplete='off';
   cu.style.cssText='width:100%;box-sizing:border-box;border-radius:10px;background:#0b1520;color:#ffe;border:1px solid #345;padding:8px;font-size:12px';
@@ -6376,7 +6422,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-sonidos', pendingUpdate=false;
+var APP_VERSION='2026-10-21-twitch', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){

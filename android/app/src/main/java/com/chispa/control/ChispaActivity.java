@@ -71,6 +71,8 @@ public class ChispaActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
                 Uri u = r.getUrl();
                 if (u.toString().startsWith(Control.CHISPA_URL)) return false;
+                String h = u.getHost() == null ? "" : u.getHost();
+                if (h.equals("twitch.tv") || h.endsWith(".twitch.tv")) return false; // inicio de sesión de Twitch dentro de la app
                 try { startActivity(new Intent(Intent.ACTION_VIEW, u)); } catch (Exception ignored) { }
                 return true;
             }
