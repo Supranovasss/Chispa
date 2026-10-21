@@ -473,7 +473,7 @@ var $=function(s){return document.querySelector(s)};
 /* Transiciones suaves al abrir y cerrar ventanas: se aplican a la propiedad hidden de las tarjetas */
 (function(){
   var NAT=Object.getOwnPropertyDescriptor(HTMLElement.prototype,'hidden'); if(!NAT||!NAT.set) return;
-  var SEL='#kcard,#xcard,#lcard,#ycard,#acard,#tcard,#wcard,#vid,#imgv,#hub,#rside,#rcard,#sheet,#dash,#habs,#brief,#cc,#cmds,#menu,.radc,.bigc', T=new WeakMap(), ready=false;
+  var SEL='#kcard,#xcard,#lcard,#ycard,#acard,#tcard,#wcard,#vid,#imgv,#hub,#rside,#rcard,#sheet,#dash,#habs,#brief,#cc,#cmds,#menu,#avc,.radc,.bigc', T=new WeakMap(), ready=false;
   setTimeout(function(){ready=true},1500);
   var st=document.createElement('style'); st.textContent='@keyframes xin{from{opacity:0;scale:.965;translate:0 10px}to{opacity:1;scale:1;translate:0 0}}@keyframes xinR{from{opacity:0;translate:28px 0}to{opacity:1;translate:0 0}}@keyframes xout{from{opacity:1;scale:1;translate:0 0}to{opacity:0;scale:.97;translate:0 6px}}@keyframes xoutR{from{opacity:1;translate:0 0}to{opacity:0;translate:28px 0}}.xin{animation:xin .34s cubic-bezier(.2,.8,.2,1) both}.xout{animation:xout .24s ease-in both;pointer-events:none}#sheet.xin{animation-name:xinR}#sheet.xout{animation-name:xoutR}@media (prefers-reduced-motion:reduce){.xin,.xout{animation:none!important}}';
   document.head.appendChild(st);
@@ -597,7 +597,7 @@ var asleepAt=0;
 var camSusp=false;
 function camSuspend(){if(camMode==='follow'&&stream){clearInterval(camTimer); stream.getTracks().forEach(function(t){t.stop()}); stream=null; el.cam.srcObject=null; camMode=null; camSusp=true; syncCam()}}
 function camResume(){if(camSusp){camSusp=false; if(CFG.follow) setTimeout(function(){if(!asleep) startFollow(true)},400)}}
-function goSleep(){asleep=true; asleepAt=Date.now(); try{camSuspend()}catch(e){} try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
+function goSleep(){asleep=true; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
 function wakeUp(){asleep=false; try{camResume()}catch(e){} try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
 function act(){lastAct=Date.now(); if(typeof GENT!=='undefined'&&GENT.t&&Date.now()-GENT.start>3000) gentleStop(); if(asleep) wakeUp(); if(typeof sbOn!=='undefined'&&sbOn&&Date.now()-sbStart>800) sbExit()}
 addEventListener('pointerdown',act,{passive:true});
@@ -1569,7 +1569,7 @@ function closeAll(){
   if(game){any=true; endGame()}
   if(!$('#vid').hidden) closeVideo();
   if(!$('#imgv').hidden) closeImg();
-  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief'); hideBig('cmds'); hideBig('menu'); hideBig('strm');
+  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief'); hideBig('cmds'); hideBig('menu'); hideBig('strm'); hideBig('avp'); hideBig('avp');
   return any;
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.mx'); if(b){e.stopPropagation(); closeAll()}});
@@ -3173,7 +3173,7 @@ function sbRender(){
 function winBlocking(){
   if(asleep||sbOn||ringing||game||recipe) return true;
   if(radOn()||optsOn()) return true;
-  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc','cmds','menu','strm'].some(function(i){var c=$('#'+i); return c&&!c.hidden&&!(i==='wcard'&&c.classList.contains('ghost'))});
+  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc','cmds','menu','strm','avp'].some(function(i){var c=$('#'+i); return c&&!c.hidden&&!(i==='wcard'&&c.classList.contains('ghost'))});
 }
 function dashRender(){
   var D=$('#dash'), now=new Date(), h=now.getHours();
@@ -3227,7 +3227,7 @@ function amb2(q,raw){
 })();
 var bigT={};
 function hideBig(id){clearTimeout(bigT[id]); var e=document.getElementById(id); if(e) e.hidden=true}
-function showBig(id,ms){var e=document.getElementById(id); ['cc','brief','cmds','menu','strm'].forEach(function(o){if(o!==id) hideBig(o)}); e.hidden=false; clearTimeout(bigT[id]); bigT[id]=setTimeout(function(){e.hidden=true},ms||60000)}
+function showBig(id,ms){var e=document.getElementById(id); ['cc','brief','cmds','menu','strm','avp'].forEach(function(o){if(o!==id) hideBig(o)}); e.hidden=false; clearTimeout(bigT[id]); bigT[id]=setTimeout(function(){e.hidden=true},ms||60000)}
 function fnum(n,d){if(!isFinite(n)) return '—'; var a=Math.abs(n); d=d==null?(a>=1000?0:a>=100?1:2):d; return n.toLocaleString('es-CO',{maximumFractionDigits:d})}
 function ffrac(n){
   var w=Math.floor(n+1e-9), f=n-w, best=null, tb=[[0,''],[1/8,'1/8'],[1/4,'1/4'],[1/3,'1/3'],[3/8,'3/8'],[1/2,'1/2'],[5/8,'5/8'],[2/3,'2/3'],[3/4,'3/4'],[7/8,'7/8'],[1,'']];
@@ -3462,6 +3462,7 @@ var CMDS=[
  {t:'Recetas',i:'🍳',kw:/\b(receta|recetas|cocina|cocinar|cocinando)\b/,x:['Quiero hacer una receta de arepas','Dame opciones de recetas ligeras de pollo','Recetas sin azúcar','Opción 2','Siguiente / Atrás / Repite el paso','Paso 3','Dime los ingredientes','Agrega los ingredientes a la lista de compras','Lee la receta completa','Mis recetas','Cambia el ingrediente … por …','Cierra la receta']},
  {t:'Videos y música',i:'🎬',kw:/\b(video|videos|musica|cancion|canciones|youtube|spotify)\b/,x:['Con un video puesto: di solo el nombre de otro y lo cambia','Cambia a Despacito / Ahora pon salsa / Mejor algo de Shakira','Otro video de gatos','Pon un video de recetas en inglés','Pon un documental largo de dinosaurios','Pon un video de más de 30 minutos sobre el espacio','Pon una canción de Shakira (cada vez una distinta)','Otra canción / Siguiente video','Pon un video de …','Pon un mix de salsa de una hora','Pon la canción …','Busca un karaoke de …','Pausa / Continúa','Otro video / Siguiente canción','Sube / Baja el volumen','Cierra el video']},
  {t:'Streams (Twitch y Kick)',i:'📺',kw:/\b(stream|streams|twitch|kick|directo|streamer|streamers|canal)\b/,x:['Pon a ibai en Twitch','Pon el stream de auronplay en Kick','Abre Twitch','Mis streamers','Agrega a ibai a mis favoritos en Twitch','Quita a ibai de mis favoritos','Con chat / Sin chat (solo Twitch)','Cierra el stream']},
+ {t:'Aviones sobre tu casa',i:'✈️',kw:/\b(avion|aviones|vuelo|vuelos|radar|aereo)\b/,x:['Activa el radar de aviones','Avísame cuando pase un avión','Qué avión es ese','Sigue ese avión','Qué aviones han pasado hoy','Apaga la voz de los aviones','Prende la voz de los aviones','Silencia los aviones por 2 horas','Silencia los aviones hasta las 6 de la mañana','Programa el silencio de los aviones de 10 de la noche a 7 de la mañana','Quita el horario de silencio de los aviones','Cambia el radio de los aviones a 5 km','Usa la ubicación de la tablet para los aviones','Apaga el radar de aviones','Abre el panel de aviones']},
  {t:'Radio por internet',i:'📻',kw:/\b(radio|emisora|emisoras)\b/,x:['Pon la radio','Pon una emisora de salsa','Pon radio de noticias','Otra emisora','Emisora número 3','Apaga la radio']},
  {t:'Ruido y sonido ambiente',i:'🌧️',kw:/\b(ruido|sonido|sonidos|lluvia|ambiente|lofi|concentrar|estudiar)\b/,x:['Pon ruido de lluvia por 30 minutos','Pon ruido marrón / blanco / rosa','Pon sonido de olas / viento / tormenta','Pon música lo-fi para estudiar','Apaga el ruido','Modo ambiente (pantalla de reloj)']},
  {t:'Agenda, notas y compras',i:'📒',kw:/\b(agenda|notas?|lista|compras|mercado)\b/,x:['Abre la agenda','Anota que … (nota)','Muéstrame mis notas','Agrega leche y huevos a la lista de compras','¿Qué hay en la lista?','Quita la leche de la lista','Borra la última nota','Edita la nota de …']},
@@ -3622,6 +3623,7 @@ var MNT=[
  {g:'libre',i:'🎬',n:'Música y videos',d:'YouTube y canciones',l:'Busca y pone videos o música. Necesita la llave de YouTube en Ajustes.',x:['Pon un mix de salsa de una hora','Pausa','Cierra el video']},
  {g:'libre',i:'🌧️',n:'Sonido ambiente',d:'Lluvia, olas, ruido blanco',l:'Sonidos para concentrarte o dormir, con temporizador si quieres.',x:['Pon ruido de lluvia por 30 minutos','Pon música lo-fi para estudiar','Apaga el ruido']},
  {g:'libre',i:'📺',n:'Streams',d:'Twitch y Kick en vivo',act:function(){strmOpen()}},
+ {g:'libre',i:'✈️',n:'Aviones',d:'Avisa cuando pasa uno sobre tu casa',l:'Chispa mira los aviones que pasan cerca de tu casa y te avisa con sus datos y una foto. La voz de los aviones se puede apagar o programar sin tocar el resto de Chispa.',x:['Activa el radar de aviones','Qué aviones han pasado hoy','Apaga la voz de los aviones','Silencia los aviones por 2 horas']},
  {g:'libre',i:'🎮',n:'Juegos',d:'Con la voz y con la cámara',l:'Piedra, papel o tijera, adivinar números y juegos donde Chispa te ve por la cámara.',x:['Vamos a jugar','Piedra, papel o tijera','Juegos con cámara']},
  {g:'libre',i:'💬',n:'Chistes e historias',d:'Para pasar el rato',l:'Chistes, datos curiosos, cuentos y preguntas. Para conversar libremente necesita la llave de IA.',x:['Cuéntame un chiste','Dime un dato curioso','Cuéntame una historia']},
  {g:'tablet',f:1,i:'🌙',n:'Dormir',d:'Pantalla oscura hasta la mañana',l:'La pantalla se apaga casi del todo, la cámara descansa y solo queda el micrófono. Chispa te despierta con una alarma suave a la hora que elijas.',x:['Duérmete','Cambia la hora de despertar a las 7','Ya me desperté']},
@@ -3896,6 +3898,430 @@ function mediaSwap(q,raw,phase){
   if(onS&&!onV){spPlayQuery(name,false); return true}
   playVideo(name); return true;
 }
+/* ---------- Radar de aviones: avisa cuando pasa un avión sobre tu casa ---------- */
+var AVN={on:false,lat:null,lon:null,r:3,voice:true,mute:0,qOn:false,qFrom:'22:00',qTo:'07:00',log:[]};
+try{var _av=JSON.parse(localStorage.getItem('chispa.avn')||'null'); if(_av&&typeof _av==='object') for(var _k in _av) AVN[_k]=_av[_k]}catch(e){}
+if(!Array.isArray(AVN.log)) AVN.log=[];
+var AVL={map:{},last:null,t:0,fails:0,ok:0,cache:{},busy:false,shown:null,fol:'',folMiss:0,src:0,hideT:0,beat:0};
+var AV_GONE=45000;
+var AV_URL=[
+ function(la,lo,nm){return 'https://api.adsb.lol/v2/point/'+la+'/'+lo+'/'+nm},
+ function(la,lo,nm){return 'https://api.airplanes.live/v2/point/'+la+'/'+lo+'/'+nm},
+ function(la,lo,nm){return 'https://opendata.adsb.fi/api/v2/lat/'+la+'/lon/'+lo+'/dist/'+nm}
+];
+var AV_HEXURL=[
+ function(h){return 'https://api.adsb.lol/v2/hex/'+h},
+ function(h){return 'https://api.airplanes.live/v2/hex/'+h},
+ function(h){return 'https://opendata.adsb.fi/api/v2/hex/'+h}
+];
+var AV_DIR=['norte','noreste','este','sureste','sur','suroeste','oeste','noroeste'];
+function avSave(){try{localStorage.setItem('chispa.avn',JSON.stringify(AVN))}catch(e){}}
+function avKm(a,b,c,d){var R=6371,p=Math.PI/180,x=(c-a)*p,y=(d-b)*p,q=Math.sin(x/2)*Math.sin(x/2)+Math.cos(a*p)*Math.cos(c*p)*Math.sin(y/2)*Math.sin(y/2); return 2*R*Math.asin(Math.sqrt(q))}
+function avBrg(a,b,c,d){var p=Math.PI/180,y=Math.sin((d-b)*p)*Math.cos(c*p),x=Math.cos(a*p)*Math.sin(c*p)-Math.sin(a*p)*Math.cos(c*p)*Math.cos((d-b)*p); return (Math.atan2(y,x)/p+360)%360}
+function avDir(d){return AV_DIR[Math.round(d/45)%8]}
+function avTO(url,ms){
+  return new Promise(function(res,rej){
+    var ac=('AbortController' in window)?new AbortController():null, t=setTimeout(function(){try{ac&&ac.abort()}catch(e){} rej(new Error('timeout'))},ms||8000);
+    fetch(url,ac?{signal:ac.signal}:{}).then(function(r){clearTimeout(t); res(r)},function(e){clearTimeout(t); rej(e)});
+  });
+}
+function avJson(url,ms){return avTO(url,ms).then(function(r){return r.json().catch(function(){return null})})}
+function avFetch(mkUrl){
+  var n=AV_URL.length, i=0;
+  return new Promise(function(res,rej){
+    (function next(){
+      if(i>=n){rej(new Error('fuentes')); return}
+      var k=(AVL.src+i)%n; i++;
+      avTO(mkUrl(k),8000).then(function(r){if(!r.ok) throw new Error('http'+r.status); return r.json()}).then(function(j){AVL.src=k; res(j)}).catch(next);
+    })();
+  });
+}
+function avNorm(a){
+  if(!a||typeof a.lat!=='number'||typeof a.lon!=='number') return null;
+  var alt=a.alt_baro; if(alt==='ground'||a.ground===true) return null;
+  if(typeof alt!=='number') alt=(typeof a.alt_geom==='number')?a.alt_geom:null;
+  return {hex:String(a.hex||'').toLowerCase(),call:String(a.flight||'').trim(),reg:a.r||'',type:a.t||'',desc:a.desc||'',alt:alt,gs:typeof a.gs==='number'?a.gs:null,trk:typeof a.track==='number'?a.track:null,vr:typeof a.baro_rate==='number'?a.baro_rate:null,lat:a.lat,lon:a.lon};
+}
+/* --- Horario de silencio y voz --- */
+function avMin(s){var m=/^(\d{1,2}):(\d{2})$/.exec(s||''); return m?(+m[1])*60+(+m[2]):null}
+function avQuiet(){
+  if(!AVN.qOn) return false; var a=avMin(AVN.qFrom), b=avMin(AVN.qTo); if(a==null||b==null||a===b) return false;
+  var d=new Date(), m=d.getHours()*60+d.getMinutes(); return a<b?(m>=a&&m<b):(m>=a||m<b);
+}
+function avVoiceOn(){return !!AVN.voice&&!(AVN.mute>Date.now())&&!avQuiet()}
+function avCanSpeak(){return avVoiceOn()&&!asleep&&!talking&&!ringing&&!storyOn&&!mediaOn()}
+function avFmt(s){var m=avMin(s); if(m==null) return s; var h=Math.floor(m/60), mi=m%60; return (h%12||12)+':'+String(mi).padStart(2,'0')+' '+(h<12?'a. m.':'p. m.')}
+function avVoiceTxt(){
+  if(!AVN.voice) return 'Voz apagada';
+  if(AVN.mute>Date.now()) return 'En silencio hasta las '+new Date(AVN.mute).toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'});
+  if(avQuiet()) return 'En horario de silencio ('+avFmt(AVN.qFrom)+' a '+avFmt(AVN.qTo)+')';
+  return 'Voz activada'+(AVN.qOn?' · silencio de '+avFmt(AVN.qFrom)+' a '+avFmt(AVN.qTo):'');
+}
+/* --- Datos del avión: ruta, modelo y foto --- */
+function avInfo(e){
+  var key=e.hex+'|'+(e.a.call||''), c=AVL.cache[key];
+  if(c&&Date.now()-c.ts<864e5){e.info=c; return c.p}
+  var o={ts:Date.now(),route:null,ac:null,photo:null}, jobs=[];
+  if(e.a.call) jobs.push(avJson('https://api.adsbdb.com/v0/callsign/'+encodeURIComponent(e.a.call),6000).then(function(j){var f=j&&j.response&&j.response.flightroute; if(f&&typeof f==='object') o.route=f}).catch(function(){}));
+  if(/^[0-9a-f]{6}$/.test(e.hex)){
+    jobs.push(avJson('https://api.adsbdb.com/v0/aircraft/'+e.hex,6000).then(function(j){var a=j&&j.response&&j.response.aircraft; if(a&&typeof a==='object') o.ac=a}).catch(function(){}));
+    jobs.push(avJson('https://api.planespotters.net/pub/photos/hex/'+e.hex,6000).then(function(j){var p=j&&j.photos&&j.photos[0]; var s=p&&((p.thumbnail_large&&p.thumbnail_large.src)||(p.thumbnail&&p.thumbnail.src)); if(s) o.photo={src:s,by:p.photographer||'',link:p.link||''}}).catch(function(){}));
+  }
+  o.p=Promise.all(jobs).then(function(){
+    if(!o.photo&&o.ac&&o.ac.url_photo_thumbnail) o.photo={src:o.ac.url_photo_thumbnail,by:'',link:o.ac.url_photo||''};
+    return o;
+  });
+  AVL.cache[key]=o; e.info=o; return o.p;
+}
+function avPlace(p){if(!p) return ''; return p.municipality||p.name||p.iata_code||''}
+function avTypeName(e){var o=e.info||{}, a=o.ac; if(a&&(a.manufacturer||a.type)) return ((a.manufacturer||'')+' '+(a.type||'')).trim(); return e.a.desc||e.a.type||''}
+function avAirline(e){var f=e.info&&e.info.route; return f&&f.airline&&f.airline.name||''}
+function avFlightNo(e){var f=e.info&&e.info.route; return (f&&(f.callsign_iata||f.callsign_icao||f.callsign))||e.a.call||''}
+function avSpell(s){return String(s).replace(/\s+/g,'').split('').join(' ')}
+function avAltTxt(ft){return ft==null?'—':fnum(ft*0.3048,0)+' m ('+fnum(ft,0)+' pies)'}
+function avSay(e){
+  var a=e.a, f=e.info&&e.info.route, air=avAirline(e), no=avFlightNo(e), s='Pasa un avión';
+  if(air) s+=' de '+air; s+='.';
+  if(no) s+=' Vuelo '+avSpell(no)+'.'; else if(a.reg) s+=' Matrícula '+avSpell(a.reg)+'.';
+  if(f&&f.origin&&f.destination) s+=' Va de '+avPlace(f.origin)+' a '+avPlace(f.destination)+'.';
+  var t=avTypeName(e); if(t) s+=' Es un '+t+'.';
+  if(a.alt!=null) s+=' Vuela a unos '+(Math.round(a.alt*0.3048/100)*100)+' metros.';
+  return s;
+}
+/* --- Detección --- */
+function avPoll(){
+  clearTimeout(AVL.t);
+  if(!AVN.on||AVN.lat==null||AVN.lon==null) return;
+  if(AVL.busy){AVL.t=setTimeout(avPoll,3000); return}
+  AVL.busy=true;
+  var nm=Math.max(1,Math.ceil(AVN.r/1.852)), la=(+AVN.lat).toFixed(4), lo=(+AVN.lon).toFixed(4);
+  avFetch(function(i){return AV_URL[i](la,lo,nm)}).then(function(j){
+    AVL.fails=0; AVL.ok=Date.now(); avSeen(((j&&(j.ac||j.aircraft))||[]).map(avNorm).filter(Boolean));
+  }).catch(function(){AVL.fails++}).then(function(){
+    AVL.busy=false; try{avFollowPoll()}catch(e){} try{avPanelRender()}catch(e){}
+    AVL.t=setTimeout(avPoll,Object.keys(AVL.map).length||AVL.fol?5000:10000);
+  });
+}
+function avStart(){clearTimeout(AVL.t); if(AVN.on&&AVN.lat!=null) avPoll()}
+function avSeen(list){
+  var now=Date.now(), inside={};
+  list.forEach(function(a){
+    a.d=avKm(AVN.lat,AVN.lon,a.lat,a.lon); if(a.d>AVN.r) return;
+    a.brg=avBrg(AVN.lat,AVN.lon,a.lat,a.lon); inside[a.hex]=1;
+    var e=AVL.map[a.hex];
+    if(!e){e=AVL.map[a.hex]={hex:a.hex,first:now,seen:now,min:a.d,a:a,tr:[]}; avTrail(e); avEnter(e)}
+    else{e.a=a; e.seen=now; if(a.d<e.min) e.min=a.d; avTrail(e); if(e.log){e.log.min=+e.min.toFixed(2); e.log.alt=a.alt}}
+  });
+  Object.keys(AVL.map).forEach(function(h){var e=AVL.map[h]; if(!inside[h]&&now-e.seen>=AV_GONE) avLeave(e)});
+  avCardRender();
+}
+function avTrail(e){var a=e.a,k=Math.cos(AVN.lat*Math.PI/180); e.tr.push([(a.lon-AVN.lon)*k*111.32,(a.lat-AVN.lat)*110.57]); if(e.tr.length>24) e.tr.shift()}
+function avEnter(e){
+  var a=e.a, L={t:e.first,hex:e.hex,call:a.call,reg:a.reg,type:a.type,alt:a.alt,min:+a.d.toFixed(2),dur:0};
+  e.log=L; AVN.log.unshift(L); if(AVN.log.length>100) AVN.log.length=100; avSave();
+  AVL.last=e;
+  if(!asleep&&!(AVL.fol&&AVL.shown&&AVL.shown.e.hex===AVL.fol)){clearTimeout(AVL.hideT); AVL.shown={e:e,gone:false}; avCardRender()}
+  var snd=avCanSpeak(); if(snd) beep([523,784]);
+  Promise.race([avInfo(e),new Promise(function(r){setTimeout(r,2500)})]).then(function(){
+    var o=e.info||{}, f=o.route; if(f){L.from=avPlace(f.origin); L.to=avPlace(f.destination); L.air=avAirline(e); L.no=avFlightNo(e)} var t=avTypeName(e); if(t) L.model=t; avSave();
+    avCardRender();
+    if(snd&&avCanSpeak()&&AVL.map[e.hex]===e){reply(avSay(e))}
+  });
+}
+function avLeave(e){
+  var L=e.log; if(L){L.dur=Math.max(0,Math.round((e.seen-e.first)/1000)); L.min=+e.min.toFixed(2); avSave()}
+  delete AVL.map[e.hex];
+  if(AVL.shown&&AVL.shown.e===e){if(AVL.fol===e.hex) AVL.shown.out=true; else AVL.shown.gone=true; if(AVL.fol!==e.hex){clearTimeout(AVL.hideT); AVL.hideT=setTimeout(function(){if(AVL.shown&&AVL.shown.e===e&&AVL.fol!==e.hex){AVL.shown=null; avCardRender()}},30000)}}
+  avCardRender();
+}
+/* --- Seguimiento de un avión --- */
+function avFollow(e){
+  if(!e){return false}
+  AVL.fol=e.hex; AVL.folMiss=0; clearTimeout(AVL.hideT); AVL.shown={e:e,gone:false,out:!AVL.map[e.hex]}; avCardRender(); avStart(); return true;
+}
+function avUnfollow(){AVL.fol=''; AVL.folMiss=0; if(AVL.shown&&(AVL.shown.gone||AVL.shown.out)){AVL.shown=null} avCardRender()}
+function avFollowPoll(){
+  if(!AVL.fol||AVL.map[AVL.fol]){if(AVL.fol&&AVL.shown) AVL.shown.out=false; return}
+  var h=AVL.fol, sh=AVL.shown; if(!sh||sh.e.hex!==h) return;
+  var n=AV_HEXURL.length, i=0;
+  (function next(){
+    if(i>=n){AVL.folMiss++; if(AVL.folMiss>=4){AVL.fol=''; if(AVL.shown) AVL.shown.lost=true; avCardRender()} return}
+    var k=(AVL.src+i)%n; i++;
+    avTO(AV_HEXURL[k](h),8000).then(function(r){if(!r.ok) throw new Error('x'); return r.json()}).then(function(j){
+      var a=avNorm(((j&&(j.ac||j.aircraft))||[])[0]); if(!a){AVL.folMiss++; if(AVL.folMiss>=4){AVL.fol=''; sh.lost=true} avCardRender(); return}
+      AVL.folMiss=0; sh.gone=false; a.d=avKm(AVN.lat,AVN.lon,a.lat,a.lon); a.brg=avBrg(AVN.lat,AVN.lon,a.lat,a.lon);
+      sh.e.a=a; sh.e.seen=Date.now(); sh.out=true; avTrail(sh.e); avCardRender();
+    }).catch(next);
+  })();
+}
+/* --- Tarjeta flotante --- */
+function avHide(){var c=document.getElementById('avc'); if(c) c.hidden=true}
+function avCardRender(){
+  var c=document.getElementById('avc'); if(!c) return;
+  var sh=AVL.shown; if(!sh||asleep||!document.getElementById('avp').hidden){c.hidden=true; return}
+  var e=sh.e, a=e.a, o=e.info||{}, f=o.route, $c=function(i){return c.querySelector(i)};
+  var st=sh.test?['Prueba','t']:sh.lost?['Perdí la señal','g']:sh.gone?['Ya pasó','g']:AVL.fol===e.hex?['Siguiéndolo','f']:['Encima ahora','n'];
+  var bd=$c('#avBd'); bd.textContent=st[0]; bd.className='avbd '+st[1];
+  $c('#avCall').textContent=avFlightNo(e)||a.reg||e.hex.toUpperCase();
+  $c('#avAir').textContent=avAirline(e)||(f&&f.airline&&f.airline.name)||'';
+  var rt=$c('#avRt'); rt.textContent='';
+  if(f&&f.origin&&f.destination){
+    var s1=mk('span','avp1'); s1.appendChild(mk('b',null,f.origin.iata_code||'')); s1.appendChild(mk('small',null,avPlace(f.origin)));
+    var s2=mk('span','avp1'); s2.appendChild(mk('b',null,f.destination.iata_code||'')); s2.appendChild(mk('small',null,avPlace(f.destination)));
+    rt.appendChild(s1); rt.appendChild(mk('span','avar','✈')); rt.appendChild(s2);
+  } else rt.appendChild(mk('small','avnr',a.call?'Sin datos de ruta para este vuelo':'Vuelo sin indicativo'));
+  var ch=$c('#avCh'); ch.textContent='';
+  function chip(k,v){if(v==null||v==='') return; var x=mk('div','avchp'); x.appendChild(mk('small',null,k)); x.appendChild(mk('b',null,v)); ch.appendChild(x)}
+  chip('Modelo',avTypeName(e)); chip('Matrícula',a.reg||(o.ac&&o.ac.registration)||'');
+  chip('Altura',avAltTxt(a.alt)+(a.vr>300?' ↑':a.vr<-300?' ↓':''));
+  chip('Velocidad',a.gs!=null?fnum(a.gs*1.852,0)+' km/h':null);
+  chip('Rumbo',a.trk!=null?'hacia el '+avDir(a.trk):null);
+  chip(sh.gone?'Más cerca estuvo':'Distancia',a.d!=null?fnum(sh.gone?e.min:a.d,1)+' km'+(sh.gone?'':' al '+avDir(a.brg)):null);
+  if(o.ac&&o.ac.registered_owner&&!avAirline(e)) chip('Operador',o.ac.registered_owner);
+  var ph=o.photo, im=$c('#avI'), A=$c('#avA'), cr=$c('#avCr'), box=$c('.avph');
+  if(ph&&ph.src){box.classList.remove('no'); if(im.getAttribute('src')!==ph.src) im.src=ph.src; A.href=ph.link||ph.src; cr.textContent=ph.by?'Foto: '+ph.by+' · Planespotters.net':'Foto de archivo'; A.onclick=null}
+  else{box.classList.add('no'); im.removeAttribute('src'); A.removeAttribute('href'); cr.textContent=''}
+  var fo=$c('#avFo'); fo.textContent=AVL.fol===e.hex?'Dejar de seguir':'Seguir este avión'; fo.hidden=!!sh.test||(sh.gone&&!sh.out&&AVL.fol!==e.hex);
+  avRadar($c('#avRd'),e);
+  c.hidden=false;
+}
+function avRadar(cv,e){
+  if(!cv||!cv.getContext||AVN.lat==null) return; var g=cv.getContext('2d'), W=cv.width, H=cv.height, cx=W/2, cy=H/2, a=e.a;
+  var k=Math.cos(AVN.lat*Math.PI/180), px=(a.lon-AVN.lon)*k*111.32, py=(a.lat-AVN.lat)*110.57, R=Math.max(AVN.r,Math.min(60,Math.hypot(px,py)))*1.15, sc=(W/2-8)/R;
+  g.clearRect(0,0,W,H); g.lineWidth=1.5; g.strokeStyle='rgba(255,255,255,.22)';
+  [AVN.r,AVN.r/2].forEach(function(r){g.beginPath(); g.arc(cx,cy,r*sc,0,7); g.stroke()});
+  g.strokeStyle='rgba(255,255,255,.12)'; g.beginPath(); g.moveTo(cx,6); g.lineTo(cx,H-6); g.moveTo(6,cy); g.lineTo(W-6,cy); g.stroke();
+  g.fillStyle='rgba(255,255,255,.55)'; g.font='bold 15px sans-serif'; g.textAlign='center'; g.fillText('N',cx,18);
+  if(e.tr&&e.tr.length>1){g.strokeStyle='rgba(255,199,143,.55)'; g.lineWidth=2; g.beginPath(); e.tr.forEach(function(p,i){var x=cx+p[0]*sc,y=cy-p[1]*sc; i?g.lineTo(x,y):g.moveTo(x,y)}); g.stroke()}
+  g.fillStyle='#7fc4ff'; g.beginPath(); g.arc(cx,cy,6,0,7); g.fill();
+  var x=cx+px*sc, y=cy-py*sc; g.save(); g.translate(x,y); g.rotate(((a.trk||0))*Math.PI/180); g.fillStyle='#ffc78f'; g.beginPath(); g.moveTo(0,-11); g.lineTo(8,9); g.lineTo(0,5); g.lineTo(-8,9); g.closePath(); g.fill(); g.restore();
+}
+/* --- Probar el aviso --- */
+function avTest(){
+  var now=Date.now(), la=AVN.lat!=null?AVN.lat:6.2442, lo=AVN.lon!=null?AVN.lon:-75.5812;
+  var e={hex:'prueba',first:now,seen:now,min:.8,tr:[],test:true,a:{hex:'prueba',call:'AVA9234',reg:'N123AV',type:'A320',desc:'',alt:9800,gs:300,trk:70,vr:-600,lat:la+.004,lon:lo-.012,d:1.3,brg:290},
+    info:{ts:now,route:{callsign_iata:'AV9234',airline:{name:'Avianca (prueba)'},origin:{iata_code:'MDE',municipality:'Medellín'},destination:{iata_code:'BOG',municipality:'Bogotá'}},ac:{manufacturer:'Airbus',type:'A320-214',registration:'N123AV'},photo:null}};
+  e.tr=[[-3.2,1.2],[-2.4,1.0],[-1.6,.8],[-.9,.6],[-.2,.45],[.5,.3]];
+  clearTimeout(AVL.hideT); AVL.shown={e:e,gone:false,test:true}; avCardRender();
+  var snd=avCanSpeak();
+  if(snd){beep([523,784]); setTimeout(function(){reply(avSay(e))},500)} else if(!asleep) reply('Así se vería el aviso. Ahora no hablo: '+avVoiceTxt().toLowerCase()+(mediaOn()?', o hay algo sonando':'')+'.');
+  AVL.hideT=setTimeout(function(){if(AVL.shown&&AVL.shown.e===e){AVL.shown.gone=true; avCardRender(); setTimeout(function(){if(AVL.shown&&AVL.shown.e===e){AVL.shown=null; avCardRender()}},8000)}},25000);
+}
+/* --- Ubicación --- */
+function avSetLoc(la,lo){AVN.lat=+(+la).toFixed(3); AVN.lon=+(+lo).toFixed(3); avSave(); if(AVN.on) avStart(); avPanelRender()}
+function avParseLoc(s){
+  s=String(s||'').trim(); var m=s.match(/(-?\d{1,2}\.\d+)\s*[,;]?\s*(-?\d{1,3}\.\d+)/)||s.match(/(-?\d{1,2},\d+)\s*[;\s]\s*(-?\d{1,3},\d+)/); if(!m) return null;
+  var la=parseFloat(m[1].replace(',','.')), lo=parseFloat(m[2].replace(',','.')); if(!(Math.abs(la)<=90&&Math.abs(lo)<=180)) return null; return [la,lo];
+}
+function avGeo(cb){
+  if(!navigator.geolocation){cb('Este navegador no me da la ubicación. Pega las coordenadas en el panel.'); return}
+  navigator.geolocation.getCurrentPosition(function(p){avSetLoc(p.coords.latitude,p.coords.longitude); cb('')},function(){cb('No pude ver la ubicación de la tablet. Pega las coordenadas en el panel.')},{enableHighAccuracy:false,timeout:15000,maximumAge:6e5});
+}
+/* --- Panel --- */
+function avOpen(){avPanelRender(); showBig('avp',240000); avCardRender()}
+function avPanelRender(){
+  var p=document.getElementById('avp'); if(!p) return; var $p=function(i){return p.querySelector(i)};
+  var on=$p('#avOn'); on.textContent=AVN.on?'Radar encendido':'Radar apagado'; on.className='avsw'+(AVN.on?' on':''); on.setAttribute('aria-pressed',AVN.on);
+  var s=$p('#avSt'), msg;
+  if(AVN.lat==null) msg='Falta la ubicación de tu casa.';
+  else if(!AVN.on) msg='Apagado. No consulto aviones.';
+  else if(AVL.fails>=2&&!AVL.ok) msg='No pude conectar con la fuente de aviones. Reintentando…';
+  else if(AVL.fails>=2) msg='Perdí conexión con la fuente. Reintentando…';
+  else if(!AVL.ok) msg='Conectando…';
+  else msg='Vigilando en '+fnum(AVN.r,0)+' km a la redonda. Última consulta hace '+Math.max(0,Math.round((Date.now()-AVL.ok)/1000))+' s.';
+  s.textContent=msg;
+  var li=$p('#avLoc'); if(document.activeElement!==li) li.value=AVN.lat!=null?AVN.lat+', '+AVN.lon:'';
+  var rr=$p('#avR'); if(document.activeElement!==rr) rr.value=AVN.r; $p('#avRv').textContent=fnum(AVN.r,0)+' km';
+  var vb=$p('#avVo'); vb.textContent=AVN.voice?'Voz: encendida':'Voz: apagada'; vb.className='avsw'+(AVN.voice?' on':''); vb.setAttribute('aria-pressed',AVN.voice);
+  $p('#avVs').textContent=avVoiceTxt()+'. La voz y el sonido solo aplican a los aviones; la tarjeta siempre se ve.';
+  var q=$p('#avQo'); q.checked=!!AVN.qOn; var f=$p('#avQf'), t=$p('#avQt'); if(document.activeElement!==f) f.value=AVN.qFrom; if(document.activeElement!==t) t.value=AVN.qTo;
+  var now=$p('#avNow'); now.textContent=''; var live=Object.keys(AVL.map).map(function(h){return AVL.map[h]});
+  if(!live.length) now.appendChild(mk('p','avem','Ahora no hay aviones dentro del radio.'));
+  live.forEach(function(e){now.appendChild(avRow(e.log||{t:e.first,call:e.a.call,min:e.min},e,true))});
+  var hs=$p('#avHist'); hs.textContent=''; if(!AVN.log.length) hs.appendChild(mk('p','avem','Todavía no he registrado ninguno.'));
+  AVN.log.slice(0,25).forEach(function(L){hs.appendChild(avRow(L,null,false))});
+}
+function avRow(L,e,live){
+  var r=mk('button','avrow'); r.type='button';
+  var d=new Date(L.t), hh=d.toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'}), today=new Date().toDateString()===d.toDateString();
+  r.appendChild(mk('span','avt',(today?'':d.toLocaleDateString('es-CO',{day:'numeric',month:'short'})+' ')+hh));
+  var b=mk('span','avb2'); b.appendChild(mk('b',null,(L.no||L.call||L.reg||L.hex||'Avión')+(L.air?' · '+L.air:'')));
+  var det=[L.from&&L.to?L.from+' → '+L.to:'',L.model||L.type||'',L.min!=null?'a '+fnum(L.min,1)+' km':'',L.alt!=null?fnum(L.alt*0.3048,0)+' m':''].filter(Boolean).join(' · ');
+  b.appendChild(mk('small',null,det)); r.appendChild(b);
+  if(live&&e) r.onclick=function(){clearTimeout(AVL.hideT); AVL.shown={e:e,gone:false}; hideBig('avp'); avCardRender()};
+  return r;
+}
+(function(){
+  var st=document.createElement('style'); st.textContent=[
+  '#avc{position:fixed;z-index:15;left:16px;bottom:122px;width:min(94vw,560px);display:grid;grid-template-columns:auto 1fr;gap:6px 16px;padding:16px;border-radius:24px;background:rgba(13,23,34,.9);border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 44px rgba(0,0,0,.5);color:#eaf3fb;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}#avc[hidden]{display:none}',
+  '#avc .x{position:absolute;top:8px;right:8px;width:40px;height:40px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font-size:18px;cursor:pointer}',
+  '#avc .avph{grid-row:1/3;width:190px;display:flex;flex-direction:column;gap:4px}#avc .avph a{display:block;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.07);min-height:120px}#avc .avph img{display:block;width:100%;height:auto;min-height:120px;object-fit:cover}#avc .avph.no a{display:none}#avc .avph.no{width:auto}#avc .avph small{font-size:11px;color:rgba(234,243,251,.65);line-height:1.3}',
+  '#avc .avm{min-width:0;padding-right:40px}#avc .avh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}#avc .avh b{font:600 30px/1 var(--font-display);letter-spacing:.02em}',
+  '.avbd{font:700 12px var(--font-body);padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.14)}.avbd.n{background:#2f7d57;color:#eafff3}.avbd.f{background:#2c6ea8;color:#e9f5ff}.avbd.t{background:#a8742c;color:#fff4e2}.avbd.g{background:rgba(255,255,255,.14)}',
+  '#avAir{margin-top:2px;color:#ffc78f;font-weight:600}#avRt{display:flex;align-items:center;gap:12px;margin-top:8px}.avp1 b{display:block;font:600 24px/1 var(--font-display)}.avp1 small{display:block;font-size:13px;color:rgba(234,243,251,.75)}.avar{font-size:22px;color:#ffc78f}.avnr{color:rgba(234,243,251,.65)}',
+  '#avCh{grid-column:1/3;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:6px}.avchp{padding:7px 10px;border-radius:12px;background:rgba(255,255,255,.07)}.avchp small{display:block;font-size:11px;color:rgba(234,243,251,.65)}.avchp b{font:600 15px/1.2 var(--font-body)}',
+  '#avRd{position:absolute;right:12px;top:52px;width:86px;height:86px;opacity:.95}',
+  '#avc .avb{grid-column:1/3;display:flex;gap:8px;margin-top:4px}#avc .avb button,.avsw,.avbtn{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#eaf3fb;font:700 14px var(--font-body);cursor:pointer}',
+  '#avc .avb button[hidden]{display:none}#avc button:focus-visible,#avp button:focus-visible,#avp input:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}',
+  '@media (max-width:640px){#avc{grid-template-columns:1fr}#avc .avph{grid-row:auto;width:100%}#avCh,#avc .avb{grid-column:1}#avRd{display:none}}',
+  '#avp{width:min(94vw,760px)}#avp h2{margin:0 40px 4px 0;font:500 28px var(--font-display)}#avp h3{margin:20px 0 8px;font:500 18px var(--font-display);color:#ffc78f}#avp .avs{margin:0 0 10px;color:rgba(234,243,251,.75);font-size:15px}',
+  '.avsw.on{background:rgba(47,125,87,.5);border-color:#5fd49a}.avrow3{display:flex;gap:8px;flex-wrap:wrap;align-items:center}#avp input[type=text],#avp input[type=time]{min-height:44px;border-radius:14px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#eaf3fb;font:600 16px var(--font-body);padding:0 12px}#avLoc{flex:1;min-width:200px}',
+  '#avp input[type=range]{flex:1;min-width:160px;height:36px}#avp label{display:flex;align-items:center;gap:8px;font-size:15px}#avp input[type=checkbox]{width:22px;height:22px}',
+  '.avrow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:9px 12px;margin-bottom:6px;border:0;border-radius:12px;background:rgba(255,255,255,.07);color:#eaf3fb;font-family:var(--font-body)}.avrow .avt{flex:none;min-width:76px;color:#ffc78f;font-weight:700;font-size:14px}.avrow b{display:block;font-size:15px}.avrow small{display:block;font-size:13px;color:rgba(234,243,251,.7)}.avem{margin:0;color:rgba(234,243,251,.65);font-size:14px}',
+  '#avp .avnote{margin:16px 0 0;font-size:12px;color:rgba(234,243,251,.55);line-height:1.4}'
+  ].join(''); document.head.appendChild(st);
+  var c=document.createElement('section'); c.id='avc'; c.hidden=true; c.setAttribute('aria-label','Avión sobre tu casa');
+  c.innerHTML='<button class="x" type="button" aria-label="Cerrar">✕</button><div class="avph no"><a id="avA" target="_blank" rel="noopener"><img id="avI" alt="Foto del avión"></a><small id="avCr"></small></div><div class="avm"><div class="avh"><b id="avCall"></b><span id="avBd" class="avbd"></span></div><div id="avAir"></div><div id="avRt"></div></div><canvas id="avRd" width="172" height="172" aria-hidden="true"></canvas><div id="avCh"></div><div class="avb"><button id="avFo" type="button">Seguir este avión</button><button id="avHi" type="button">Historial</button></div>';
+  document.body.appendChild(c);
+  c.querySelector('.x').onclick=function(){clearTimeout(AVL.hideT); if(AVL.fol&&AVL.shown&&AVL.shown.e.hex===AVL.fol) avUnfollow(); AVL.shown=null; avCardRender()};
+  c.querySelector('#avFo').onclick=function(){var sh=AVL.shown; if(!sh) return; if(AVL.fol===sh.e.hex) avUnfollow(); else avFollow(sh.e)};
+  c.querySelector('#avHi').onclick=function(){avOpen()};
+  var p=document.createElement('section'); p.className='bigc'; p.id='avp'; p.hidden=true; p.setAttribute('aria-label','Radar de aviones');
+  p.innerHTML='<button class="x" type="button" aria-label="Cerrar">✕</button><h2>Aviones sobre tu casa</h2><p class="avs">Chispa avisa cada vez que un avión entra al radio que elijas, con sus datos y una foto cuando existe.</p>'
+   +'<div class="avrow3"><button id="avOn" class="avsw" type="button" aria-pressed="false">Radar apagado</button><button id="avTs" class="avbtn" type="button">Probar el aviso</button></div><p class="avs" id="avSt" style="margin-top:10px"></p>'
+   +'<h3>Dónde está tu casa</h3><div class="avrow3"><input id="avLoc" type="text" inputmode="text" placeholder="Pega las coordenadas: 6.244, -75.581" autocomplete="off"><button id="avLs" class="avbtn" type="button">Guardar</button><button id="avGp" class="avbtn" type="button">Usar la ubicación de la tablet</button></div>'
+   +'<div class="avrow3" style="margin-top:10px"><label for="avR">Radio</label><input id="avR" type="range" min="1" max="15" step="1" value="3"><b id="avRv"></b></div>'
+   +'<h3>Voz de los aviones</h3><div class="avrow3"><button id="avVo" class="avsw" type="button" aria-pressed="true">Voz: encendida</button><button id="avM1" class="avbtn" type="button">Silencio 1 hora</button><button id="avM0" class="avbtn" type="button">Quitar silencio</button></div>'
+   +'<div class="avrow3" style="margin-top:10px"><label><input id="avQo" type="checkbox"> Horario de silencio</label><label for="avQf">de</label><input id="avQf" type="time" value="22:00"><label for="avQt">a</label><input id="avQt" type="time" value="07:00"></div><p class="avs" id="avVs" style="margin-top:10px"></p>'
+   +'<h3>Encima ahora</h3><div id="avNow"></div><h3>Han pasado</h3><div id="avHist"></div><div class="avrow3" style="margin-top:8px"><button id="avCl" class="avbtn" type="button">Borrar historial</button></div>'
+   +'<p class="avnote">Datos de aviones: redes abiertas ADS-B (adsb.lol, airplanes.live, adsb.fi). Rutas: adsbdb.com. Fotos: Planespotters.net. Tu ubicación aproximada se envía a la fuente en cada consulta. La ruta sale del indicativo del vuelo y puede faltar o estar mal.</p>';
+  document.body.appendChild(p);
+  p.querySelector('.x').onclick=function(){hideBig('avp'); setTimeout(avCardRender,50)};
+  p.querySelector('#avOn').onclick=function(){avSetOn(!AVN.on,true)};
+  p.querySelector('#avTs').onclick=function(){hideBig('avp'); avTest()};
+  p.querySelector('#avLs').onclick=function(){var v=avParseLoc(p.querySelector('#avLoc').value); if(!v){p.querySelector('#avSt').textContent='No entendí las coordenadas. Cópialas de Google Maps, por ejemplo: 6.244, -75.581'; return} avSetLoc(v[0],v[1])};
+  p.querySelector('#avGp').onclick=function(){p.querySelector('#avSt').textContent='Pidiendo la ubicación…'; avGeo(function(m){if(m) p.querySelector('#avSt').textContent=m; else avPanelRender()})};
+  p.querySelector('#avR').oninput=function(){AVN.r=+this.value; avSave(); p.querySelector('#avRv').textContent=fnum(AVN.r,0)+' km'};
+  p.querySelector('#avR').onchange=function(){avStart()};
+  p.querySelector('#avVo').onclick=function(){AVN.voice=!AVN.voice; if(AVN.voice) AVN.mute=0; avSave(); avPanelRender()};
+  p.querySelector('#avM1').onclick=function(){AVN.mute=Date.now()+36e5; avSave(); avPanelRender()};
+  p.querySelector('#avM0').onclick=function(){AVN.mute=0; AVN.voice=true; avSave(); avPanelRender()};
+  p.querySelector('#avQo').onchange=function(){AVN.qOn=this.checked; avSave(); avPanelRender()};
+  p.querySelector('#avQf').onchange=function(){if(avMin(this.value)!=null){AVN.qFrom=this.value; avSave(); avPanelRender()}};
+  p.querySelector('#avQt').onchange=function(){if(avMin(this.value)!=null){AVN.qTo=this.value; avSave(); avPanelRender()}};
+  p.querySelector('#avCl').onclick=function(){var old=AVN.log; AVN.log=[]; avSave(); avPanelRender(); chg('historial de aviones ('+old.length+')',function(){AVN.log=old; avSave(); avPanelRender()})};
+})();
+function avSetOn(on,fromPanel){
+  AVN.on=!!on; avSave();
+  if(AVN.on){if(AVN.lat==null){avPanelRender(); if(!fromPanel){showBig('avp',240000)} return 'noloc'} avStart()} else {clearTimeout(AVL.t); AVL.map={}; AVL.shown=null; AVL.fol=''; avCardRender()}
+  avPanelRender(); return 'ok';
+}
+/* --- Comandos de voz --- */
+var AV_NUM={un:1,una:1,uno:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,media:.5};
+function avTime(s){
+  s=norm(String(s||'')).replace(/[.,]/g,' ').replace(/\s+/g,' ').trim(); if(!s) return null;
+  if(/\bmedianoche\b/.test(s)) return '00:00'; if(/\bmediodia\b/.test(s)) return '12:00';
+  var m=s.match(/\b(\d{1,2})(?::(\d{2}))?\b/), h, mi=0;
+  if(m){h=+m[1]; if(m[2]) mi=+m[2]} else {var w=s.match(/\b(un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)\b/); if(!w) return null; h=AV_NUM[w[1]]}
+  if(/\by media\b/.test(s)) mi=30; else if(/\by cuarto\b/.test(s)) mi=15; else if(/\bmenos cuarto\b/.test(s)){h=(h+23)%24; mi=45}
+  var pm=/\b(tarde|noche|p ?m)\b/.test(s), am=/\b(manana|madrugada|a ?m)\b/.test(s);
+  if(pm&&!am){if(h<12) h+=12; if(h===12&&/noche/.test(s)&&!/\b12 ?(?::\d\d)? ?(?:de la )?tarde/.test(s)) h=0}
+  else if(am&&h===12) h=0;
+  if(h>23||mi>59) return null; return String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0');
+}
+function avDur(n){
+  var m=n.match(/\bpor\s+(\d+(?:[.,]\d+)?|un|una|dos|tres|cuatro|cinco|seis|media)\s*(?:y media\s*)?(horas?|hrs?|minutos?|mins?)\b/);
+  if(m){var v=/^\d/.test(m[1])?parseFloat(m[1].replace(',','.')):AV_NUM[m[1]]; if(/y media/.test(m[0])) v+=.5; return Date.now()+v*(/^h/.test(m[2])?36e5:6e4)}
+  if(/\bpor media hora\b/.test(n)) return Date.now()+18e5;
+  m=n.match(/\bhasta\s+(?:las?\s+)?(.+)$/);
+  if(m){
+    if(/^(?:manana|el dia siguiente)\b/.test(m[1])&&!/\d/.test(m[1])){var d=new Date(); d.setDate(d.getDate()+1); d.setHours(7,0,0,0); return d.getTime()}
+    var t=avTime(m[1]); if(t){var mm=avMin(t), x=new Date(); x.setHours(Math.floor(mm/60),mm%60,0,0); if(x.getTime()<=Date.now()) x.setDate(x.getDate()+1); return x.getTime()}
+  }
+  if(/\b(?:por hoy|el resto del dia|hoy)\b/.test(n)){var e=new Date(); e.setHours(23,59,0,0); return e.getTime()}
+  if(/\besta noche\b/.test(n)){var z=new Date(); z.setDate(z.getDate()+(z.getHours()<6?0:1)); z.setHours(7,0,0,0); return z.getTime()}
+  return 0;
+}
+function avQuietSet(from,to){
+  var old={qOn:AVN.qOn,qFrom:AVN.qFrom,qTo:AVN.qTo}; AVN.qOn=true; AVN.qFrom=from; AVN.qTo=to; avSave(); avPanelRender();
+  chg('horario de silencio de aviones',function(){AVN.qOn=old.qOn; AVN.qFrom=old.qFrom; AVN.qTo=old.qTo; avSave(); avPanelRender()});
+  reply('Listo. La voz de los aviones queda apagada de '+avFmt(from)+' a '+avFmt(to)+', todos los días. En ese rato solo verás la tarjeta.'); return true;
+}
+function avSummary(){
+  var today=new Date().toDateString(), n=AVN.log.filter(function(L){return new Date(L.t).toDateString()===today}).length;
+  if(!AVN.log.length) return 'Todavía no he registrado ningún avión'+(AVN.on?'.':', y el radar está apagado.');
+  var L=AVN.log[0], when=new Date(L.t).toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'}), who=(L.air?'de '+L.air:'')+(L.no||L.call?(L.air?', ':'')+'vuelo '+avSpell(L.no||L.call):'');
+  var s='Hoy han pasado '+n+(n===1?' avión':' aviones')+'. El último fue a las '+when+(who?', '+who:'')+(L.from&&L.to?', de '+L.from+' a '+L.to:'')+(L.model||L.type?', un '+(L.model||L.type):'')+'.';
+  return s;
+}
+function avCmd(q,raw){
+  var n=q.replace(/[¿?¡!.;:]/g,' ').replace(/,/g,' ').replace(/\bchispa\b/g,' ').replace(/\s+/g,' ').trim(), m;
+  n=n.replace(/\bentre\s+(?:las?\s+)?(.+?)\s+y\s+(?!media\b|cuarto\b)(?:las?\s+)?(.+)$/,'de $1 a $2');
+  var has=/\bavion(?:es)?\b|\bradar (?:aereo|de (?:avion|vuelo)s?)\b|\btrafico aereo\b/.test(n);
+  var recent=AVL.last&&Date.now()-AVL.last.seen<6e5||AVL.shown&&AVL.shown.e;
+  var lastQ=recent&&/\b(?:que|cual|de donde|a donde|adonde|quien|de que aerolinea)\b.*\b(?:vuelo|avion|aerolinea)\b|\bvuelo es (?:ese|este)\b/.test(n);
+  var folQ=recent&&/\b(?:deja de seguir\w*|no (?:lo )?sigas|siguelo|(?:sigue|seguir|rastrea) (?:a )?(?:ese|este) (?:avion|vuelo))\b/.test(n);
+  if(!has&&!lastQ&&!folQ) return false;
+  var ctx=/\b(?:radar|registr\w*|avis\w*|vigila\w*|rastre\w*|monitor\w*|seguimiento|sobre mi casa|encima de mi casa|cuando pase\w*|voz|silenci\w*|horario|historial|han pasado|paso)\b/.test(n);
+  var sh=AVL.shown&&AVL.shown.e;
+  if(/\b(?:quita|borra|elimina|cancela|quitar|borrar)\w*\s+(?:el\s+|la\s+)?(?:horario|programacion|silencio)/.test(n)&&has){if(!AVN.qOn){reply('No hay ningún horario de silencio de aviones.'); return true} AVN.qOn=false; avSave(); avPanelRender(); reply('Listo, quité el horario de silencio de los aviones.'); return true}
+  if(has&&/\b(?:horario|programa\w*|silencio|callad\w*|apagad\w*|sin voz|no me hables?|no hables?|solo hablar|solo hablame|hablame solo|solo me hables?)\b/.test(n)&&/\b(?:de|desde|entre)\s+(?:las?\s+)?.+?\s+(?:a|hasta)\s+(?:las?\s+)?.+/.test(n)&&!/\b(?:por\s+\d|hasta manana)\b/.test(n)){
+    m=n.match(/\b(?:de|desde)\s+(?:las?\s+)?(.+?)\s+(?:a|hasta)\s+(?:las?\s+)?(.+)$/);
+    var a=m&&avTime(m[1]), b=m&&avTime(m[2]);
+    if(a&&b){ if(/\bsolo\b/.test(n)){return avQuietSet(b,a)} return avQuietSet(a,b)}
+  }
+  if(has&&/\b(?:horario|programa\w*)\b/.test(n)&&/\b(?:voz|silencio|callad\w*|hablar|hables)\b/.test(n)){
+    askFill('¿De qué hora a qué hora quieres el silencio? Por ejemplo, de 10 de la noche a 7 de la mañana.',function(r){
+      var q2=norm(r).replace(/[,.]/g,' '), m2=q2.replace(/\bentre\s+(.+?)\s+y\s+(?!media\b|cuarto\b)/,'de $1 a ').match(/(?:^|\b(?:de|desde)\s+)(?:las?\s+)?(.+?)\s+(?:a|hasta)\s+(?:las?\s+)?(.+)$/), a2=m2&&avTime(m2[1]), b2=m2&&avTime(m2[2]);
+      if(a2&&b2) avQuietSet(a2,b2); else reply('No entendí las horas. Puedes ponerlas en el panel de aviones.')});
+    return true;
+  }
+  var muteV=/\b(?:silencia\w*|calla\w*|mutea\w*|no (?:me )?(?:hables|digas|avises|molestes|hagas ruido)|sin voz|pausa\w* (?:la )?voz)\b/.test(n)||(/\b(?:apaga\w*|quita\w*|desactiva\w*|deshabilita\w*|corta\w*)\b/.test(n)&&/\bvoz\b|\bsonido\b/.test(n));
+  if(has&&muteV&&!/\b(?:prende|activa|enciende|habilita|reactiva)\w*\s+(?:la\s+)?voz\b/.test(n)){
+    var until=avDur(n), oldV=AVN.voice, oldM=AVN.mute;
+    if(until){AVN.mute=until; avSave(); avPanelRender(); chg('silencio de aviones',function(){AVN.voice=oldV; AVN.mute=oldM; avSave(); avPanelRender()}); reply('Listo, los aviones quedan en silencio hasta las '+new Date(until).toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'})+'. Solo verás la tarjeta.')}
+    else{AVN.voice=false; avSave(); avPanelRender(); chg('voz de aviones apagada',function(){AVN.voice=oldV; AVN.mute=oldM; avSave(); avPanelRender()}); reply('Listo, apagué la voz de los aviones. Sigo mostrando la tarjeta y guardando el historial. Para volver a oírlos, di «prende la voz de los aviones».')}
+    return true;
+  }
+  if(has&&/\b(?:prende|prender|activa|activar|enciende|encender|habilita|reactiva|vuelve a|ya puedes|puedes|con voz|quiero (?:escuchar|oir))\w*/.test(n)&&/\b(?:voz|hablar|hables|avises|escuchar|oir|sonido)\b/.test(n)){
+    var oV=AVN.voice, oM=AVN.mute; AVN.voice=true; AVN.mute=0; avSave(); avPanelRender(); chg('voz de aviones encendida',function(){AVN.voice=oV; AVN.mute=oM; avSave(); avPanelRender()});
+    reply(avQuiet()?'Listo, la voz de los aviones está encendida. Ahora estamos en tu horario de silencio, así que hablaré cuando termine.':'Listo, volví a encender la voz de los aviones.'); return true;
+  }
+  if(has&&/\b(?:abre|abrir|muestra\w*|ensena\w*|ver|panel)\b/.test(n)&&!/\b(?:historial)\b/.test(n)&&!/\b(?:que|cuantos)\b/.test(n)){avOpen(); return true}
+  if(has&&/\b(?:usa|toma|guarda|fija|actualiza|pon|cambia)\w*\s+(?:mi\s+|la\s+)?ubicacion\b/.test(n)){
+    reply('Voy a pedir la ubicación de la tablet. Si aparece el permiso, acéptalo.').then(function(){avGeo(function(msg){if(msg){reply(msg); avOpen()} else {avSetOn(true); reply('Listo, guardé la ubicación de la tablet como tu casa y encendí el radar. Está aproximada a unos cien metros.')}})}); return true;
+  }
+  if(has&&/\b(?:radio|alcance|distancia)\b.*?(\d+(?:[.,]\d+)?)\s*(?:km|kilometros?)/.test(n)){
+    m=n.match(/\b(?:radio|alcance|distancia)\b.*?(\d+(?:[.,]\d+)?)\s*(?:km|kilometros?)/); var r=Math.round(parseFloat(m[1].replace(',','.')));
+    if(!(r>=1&&r<=15)){reply('El radio puede ir de 1 a 15 kilómetros.'); return true}
+    var oR=AVN.r; AVN.r=r; avSave(); avStart(); avPanelRender(); chg('radio de aviones',function(){AVN.r=oR; avSave(); avStart(); avPanelRender()}); reply('Listo, ahora aviso de los aviones a '+r+' km o menos de tu casa.'); return true;
+  }
+  if(has&&/\b(?:prueba\w*|simula\w*)\b/.test(n)){avTest(); return true}
+  if((has||lastQ||folQ)&&/\b(?:deja de seguir\w*|no (?:lo )?sigas|ya no (?:lo )?sigas|deten (?:el )?seguimiento|quita el seguimiento)\b/.test(n)){if(!AVL.fol){reply('No estoy siguiendo ningún avión.'); return true} avUnfollow(); reply('Listo, dejé de seguirlo.'); return true}
+  if((has||lastQ||folQ)&&/\b(?:sigue\w*|seguir|siguelo|rastrea\w*|hazle seguimiento|sigamos)\b/.test(n)){
+    var tgt=sh||AVL.last; if(!tgt){reply('Todavía no ha pasado ningún avión que seguir.'); return true}
+    avFollow(tgt); reply('Listo, sigo a '+(avFlightNo(tgt)||'ese avión')+'. Verás en la tarjeta dónde va, aunque salga del radio.'); return true;
+  }
+  if(has&&/\b(?:historial|cuantos|que (?:aviones|vuelos)|ultimo|ultimos|han pasado|ha pasado|paso|pasaron)\b/.test(n)&&!/\b(?:horario|silencio|voz)\b/.test(n)){reply(avSummary()).then(function(){}); if(AVN.log.length) avOpen(); return true}
+  if(lastQ||(has&&/\b(?:que|cual|de donde|a donde)\b.*\b(?:avion|vuelo)\b.*\b(?:es|era|fue)\b/.test(n))){
+    var e=sh||AVL.last; if(!e){reply(avSummary()); return true}
+    var f=e.info&&e.info.route, air=avAirline(e);
+    var s=(AVL.map[e.hex]?'Ese avión es ':'Ese avión era ')+(air?'de '+air+', ':'')+(avFlightNo(e)?'vuelo '+avSpell(avFlightNo(e)):'matrícula '+avSpell(e.a.reg||e.hex))+(f&&f.origin&&f.destination?', de '+avPlace(f.origin)+' a '+avPlace(f.destination):', y no tengo su ruta')+'.'+(avTypeName(e)?' Es un '+avTypeName(e)+'.':'');
+    reply(s); return true;
+  }
+  if(ctx&&/\b(?:apaga\w*|desactiva\w*|deten\w*|para|parar|deja de|cancela\w*|quita\w*)\b/.test(n)&&/\b(?:radar|registr\w*|avis\w*|seguimiento|vigil\w*)\b/.test(n)){
+    if(!AVN.on){reply('El radar de aviones ya estaba apagado.'); return true}
+    avSetOn(false); chg('radar de aviones apagado',function(){avSetOn(true)}); reply('Listo, apagué el radar de aviones. Ya no consulto ni registro nada. Para encenderlo, di «activa el radar de aviones».'); return true;
+  }
+  if(/\b(?:apaga\w*|desactiva\w*|quita\w*|deten\w*)\b/.test(n)&&has&&!ctx){
+    askFill('¿Apago todo el radar de aviones, o solo la voz?',function(r){var q2=norm(r);
+      if(/\bvoz\b|solo|nada mas/.test(q2)){AVN.voice=false; avSave(); avPanelRender(); reply('Listo, solo apagué la voz. La tarjeta sigue.')}
+      else if(/todo|radar|completo|ambos|los dos|apaga/.test(q2)){avSetOn(false); reply('Listo, apagué todo el radar.')}
+      else reply('No entendí. No cambié nada.')});
+    return true;
+  }
+  if(/\b(?:estado|como (?:va|esta|anda))\b/.test(n)&&has){
+    reply((AVN.on?'El radar está encendido, con radio de '+AVN.r+' km. ':'El radar está apagado. ')+avVoiceTxt()+'. '+(AVN.lat==null?'Falta la ubicación de tu casa.':'')); avOpen(); return true;
+  }
+  if(/\b(?:radar|registr\w*|vigila\w*|rastrea\w*|monitor\w*|avisame|avisarme|avises|avisar|cuando pase\w*|sobre mi casa|encima de mi casa)\b/.test(n)&&/\b(?:activa\w*|enciende\w*|prende\w*|empieza\w*|comienza\w*|inicia\w*|arranca\w*|pon\w*|vigila\w*|registra\w*|rastrea\w*|monitorea\w*|avisame|avisarme|quiero|necesito|cuando pase\w*|dime|dame)\b/.test(n)){
+    if(AVN.on&&AVN.lat!=null){reply('El radar de aviones ya está encendido. Te aviso cuando pase uno a menos de '+AVN.r+' km.'); return true}
+    var res=avSetOn(true);
+    if(res==='noloc'){reply('Necesito saber dónde está tu casa. Te abrí el panel: toca «Usar la ubicación de la tablet» o pega las coordenadas.'); return true}
+    chg('radar de aviones encendido',function(){avSetOn(false)}); reply('Listo, radar de aviones encendido. Te aviso cuando pase uno a menos de '+AVN.r+' km de tu casa.'); return true;
+  }
+  return false;
+}
+if(AVN.on&&AVN.lat!=null) setTimeout(avStart,4000);
 /* ---------- Control total: editar hábitos y ajustes por voz, con lectura exacta y deshacer ---------- */
 var CHG=[];
 function chg(what,undo){CHG.unshift({t:Date.now(),what:what,undo:undo}); if(CHG.length>30) CHG.length=30}
@@ -4361,6 +4787,7 @@ function handle(raw){
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
   try{if(strmCmd(q,raw)){misses=0; return}}catch(e){dlog('stream error '+e.message)}
+  try{if(avCmd(q,raw)){misses=0; return}}catch(e){dlog('avion error '+e.message)}
   try{if(stCmd(q,raw)){misses=0; return}}catch(e){dlog('st error '+e.message)}
   try{if(editCmd(q,raw)){misses=0; return}}catch(e){dlog('edit error '+e.message)}
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
@@ -5258,7 +5685,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-17-cambio', pendingUpdate=false;
+var APP_VERSION='2026-10-21-aviones', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
