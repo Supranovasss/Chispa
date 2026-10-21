@@ -1569,7 +1569,7 @@ function closeAll(){
   if(game){any=true; endGame()}
   if(!$('#vid').hidden) closeVideo();
   if(!$('#imgv').hidden) closeImg();
-  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief'); hideBig('cmds'); hideBig('menu'); hideBig('strm'); hideBig('avp'); hideBig('avp');
+  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief'); hideBig('cmds'); hideBig('menu'); hideBig('strm'); hideBig('avp'); try{mmClose()}catch(e0){} hideBig('avp');
   return any;
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.mx'); if(b){e.stopPropagation(); closeAll()}});
@@ -3173,7 +3173,7 @@ function sbRender(){
 function winBlocking(){
   if(asleep||sbOn||ringing||game||recipe) return true;
   if(radOn()||optsOn()) return true;
-  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc','cmds','menu','strm','avp'].some(function(i){var c=$('#'+i); return c&&!c.hidden&&!(i==='wcard'&&c.classList.contains('ghost'))});
+  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc','cmds','menu','strm','avp','avm'].some(function(i){var c=$('#'+i); return c&&!c.hidden&&!(i==='wcard'&&c.classList.contains('ghost'))});
 }
 function dashRender(){
   var D=$('#dash'), now=new Date(), h=now.getHours();
@@ -3462,7 +3462,7 @@ var CMDS=[
  {t:'Recetas',i:'🍳',kw:/\b(receta|recetas|cocina|cocinar|cocinando)\b/,x:['Quiero hacer una receta de arepas','Dame opciones de recetas ligeras de pollo','Recetas sin azúcar','Opción 2','Siguiente / Atrás / Repite el paso','Paso 3','Dime los ingredientes','Agrega los ingredientes a la lista de compras','Lee la receta completa','Mis recetas','Cambia el ingrediente … por …','Cierra la receta']},
  {t:'Videos y música',i:'🎬',kw:/\b(video|videos|musica|cancion|canciones|youtube|spotify)\b/,x:['Con un video puesto: di solo el nombre de otro y lo cambia','Cambia a Despacito / Ahora pon salsa / Mejor algo de Shakira','Otro video de gatos','Pon un video de recetas en inglés','Pon un documental largo de dinosaurios','Pon un video de más de 30 minutos sobre el espacio','Pon una canción de Shakira (cada vez una distinta)','Otra canción / Siguiente video','Pon un video de …','Pon un mix de salsa de una hora','Pon la canción …','Busca un karaoke de …','Pausa / Continúa','Otro video / Siguiente canción','Sube / Baja el volumen','Cierra el video']},
  {t:'Streams (Twitch y Kick)',i:'📺',kw:/\b(stream|streams|twitch|kick|directo|streamer|streamers|canal)\b/,x:['Pon a ibai en Twitch','Pon el stream de auronplay en Kick','Abre Twitch','Mis streamers','Agrega a ibai a mis favoritos en Twitch','Quita a ibai de mis favoritos','Con chat / Sin chat (solo Twitch)','Cierra el stream']},
- {t:'Aviones sobre tu casa',i:'✈️',kw:/\b(avion|aviones|vuelo|vuelos|radar|aereo)\b/,x:['Activa el radar de aviones','Avísame cuando pase un avión','Qué avión es ese','Sigue ese avión','Qué aviones han pasado hoy','Apaga la voz de los aviones','Prende la voz de los aviones','Silencia los aviones por 2 horas','Silencia los aviones hasta las 6 de la mañana','Programa el silencio de los aviones de 10 de la noche a 7 de la mañana','Quita el horario de silencio de los aviones','Cambia el radio de los aviones a 5 km','Usa la ubicación de la tablet para los aviones','Apaga el radar de aviones','Abre el panel de aviones']},
+ {t:'Aviones sobre tu casa',i:'✈️',kw:/\b(avion|aviones|vuelo|vuelos|radar|aereo)\b/,x:['Activa el radar de aviones','Avísame cuando pase un avión','Qué avión es ese','Sigue ese avión','Qué aviones han pasado hoy','Apaga la voz de los aviones','Prende la voz de los aviones','Silencia los aviones por 2 horas','Silencia los aviones hasta las 6 de la mañana','Programa el silencio de los aviones de 10 de la noche a 7 de la mañana','Quita el horario de silencio de los aviones','Cambia el radio de los aviones a 5 km','Usa la ubicación de la tablet para los aviones','Apaga el radar de aviones','Abre el panel de aviones','Abre el mapa de aviones','Abre el mapa de mi casa','Agranda el mapa','Reduce el mapa','Cierra el mapa']},
  {t:'Radio por internet',i:'📻',kw:/\b(radio|emisora|emisoras)\b/,x:['Pon la radio','Pon una emisora de salsa','Pon radio de noticias','Otra emisora','Emisora número 3','Apaga la radio']},
  {t:'Ruido y sonido ambiente',i:'🌧️',kw:/\b(ruido|sonido|sonidos|lluvia|ambiente|lofi|concentrar|estudiar)\b/,x:['Pon ruido de lluvia por 30 minutos','Pon ruido marrón / blanco / rosa','Pon sonido de olas / viento / tormenta','Pon música lo-fi para estudiar','Apaga el ruido','Modo ambiente (pantalla de reloj)']},
  {t:'Agenda, notas y compras',i:'📒',kw:/\b(agenda|notas?|lista|compras|mercado)\b/,x:['Abre la agenda','Anota que … (nota)','Muéstrame mis notas','Agrega leche y huevos a la lista de compras','¿Qué hay en la lista?','Quita la leche de la lista','Borra la última nota','Edita la nota de …']},
@@ -3623,7 +3623,7 @@ var MNT=[
  {g:'libre',i:'🎬',n:'Música y videos',d:'YouTube y canciones',l:'Busca y pone videos o música. Necesita la llave de YouTube en Ajustes.',x:['Pon un mix de salsa de una hora','Pausa','Cierra el video']},
  {g:'libre',i:'🌧️',n:'Sonido ambiente',d:'Lluvia, olas, ruido blanco',l:'Sonidos para concentrarte o dormir, con temporizador si quieres.',x:['Pon ruido de lluvia por 30 minutos','Pon música lo-fi para estudiar','Apaga el ruido']},
  {g:'libre',i:'📺',n:'Streams',d:'Twitch y Kick en vivo',act:function(){strmOpen()}},
- {g:'libre',i:'✈️',n:'Aviones',d:'Avisa cuando pasa uno sobre tu casa',l:'Chispa mira los aviones que pasan cerca de tu casa y te avisa con sus datos y una foto. La voz de los aviones se puede apagar o programar sin tocar el resto de Chispa.',x:['Activa el radar de aviones','Qué aviones han pasado hoy','Apaga la voz de los aviones','Silencia los aviones por 2 horas']},
+ {g:'libre',i:'✈️',n:'Aviones',d:'Avisa cuando pasa uno sobre tu casa',l:'Chispa mira los aviones que pasan cerca de tu casa y te avisa con sus datos y una foto. La voz de los aviones se puede apagar o programar sin tocar el resto de Chispa.',x:['Abre el mapa de aviones','Activa el radar de aviones','Qué aviones han pasado hoy','Apaga la voz de los aviones','Silencia los aviones por 2 horas']},
  {g:'libre',i:'🎮',n:'Juegos',d:'Con la voz y con la cámara',l:'Piedra, papel o tijera, adivinar números y juegos donde Chispa te ve por la cámara.',x:['Vamos a jugar','Piedra, papel o tijera','Juegos con cámara']},
  {g:'libre',i:'💬',n:'Chistes e historias',d:'Para pasar el rato',l:'Chistes, datos curiosos, cuentos y preguntas. Para conversar libremente necesita la llave de IA.',x:['Cuéntame un chiste','Dime un dato curioso','Cuéntame una historia']},
  {g:'tablet',f:1,i:'🌙',n:'Dormir',d:'Pantalla oscura hasta la mañana',l:'La pantalla se apaga casi del todo, la cámara descansa y solo queda el micrófono. Chispa te despierta con una alarma suave a la hora que elijas.',x:['Duérmete','Cambia la hora de despertar a las 7','Ya me desperté']},
@@ -4186,14 +4186,15 @@ function avRow(L,e,live){
   '#avp .avnote{margin:16px 0 0;font-size:12px;color:rgba(234,243,251,.55);line-height:1.4}'
   ].join(''); document.head.appendChild(st);
   var c=document.createElement('section'); c.id='avc'; c.hidden=true; c.setAttribute('aria-label','Avión sobre tu casa');
-  c.innerHTML='<button class="x" type="button" aria-label="Cerrar">✕</button><div class="avph no"><a id="avA" target="_blank" rel="noopener"><img id="avI" alt="Foto del avión"></a><small id="avCr"></small></div><div class="avm"><div class="avh"><b id="avCall"></b><span id="avBd" class="avbd"></span></div><div id="avAir"></div><div id="avRt"></div></div><canvas id="avRd" width="172" height="172" aria-hidden="true"></canvas><div id="avCh"></div><div class="avb"><button id="avFo" type="button">Seguir este avión</button><button id="avHi" type="button">Historial</button></div>';
+  c.innerHTML='<button class="x" type="button" aria-label="Cerrar">✕</button><div class="avph no"><a id="avA" target="_blank" rel="noopener"><img id="avI" alt="Foto del avión"></a><small id="avCr"></small></div><div class="avm"><div class="avh"><b id="avCall"></b><span id="avBd" class="avbd"></span></div><div id="avAir"></div><div id="avRt"></div></div><canvas id="avRd" width="172" height="172" aria-hidden="true"></canvas><div id="avCh"></div><div class="avb"><button id="avFo" type="button">Seguir este avión</button><button id="avMc" type="button">Mapa</button><button id="avHi" type="button">Historial</button></div>';
   document.body.appendChild(c);
   c.querySelector('.x').onclick=function(){clearTimeout(AVL.hideT); if(AVL.fol&&AVL.shown&&AVL.shown.e.hex===AVL.fol) avUnfollow(); AVL.shown=null; avCardRender()};
   c.querySelector('#avFo').onclick=function(){var sh=AVL.shown; if(!sh) return; if(AVL.fol===sh.e.hex) avUnfollow(); else avFollow(sh.e)};
   c.querySelector('#avHi').onclick=function(){avOpen()};
+  c.querySelector('#avMc').onclick=function(){mmOpen(false)};
   var p=document.createElement('section'); p.className='bigc'; p.id='avp'; p.hidden=true; p.setAttribute('aria-label','Radar de aviones');
   p.innerHTML='<button class="x" type="button" aria-label="Cerrar">✕</button><h2>Aviones sobre tu casa</h2><p class="avs">Chispa avisa cada vez que un avión entra al radio que elijas, con sus datos y una foto cuando existe.</p>'
-   +'<div class="avrow3"><button id="avOn" class="avsw" type="button" aria-pressed="false">Radar apagado</button><button id="avTs" class="avbtn" type="button">Probar el aviso</button></div><p class="avs" id="avSt" style="margin-top:10px"></p>'
+   +'<div class="avrow3"><button id="avOn" class="avsw" type="button" aria-pressed="false">Radar apagado</button><button id="avMp" class="avbtn" type="button">Abrir el mapa</button><button id="avTs" class="avbtn" type="button">Probar el aviso</button></div><p class="avs" id="avSt" style="margin-top:10px"></p>'
    +'<h3>Dónde está tu casa</h3><div class="avrow3"><input id="avLoc" type="text" inputmode="text" placeholder="Pega las coordenadas: 6.244, -75.581" autocomplete="off"><button id="avLs" class="avbtn" type="button">Guardar</button><button id="avGp" class="avbtn" type="button">Usar la ubicación de la tablet</button></div>'
    +'<div class="avrow3" style="margin-top:10px"><label for="avR">Radio</label><input id="avR" type="range" min="1" max="15" step="1" value="3"><b id="avRv"></b></div>'
    +'<h3>Voz de los aviones</h3><div class="avrow3"><button id="avVo" class="avsw" type="button" aria-pressed="true">Voz: encendida</button><button id="avM1" class="avbtn" type="button">Silencio 1 hora</button><button id="avM0" class="avbtn" type="button">Quitar silencio</button></div>'
@@ -4203,6 +4204,7 @@ function avRow(L,e,live){
   document.body.appendChild(p);
   p.querySelector('.x').onclick=function(){hideBig('avp'); setTimeout(avCardRender,50)};
   p.querySelector('#avOn').onclick=function(){avSetOn(!AVN.on,true)};
+  p.querySelector('#avMp').onclick=function(){hideBig('avp'); mmOpen(false)};
   p.querySelector('#avTs').onclick=function(){hideBig('avp'); avTest()};
   p.querySelector('#avLs').onclick=function(){var v=avParseLoc(p.querySelector('#avLoc').value); if(!v){p.querySelector('#avSt').textContent='No entendí las coordenadas. Cópialas de Google Maps, por ejemplo: 6.244, -75.581'; return} avSetLoc(v[0],v[1])};
   p.querySelector('#avGp').onclick=function(){p.querySelector('#avSt').textContent='Pidiendo la ubicación…'; avGeo(function(m){if(m) p.querySelector('#avSt').textContent=m; else avPanelRender()})};
@@ -4439,6 +4441,160 @@ function ntCmd(q,raw){
   if(/\b(?:apaga|desactiva|silencia|no quiero|oculta|deshabilita)\w*\b/.test(n)){CFG.ntfOff=true; saveCfg(); ntClose(); reply('Listo, ya no muestro el globito. Las notificaciones se guardan y las ves diciendo «muestra las notificaciones».'); return true}
   if(/\b(?:activa|enciende|prende|habilita|vuelve a|reactiva)\w*\b/.test(n)){CFG.ntfOff=false; saveCfg(); reply('Listo, el globito de notificaciones está activo.'); return true}
   if(/\b(?:muestra|abre|ver|revisa|dame|cuales|que|tengo|hay|mis|las)\b/.test(n)){var u=ntUnread(); ntOpen('avisos'); reply(NT.list.length?(u?'Tienes '+u+(u===1?' notificación nueva.':' notificaciones nuevas.'):'Estas son tus últimas notificaciones.'):'No tienes notificaciones.'); return true}
+  return false;
+}
+/* ---------- Mapa de aviones en 2D (sin librerías: mosaicos + capas propias) ---------- */
+var MM={on:false,big:false,lat:0,lon:0,z:11,p:{},sel:'',fol:false,t:0,tk:0,tiles:{},err:0,osm:false,W:0,H:0,ok:0,fail:0,n:0};
+var MM_COL=[[1000,'#ffd166'],[3000,'#7be0a0'],[6000,'#5fd4ff'],[9000,'#8fa2ff']];
+function mmCol(ft){var m=(ft||0)*0.3048; for(var i=0;i<MM_COL.length;i++) if(m<MM_COL[i][0]) return MM_COL[i][1]; return '#d19cff'}
+function mmPx(lat,lon,z){var s=256*Math.pow(2,z), r=lat*Math.PI/180; return [(lon+180)/360*s,(1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*s]}
+function mmLL(x,y,z){var s=256*Math.pow(2,z), n=Math.PI-2*Math.PI*y/s; return [180/Math.PI*Math.atan(.5*(Math.exp(n)-Math.exp(-n))),x/s*360-180]}
+function mmMpp(){return 156543.03392*Math.cos(MM.lat*Math.PI/180)/Math.pow(2,MM.z)}
+function mmUrl(z,x,y){return MM.osm?'https://tile.openstreetmap.org/'+z+'/'+x+'/'+y+'.png':'https://'+'abcd'.charAt((x+y)%4)+'.basemaps.cartocdn.com/dark_all/'+z+'/'+x+'/'+y+'.png'}
+function mmPos(p,now){
+  var a=p.a, la=a.lat, lo=a.lon;
+  if(a.gs&&a.trk!=null){var dt=Math.min(25,Math.max(0,(now-p.t)/1000)), d=a.gs*0.514444*dt, r=a.trk*Math.PI/180; la+=d*Math.cos(r)/111320; lo+=d*Math.sin(r)/(111320*Math.cos(la*Math.PI/180))}
+  return [la,lo];
+}
+function mmMeasure(){var m=document.getElementById('mmMap'); MM.W=m.clientWidth; MM.H=m.clientHeight}
+function mmTiles(){
+  var box=document.getElementById('mmTiles'); if(!MM.W) return;
+  var z=MM.z, n=Math.pow(2,z), o=mmPx(MM.lat,MM.lon,z), x0=o[0]-MM.W/2, y0=o[1]-MM.H/2;
+  var tx0=Math.floor(x0/256), tx1=Math.floor((x0+MM.W)/256), ty0=Math.max(0,Math.floor(y0/256)), ty1=Math.min(n-1,Math.floor((y0+MM.H)/256)), need={};
+  for(var ty=ty0;ty<=ty1;ty++) for(var tx=tx0;tx<=tx1;tx++){
+    var k=z+'/'+tx+'/'+ty; need[k]=1; var im=MM.tiles[k];
+    if(!im){im=document.createElement('img'); im.className='mt'; im.alt=''; im.draggable=false; im.decoding='async';
+      im.onerror=function(){MM.err++; if(MM.err>=8&&!MM.osm){MM.osm=true; MM.err=0; Object.keys(MM.tiles).forEach(function(q){MM.tiles[q].remove()}); MM.tiles={}; mmTiles()}};
+      im.src=mmUrl(z,((tx%n)+n)%n,ty); box.appendChild(im); MM.tiles[k]=im}
+    im.style.transform='translate('+Math.round(tx*256-x0)+'px,'+Math.round(ty*256-y0)+'px)';
+  }
+  Object.keys(MM.tiles).forEach(function(k){if(!need[k]&&k.split('/')[0]!==String(z)){MM.tiles[k].remove(); delete MM.tiles[k]} else if(!need[k]){MM.tiles[k].remove(); delete MM.tiles[k]}});
+}
+function mmOverlay(){
+  if(!MM.on||!MM.W) return;
+  var now=Date.now(), z=MM.z, o=mmPx(MM.lat,MM.lon,z), x0=o[0]-MM.W/2, y0=o[1]-MM.H/2, sv=document.getElementById('mmSvg'), s='';
+  if(MM.fol&&MM.sel&&MM.p[MM.sel]){var fp=mmPos(MM.p[MM.sel],now); MM.lat=fp[0]; MM.lon=fp[1]; o=mmPx(MM.lat,MM.lon,z); x0=o[0]-MM.W/2; y0=o[1]-MM.H/2}
+  if(AVN.lat!=null){var h=mmPx(AVN.lat,AVN.lon,z), hx=h[0]-x0, hy=h[1]-y0, rr=AVN.r*1000/mmMpp();
+    s+='<circle cx="'+hx.toFixed(1)+'" cy="'+hy.toFixed(1)+'" r="'+rr.toFixed(1)+'" fill="rgba(255,199,143,.08)" stroke="#ffc78f" stroke-width="1.5" stroke-dasharray="6 5"/><circle cx="'+hx.toFixed(1)+'" cy="'+hy.toFixed(1)+'" r="6" fill="#7fc4ff" stroke="#fff" stroke-width="2"/>'}
+  Object.keys(MM.p).forEach(function(k){var p=MM.p[k]; if(p.tr.length<2) return; var d=''; p.tr.forEach(function(q,i){var c=mmPx(q[0],q[1],z); d+=(i?'L':'M')+(c[0]-x0).toFixed(1)+' '+(c[1]-y0).toFixed(1)}); var c2=mmPx.apply(null,mmPos(p,now).concat([z])); d+='L'+(c2[0]-x0).toFixed(1)+' '+(c2[1]-y0).toFixed(1);
+    s+='<path d="'+d+'" fill="none" stroke="'+mmCol(p.a.alt)+'" stroke-opacity="'+(k===MM.sel?.95:.5)+'" stroke-width="'+(k===MM.sel?3:2)+'" stroke-linecap="round" stroke-linejoin="round"/>'});
+  sv.innerHTML=s;
+  Object.keys(MM.p).forEach(function(k){var p=MM.p[k], c=mmPx.apply(null,mmPos(p,now).concat([z])); var x=c[0]-x0, y=c[1]-y0;
+    if(!p.el){var e=document.createElement('div'); e.className='mp'; e.dataset.h=k; e.innerHTML='<i class="mi"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 1.5l2.2 7.3 8.3 4.7v2.2l-8.3-2.4-.9 5.3 3 2.4v1.6L12 21.6l-4.3 1 0-1.6 3-2.4-.9-5.3-8.3 2.4v-2.2l8.3-4.7z" fill="currentColor" stroke="#0d1722" stroke-width="1.1" stroke-linejoin="round"/></svg></i><span class="ml"></span>'; document.getElementById('mmPl').appendChild(e); p.el=e}
+    var i=p.el.firstChild; i.style.transform='rotate('+(p.a.trk||0)+'deg)'; i.style.color=mmCol(p.a.alt);
+    p.el.style.transform='translate('+x.toFixed(1)+'px,'+y.toFixed(1)+'px)'; p.el.classList.toggle('sel',k===MM.sel); p.el.classList.toggle('near',p.a.d!=null&&p.a.d<=AVN.r);
+    p.el.querySelector('.ml').textContent=p.a.call||p.a.reg||''; p.el.style.display=(x<-40||y<-40||x>MM.W+40||y>MM.H+40)?'none':'';
+  });
+}
+function mmDraw(){mmTiles(); mmOverlay()}
+function mmMove(lat,lon){MM.lat=lat; MM.lon=lon; mmDraw()}
+function mmZoom(d,ax,ay){
+  var z=Math.max(7,Math.min(15,MM.z+d)); if(z===MM.z) return;
+  MM.z=z; mmDraw(); mmPoll(true);
+}
+function mmHomeGo(){if(AVN.lat==null) return; MM.fol=false; MM.lat=AVN.lat; MM.lon=AVN.lon; mmDraw()}
+function mmSize(big){
+  MM.big=!!big; var m=document.getElementById('avm'); m.classList.toggle('big',MM.big); m.classList.toggle('mini',!MM.big);
+  document.getElementById('mmSz').textContent=MM.big?'Reducir':'Agrandar'; mmMeasure(); if(MM.big&&MM.z<12) MM.z=12; else if(!MM.big&&MM.z>11) MM.z=11; mmDraw();
+}
+function mmOpen(big){
+  if(AVN.lat==null){reply('Primero necesito saber dónde está tu casa. Te abrí el panel de aviones.'); avOpen(); return false}
+  var m=document.getElementById('avm'); if(!MM.on){MM.on=true; MM.lat=AVN.lat; MM.lon=AVN.lon; MM.z=big?12:11; MM.fol=false; MM.sel=''; document.getElementById('mmInfo').hidden=true; m.hidden=false; mmSize(!!big); clearInterval(MM.tk); MM.tk=setInterval(function(){try{mmOverlay()}catch(e){}},600); mmPoll()}
+  else if(big!==undefined&&!!big!==MM.big) mmSize(big);
+  try{hideBig('avp')}catch(e){} return true;
+}
+function mmClose(){MM.on=false; clearTimeout(MM.t); clearInterval(MM.tk); var m=document.getElementById('avm'); if(m) m.hidden=true; Object.keys(MM.p).forEach(function(k){if(MM.p[k].el) MM.p[k].el.remove()}); MM.p={}; MM.sel=''; MM.fol=false}
+function mmStatus(){
+  var s=document.getElementById('mmSt'), n=Object.keys(MM.p).length, near=Object.keys(MM.p).filter(function(k){return MM.p[k].a.d<=AVN.r}).length, msg='';
+  if(MM.fail>=2&&!MM.ok) msg=AVL.why==='old'?'Falta actualizar la app Chispa Control.':AVL.why==='noctl'?'No pude conectar con Chispa Control. Ábrela en la tablet.':'No pude conectar con la fuente de aviones. Reintentando…';
+  else if(MM.fail>=2) msg='Perdí conexión. Reintentando…';
+  else if(!MM.ok) msg='Buscando aviones…';
+  else if(!n) msg='No hay aviones a la vista en esta zona.';
+  s.textContent=msg; s.hidden=!msg;
+  document.getElementById('mmN').textContent=MM.ok?n+(n===1?' avión':' aviones')+(near?' · '+near+' sobre tu casa':''):'';
+}
+function mmPoll(now){
+  clearTimeout(MM.t); if(!MM.on) return;
+  var mpp=mmMpp(), km=Math.hypot(MM.W,MM.H)/2*mpp/1000, nm=Math.max(8,Math.min(90,Math.ceil(km/1.852)));
+  avFetch(function(i){return AV_URL[i]((+MM.lat).toFixed(4),(+MM.lon).toFixed(4),nm)}).then(function(j){
+    MM.fail=0; MM.ok=Date.now(); var t=Date.now(), seen={};
+    ((j&&(j.ac||j.aircraft))||[]).map(avNorm).filter(Boolean).forEach(function(a){
+      a.d=AVN.lat!=null?avKm(AVN.lat,AVN.lon,a.lat,a.lon):null; a.brg=AVN.lat!=null?avBrg(AVN.lat,AVN.lon,a.lat,a.lon):null; seen[a.hex]=1;
+      var p=MM.p[a.hex]; if(!p){p=MM.p[a.hex]={hex:a.hex,a:a,t:t,tr:[],seen:t}}
+      var lt=p.tr[p.tr.length-1]; if(!lt||Math.abs(lt[0]-a.lat)*111320>40||Math.abs(lt[1]-a.lon)*111320>40){p.tr.push([a.lat,a.lon]); if(p.tr.length>40) p.tr.shift()}
+      var old=p.info; p.a=a; p.t=t; p.seen=t;
+    });
+    Object.keys(MM.p).forEach(function(k){var p=MM.p[k]; if(!seen[k]&&t-p.seen>45000){if(p.el) p.el.remove(); delete MM.p[k]; if(MM.sel===k){MM.sel=''; MM.fol=false; document.getElementById('mmInfo').hidden=true}}});
+    if(MM.sel) mmInfo();
+  }).catch(function(){MM.fail++}).then(function(){mmStatus(); mmOverlay(); if(MM.on) MM.t=setTimeout(mmPoll,4000)});
+}
+function mmSelect(k){
+  MM.sel=k||''; var info=document.getElementById('mmInfo'); if(!k){info.hidden=true; MM.fol=false; mmOverlay(); return}
+  var p=MM.p[k]; if(!p) return; info.hidden=false; mmInfo(); avInfo(p).then(function(){if(MM.sel===k) mmInfo()}); mmOverlay();
+}
+function mmInfo(){
+  var p=MM.p[MM.sel], info=document.getElementById('mmInfo'); if(!p){info.hidden=true; return}
+  var a=p.a, o=p.info||{}, f=o.route; info.textContent='';
+  var top=mk('div','mih'); var tt=mk('div','mit'); tt.appendChild(mk('b',null,avFlightNo(p)||a.reg||p.hex.toUpperCase())); var air=avAirline(p); if(air) tt.appendChild(mk('small',null,air)); top.appendChild(tt);
+  var fb=mk('button','mib',MM.fol?'Dejar de seguir':'Seguir'); fb.type='button'; fb.onclick=function(){MM.fol=!MM.fol; mmInfo(); mmOverlay()}; top.appendChild(fb);
+  var xb=mk('button','mib','✕'); xb.type='button'; xb.setAttribute('aria-label','Cerrar'); xb.onclick=function(){mmSelect('')}; top.appendChild(xb); info.appendChild(top);
+  var body=mk('div','mib2');
+  if(o.photo&&o.photo.src){var ph=mk('a','mip'); ph.href=o.photo.link||o.photo.src; ph.target='_blank'; ph.rel='noopener'; var im=mk('img'); im.src=o.photo.src; im.alt='Foto del avión'; ph.appendChild(im); if(o.photo.by) ph.appendChild(mk('small',null,'Foto: '+o.photo.by+' · Planespotters.net')); body.appendChild(ph)}
+  var tx=mk('div','mix');
+  if(f&&f.origin&&f.destination) tx.appendChild(mk('p','mir',(f.origin.iata_code||'')+' '+avPlace(f.origin)+'  ✈  '+(f.destination.iata_code||'')+' '+avPlace(f.destination))); else tx.appendChild(mk('p','mir',a.call?'Sin datos de ruta':'Sin indicativo'));
+  var ch=[]; var ty=avTypeName(p); if(ty) ch.push(ty); if(a.reg) ch.push(a.reg); ch.push('Altura '+avAltTxt(a.alt)+(a.vr>300?' ↑':a.vr<-300?' ↓':'')); if(a.gs!=null) ch.push(fnum(a.gs*1.852,0)+' km/h'); if(a.trk!=null) ch.push('hacia el '+avDir(a.trk)); if(a.d!=null) ch.push(fnum(a.d,1)+' km de tu casa');
+  tx.appendChild(mk('p','mic',ch.join(' · '))); body.appendChild(tx); info.appendChild(body);
+}
+(function(){
+  var st=document.createElement('style'); st.textContent=[
+  '#avm{position:fixed;z-index:15;display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:rgba(13,23,34,.94);border:1px solid rgba(255,255,255,.18);box-shadow:0 14px 44px rgba(0,0,0,.55);color:#eaf3fb}#avm[hidden]{display:none}',
+  '#avm.mini{right:14px;bottom:calc(var(--dockh,130px) + 14px);width:min(46vw,430px);height:min(52vh,370px)}#avm.big{left:12px;right:12px;top:12px;bottom:calc(var(--dockh,130px) + 12px)}',
+  '#avm .mh{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 14px;flex:none}#avm .mh b{font:600 15px var(--font-body)}#mmN{font-size:12px;color:rgba(234,243,251,.7);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+  '#avm .mh button{min-height:40px;min-width:40px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;font:700 13px var(--font-body);cursor:pointer}',
+  '#mmMap{position:relative;flex:1;min-height:0;overflow:hidden;background:#0b1118;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}#mmTiles,#mmPl{position:absolute;inset:0}#mmSvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}',
+  '.mt{position:absolute;left:0;top:0;width:256px;height:256px;max-width:none;pointer-events:none}',
+  '.mp{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none}.mp .mi{position:absolute;left:-18px;top:-18px;width:36px;height:36px;display:grid;place-items:center;pointer-events:auto;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));transition:transform .5s linear}',
+  '.mp .ml{position:absolute;left:14px;top:-8px;padding:1px 5px;border-radius:6px;background:rgba(13,23,34,.78);font:700 11px var(--font-body);white-space:nowrap;pointer-events:none}.mp.near .mi{filter:drop-shadow(0 0 6px #ffc78f) drop-shadow(0 0 2px #ffc78f)}.mp.sel .mi{filter:drop-shadow(0 0 8px #fff)}.mp.sel .ml{background:#fff;color:#0d1722}',
+  '.mz{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:6px}.mz button{width:44px;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:rgba(13,23,34,.85);color:#fff;font:700 22px var(--font-body);cursor:pointer}',
+  '.mat{position:absolute;right:6px;bottom:3px;font-size:10px;color:rgba(255,255,255,.6);background:rgba(13,23,34,.6);padding:1px 5px;border-radius:5px;pointer-events:none}',
+  '.mlg{position:absolute;left:10px;bottom:6px;display:flex;gap:8px;font-size:10px;color:rgba(255,255,255,.75);background:rgba(13,23,34,.7);padding:3px 8px;border-radius:8px;pointer-events:none}.mlg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}',
+  '.mst{position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:6px 12px;border-radius:12px;background:rgba(13,23,34,.88);font-size:13px;text-align:center;max-width:80%}.mst[hidden]{display:none}',
+  '#mmInfo{position:absolute;left:8px;right:8px;bottom:26px;max-height:58%;overflow:auto;padding:10px 12px;border-radius:16px;background:rgba(13,23,34,.94);border:1px solid rgba(255,255,255,.2);cursor:default}#mmInfo[hidden]{display:none}',
+  '.mih{display:flex;align-items:center;gap:8px}.mit{flex:1;min-width:0}.mit b{font:600 20px var(--font-display)}.mit small{display:block;color:#ffc78f;font-weight:600;font-size:13px}.mib{min-height:38px;padding:0 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font:700 13px var(--font-body);cursor:pointer}',
+  '.mib2{display:flex;gap:10px;margin-top:8px}.mip{flex:none;width:120px}.mip img{display:block;width:100%;border-radius:10px}.mip small{display:block;font-size:10px;color:rgba(234,243,251,.65);margin-top:2px}.mix{min-width:0}.mir{margin:0 0 4px;font:600 15px var(--font-body)}.mic{margin:0;font-size:13px;line-height:1.4;color:rgba(234,243,251,.85)}',
+  '#avm.mini .mip{display:none}#avm.mini #mmInfo{max-height:44%;padding:8px 10px}#avm.mini .mit b{font-size:17px}',
+  '#avm button:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}'
+  ].join(''); document.head.appendChild(st);
+  var m=document.createElement('section'); m.id='avm'; m.className='mini'; m.hidden=true; m.setAttribute('aria-label','Mapa de aviones');
+  m.innerHTML='<div class="mh"><b>Aviones</b><span id="mmN"></span><button id="mmSz" type="button">Agrandar</button><button id="mmHm" type="button" aria-label="Centrar en mi casa">◎</button><button id="mmX" type="button" aria-label="Cerrar el mapa">✕</button></div><div id="mmMap"><div id="mmTiles"></div><svg id="mmSvg"></svg><div id="mmPl"></div><div class="mz"><button id="mmZi" type="button" aria-label="Acercar">+</button><button id="mmZo" type="button" aria-label="Alejar">−</button></div><div class="mlg"><span><i style="background:#ffd166"></i>&lt;1 km</span><span><i style="background:#7be0a0"></i>&lt;3</span><span><i style="background:#5fd4ff"></i>&lt;6</span><span><i style="background:#8fa2ff"></i>&lt;9</span><span><i style="background:#d19cff"></i>más alto</span></div><div class="mat">© OpenStreetMap · © CARTO</div><div id="mmSt" class="mst" hidden></div><div id="mmInfo" hidden></div></div>';
+  document.body.appendChild(m);
+  m.querySelector('#mmX').onclick=mmClose; m.querySelector('#mmSz').onclick=function(){mmSize(!MM.big)}; m.querySelector('#mmHm').onclick=mmHomeGo;
+  m.querySelector('#mmZi').onclick=function(){mmZoom(1)}; m.querySelector('#mmZo').onclick=function(){mmZoom(-1)};
+  var map=m.querySelector('#mmMap'), ptr={}, moved=0, pinch=0, wh=0;
+  map.addEventListener('pointerdown',function(e){if(e.target.closest('button,#mmInfo')) return; try{map.setPointerCapture(e.pointerId)}catch(x){} ptr[e.pointerId]={x:e.clientX,y:e.clientY}; moved=0; if(Object.keys(ptr).length===2){var k=Object.keys(ptr); pinch=Math.hypot(ptr[k[0]].x-ptr[k[1]].x,ptr[k[0]].y-ptr[k[1]].y)}});
+  map.addEventListener('pointermove',function(e){var p=ptr[e.pointerId]; if(!p) return; var ks=Object.keys(ptr);
+    if(ks.length===1){var dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY; moved+=Math.abs(dx)+Math.abs(dy); if(moved>6){MM.fol=false; var o=mmPx(MM.lat,MM.lon,MM.z), c=mmLL(o[0]-dx,o[1]-dy,MM.z); MM.lat=c[0]; MM.lon=c[1]; mmDraw()}}
+    else if(ks.length===2){p.x=e.clientX; p.y=e.clientY; var d=Math.hypot(ptr[ks[0]].x-ptr[ks[1]].x,ptr[ks[0]].y-ptr[ks[1]].y); moved=99; if(pinch&&d/pinch>1.5){mmZoom(1); pinch=d} else if(pinch&&d/pinch<.67){mmZoom(-1); pinch=d}}});
+  function up(e){var had=ptr[e.pointerId]; delete ptr[e.pointerId]; if(had&&moved<=6&&!Object.keys(ptr).length){var t=document.elementFromPoint(e.clientX,e.clientY), pe=t&&t.closest&&t.closest('.mp'); mmSelect(pe?pe.dataset.h:'')} if(!Object.keys(ptr).length) pinch=0}
+  map.addEventListener('pointerup',up); map.addEventListener('pointercancel',function(e){delete ptr[e.pointerId]});
+  map.addEventListener('wheel',function(e){e.preventDefault(); if(Date.now()-wh<250) return; wh=Date.now(); mmZoom(e.deltaY<0?1:-1)},{passive:false});
+  addEventListener('resize',function(){if(MM.on){mmMeasure(); mmDraw()}});
+})();
+function mmCmd(q,raw){
+  var n=q.replace(/[¿?¡!.;:]/g,' ').replace(/,/g,' ').replace(/\bchispa\b/g,' ').replace(/\s+/g,' ').trim();
+  if(!/\bmapa\b/.test(n)) return false;
+  var ctx=/\b(?:avion|aviones|vuelo|vuelos|casa|cielo|radar|trafico|aereo|aereos)\b/.test(n), bare=/^(?:(?:abre|abreme|muestra|muestrame|pon|ponme|ver|enciende|cierra|quita|oculta|agranda|achica)\s+)?(?:el\s+)?mapa$/.test(n);
+  if(!ctx&&!bare&&!(MM.on&&/\b(?:agranda|achica|cierra|quita|oculta|centra|acerca|aleja|zoom|reduce|maximiza|minimiza|grande|pequeno|esquina)\w*\b/.test(n))) return false;
+  if(/\b(?:cierra|quita|oculta|esconde|apaga|cerrar)\w*\b/.test(n)){if(MM.on){mmClose(); reply('Listo, cerré el mapa.')} else reply('El mapa no está abierto.'); return true}
+  if(MM.on&&/\b(?:achica|reduce|minimiza|pequeno|esquina|mas chico)\w*\b/.test(n)){mmSize(false); reply('Listo, lo dejé en la esquina.'); return true}
+  if(/\b(?:agranda|ampl\w+|maximiza|grande|completo|pantalla completa|mas grande)\w*\b/.test(n)){if(!MM.on){if(mmOpen(true)) reply('Aquí está el mapa de aviones, en grande.')} else {mmSize(true); reply('Listo, lo agrandé.')} return true}
+  if(MM.on&&/\b(?:acerca|acercate|mas cerca|zoom in|mas zoom)\w*\b/.test(n)){mmZoom(1); return true}
+  if(MM.on&&/\b(?:aleja|alejate|mas lejos|zoom out|menos zoom)\w*\b/.test(n)){mmZoom(-1); return true}
+  if(MM.on&&/\b(?:centra|vuelve|regresa)\w*\b/.test(n)){mmHomeGo(); reply('Listo, centrado en tu casa.'); return true}
+  if(/\b(?:abre|abreme|abrir|muestra|muestrame|ensename|ver|pon|ponme|enciende|quiero ver|mapa)\w*\b/.test(n)){
+    if(MM.on){reply('El mapa ya está abierto.'); return true}
+    if(mmOpen(false)) reply('Aquí está el mapa de aviones. Toca un avión para ver sus datos.'); return true;
+  }
   return false;
 }
 /* ---------- Control total: editar hábitos y ajustes por voz, con lectura exacta y deshacer ---------- */
@@ -4906,7 +5062,7 @@ function handle(raw){
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
   try{if(strmCmd(q,raw)){misses=0; return}}catch(e){dlog('stream error '+e.message)}
-  try{if(avCmd(q,raw)){misses=0; return}}catch(e){dlog('avion error '+e.message)}
+  try{if(mmCmd(q,raw)||avCmd(q,raw)){misses=0; return}}catch(e){dlog('avion error '+e.message)}
   try{if(ntCmd(q,raw)){misses=0; return}}catch(e){dlog('notif error '+e.message)}
   try{if(stCmd(q,raw)){misses=0; return}}catch(e){dlog('st error '+e.message)}
   try{if(editCmd(q,raw)){misses=0; return}}catch(e){dlog('edit error '+e.message)}
@@ -5805,7 +5961,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-globito', pendingUpdate=false;
+var APP_VERSION='2026-10-21-mapa', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
