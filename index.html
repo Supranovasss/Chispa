@@ -3462,7 +3462,7 @@ var CMDS=[
  {t:'Recetas',i:'🍳',kw:/\b(receta|recetas|cocina|cocinar|cocinando)\b/,x:['Quiero hacer una receta de arepas','Dame opciones de recetas ligeras de pollo','Recetas sin azúcar','Opción 2','Siguiente / Atrás / Repite el paso','Paso 3','Dime los ingredientes','Agrega los ingredientes a la lista de compras','Lee la receta completa','Mis recetas','Cambia el ingrediente … por …','Cierra la receta']},
  {t:'Videos y música',i:'🎬',kw:/\b(video|videos|musica|cancion|canciones|youtube|spotify)\b/,x:['Con un video puesto: di solo el nombre de otro y lo cambia','Cambia a Despacito / Ahora pon salsa / Mejor algo de Shakira','Otro video de gatos','Pon un video de recetas en inglés','Pon un documental largo de dinosaurios','Pon un video de más de 30 minutos sobre el espacio','Pon una canción de Shakira (cada vez una distinta)','Otra canción / Siguiente video','Pon un video de …','Pon un mix de salsa de una hora','Pon la canción …','Busca un karaoke de …','Pausa / Continúa','Otro video / Siguiente canción','Sube / Baja el volumen','Cierra el video']},
  {t:'Streams (Twitch y Kick)',i:'📺',kw:/\b(stream|streams|twitch|kick|directo|streamer|streamers|canal)\b/,x:['Pon a ibai en Twitch','Pon el stream de auronplay en Kick','Abre Twitch','Mis streamers','Agrega a ibai a mis favoritos en Twitch','Quita a ibai de mis favoritos','Con chat / Sin chat (solo Twitch)','Cierra el stream']},
- {t:'Aviones sobre tu casa',i:'✈️',kw:/\b(avion|aviones|vuelo|vuelos|radar|aereo)\b/,x:['Activa el radar de aviones','Avísame cuando pase un avión','Qué avión es ese','Sigue ese avión','Qué aviones han pasado hoy','Apaga la voz de los aviones','Prende la voz de los aviones','Silencia los aviones por 2 horas','Silencia los aviones hasta las 6 de la mañana','Programa el silencio de los aviones de 10 de la noche a 7 de la mañana','Quita el horario de silencio de los aviones','Cambia el radio de los aviones a 5 km','Usa la ubicación de la tablet para los aviones','Apaga el radar de aviones','Abre el panel de aviones','Abre el mapa de aviones','Abre el mapa de mi casa','Agranda el mapa','Reduce el mapa','Cierra el mapa']},
+ {t:'Aviones sobre tu casa',i:'✈️',kw:/\b(avion|aviones|vuelo|vuelos|radar|aereo)\b/,x:['Activa el radar de aviones','Avísame cuando pase un avión','Qué avión es ese','Sigue ese avión','Qué aviones han pasado hoy','Apaga la voz de los aviones','Prende la voz de los aviones','Silencia los aviones por 2 horas','Silencia los aviones hasta las 6 de la mañana','Programa el silencio de los aviones de 10 de la noche a 7 de la mañana','Quita el horario de silencio de los aviones','Cambia el radio de los aviones a 5 km','Usa la ubicación de la tablet para los aviones','Apaga el radar de aviones','Abre el panel de aviones','Abre el mapa de aviones','Abre el mapa de mi casa','Pon el mapa en satélite','Pon el mapa normal','Agranda el mapa','Reduce el mapa','Cierra el mapa']},
  {t:'Radio por internet',i:'📻',kw:/\b(radio|emisora|emisoras)\b/,x:['Pon la radio','Pon una emisora de salsa','Pon radio de noticias','Otra emisora','Emisora número 3','Apaga la radio']},
  {t:'Ruido y sonido ambiente',i:'🌧️',kw:/\b(ruido|sonido|sonidos|lluvia|ambiente|lofi|concentrar|estudiar)\b/,x:['Pon ruido de lluvia por 30 minutos','Pon ruido marrón / blanco / rosa','Pon sonido de olas / viento / tormenta','Pon música lo-fi para estudiar','Apaga el ruido','Modo ambiente (pantalla de reloj)']},
  {t:'Agenda, notas y compras',i:'📒',kw:/\b(agenda|notas?|lista|compras|mercado)\b/,x:['Abre la agenda','Anota que … (nota)','Muéstrame mis notas','Agrega leche y huevos a la lista de compras','¿Qué hay en la lista?','Quita la leche de la lista','Borra la última nota','Edita la nota de …']},
@@ -3948,11 +3948,13 @@ function avFetch(mkUrl){
     })();
   });
 }
+var AV_HELI=/^(H\d{2,3}[A-Z]?|EC\d{2,3}|AS\d{2,3}|R22|R44|R66|B06|B47G|B407|B412|B429|B505|A109|A119|A139|A169|AW\d{2,3}|S76|S92|S61|S64|BK17|MI\d+|KA\d+|UH\d+|AH\d+|CH\d+|MD\d{2,3}|EXPL|HUEY|HUCO|GAZL|LYNX|SCOU|ALO[23]|NH90|AS50|AS55|AS65)$/;
+function avIsHeli(a){return a.category==='A7'||AV_HELI.test(String(a.t||'').toUpperCase())||/helicopter|helic/i.test(a.desc||'')}
 function avNorm(a){
   if(!a||typeof a.lat!=='number'||typeof a.lon!=='number') return null;
   var alt=a.alt_baro; if(alt==='ground'||a.ground===true) return null;
   if(typeof alt!=='number') alt=(typeof a.alt_geom==='number')?a.alt_geom:null;
-  return {hex:String(a.hex||'').toLowerCase(),call:String(a.flight||'').trim(),reg:a.r||'',type:a.t||'',desc:a.desc||'',alt:alt,gs:typeof a.gs==='number'?a.gs:null,trk:typeof a.track==='number'?a.track:null,vr:typeof a.baro_rate==='number'?a.baro_rate:null,lat:a.lat,lon:a.lon};
+  return {heli:avIsHeli(a),hex:String(a.hex||'').toLowerCase(),call:String(a.flight||'').trim(),reg:a.r||'',type:a.t||'',desc:a.desc||'',alt:alt,gs:typeof a.gs==='number'?a.gs:null,trk:typeof a.track==='number'?a.track:null,vr:typeof a.baro_rate==='number'?a.baro_rate:null,lat:a.lat,lon:a.lon};
 }
 /* --- Horario de silencio y voz --- */
 function avMin(s){var m=/^(\d{1,2}):(\d{2})$/.exec(s||''); return m?(+m[1])*60+(+m[2]):null}
@@ -4028,7 +4030,17 @@ function avSeen(list){
   avCardRender();
 }
 function avTrail(e){var a=e.a,k=Math.cos(AVN.lat*Math.PI/180); e.tr.push([(a.lon-AVN.lon)*k*111.32,(a.lat-AVN.lat)*110.57]); if(e.tr.length>24) e.tr.shift()}
+/* No repetir: el mismo avión (matrícula o indicativo) solo avisa una vez cada 12 h; los helicópteros, uno cada 3 h */
+function avRepeat(a){
+  var now=Date.now(), seen=AVN.seen||(AVN.seen={}), ks=[a.hex]; if(a.call) ks.push('c:'+a.call);
+  Object.keys(seen).forEach(function(k){if(now-seen[k]>864e5) delete seen[k]});
+  var rep=ks.some(function(k){return seen[k]&&now-seen[k]<(AVN.repeatH||12)*36e5});
+  if(!rep&&a.heli){if(now-(AVN.lastHeli||0)<(AVN.heliH||3)*36e5) rep=true; else AVN.lastHeli=now}
+  ks.forEach(function(k){if(!seen[k]||!rep) seen[k]=now}); avSave();
+  return rep;
+}
 function avEnter(e){
+  if(avRepeat(e.a)){e.quiet=true; return}
   var a=e.a, L={t:e.first,hex:e.hex,call:a.call,reg:a.reg,type:a.type,alt:a.alt,min:+a.d.toFixed(2),dur:0};
   e.log=L; AVN.log.unshift(L); if(AVN.log.length>100) AVN.log.length=100; avSave();
   AVL.last=e;
@@ -4041,6 +4053,7 @@ function avEnter(e){
   });
 }
 function avLeave(e){
+  if(e.quiet){delete AVL.map[e.hex]; return}
   var L=e.log; try{if(L&&!e.test) notify('Pasó un avión',(avFlightNo(e)||e.a.reg||'Avión')+(avAirline(e)?' · '+avAirline(e):'')+(e.info&&e.info.route&&e.info.route.origin&&e.info.route.destination?' · '+avPlace(e.info.route.origin)+' → '+avPlace(e.info.route.destination):''),{icon:'✈️',log:true})}catch(e0){}
   if(L){L.dur=Math.max(0,Math.round((e.seen-e.first)/1000)); L.min=+e.min.toFixed(2); avSave()}
   delete AVL.map[e.hex];
@@ -4264,7 +4277,7 @@ function avSummary(){
 function avCmd(q,raw){
   var n=q.replace(/[¿?¡!.;:]/g,' ').replace(/,/g,' ').replace(/\bchispa\b/g,' ').replace(/\s+/g,' ').trim(), m;
   n=n.replace(/\bentre\s+(?:las?\s+)?(.+?)\s+y\s+(?!media\b|cuarto\b)(?:las?\s+)?(.+)$/,'de $1 a $2');
-  var has=/\bavion(?:es)?\b|\bradar (?:aereo|de (?:avion|vuelo)s?)\b|\btrafico aereo\b/.test(n);
+  var has=/\bavion(?:es)?\b|\bhelicopter\w*\b|\bradar (?:aereo|de (?:avion|vuelo)s?)\b|\btrafico aereo\b/.test(n);
   var recent=AVL.last&&Date.now()-AVL.last.seen<6e5||AVL.shown&&AVL.shown.e;
   var lastQ=recent&&/\b(?:que|cual|de donde|a donde|adonde|quien|de que aerolinea)\b.*\b(?:vuelo|avion|aerolinea)\b|\bvuelo es (?:ese|este)\b/.test(n);
   var folQ=recent&&/\b(?:deja de seguir\w*|no (?:lo )?sigas|siguelo|(?:sigue|seguir|rastrea) (?:a )?(?:ese|este) (?:avion|vuelo))\b/.test(n);
@@ -4272,6 +4285,9 @@ function avCmd(q,raw){
   var ctx=/\b(?:radar|registr\w*|avis\w*|vigila\w*|rastre\w*|monitor\w*|seguimiento|sobre mi casa|encima de mi casa|cuando pase\w*|voz|silenci\w*|horario|historial|han pasado|paso)\b/.test(n);
   var sh=AVL.shown&&AVL.shown.e;
   if(/\b(?:quita|borra|elimina|cancela|quitar|borrar)\w*\s+(?:el\s+|la\s+)?(?:horario|programacion|silencio)/.test(n)&&has){if(!AVN.qOn){reply('No hay ningún horario de silencio de aviones.'); return true} AVN.qOn=false; avSave(); avPanelRender(); reply('Listo, quité el horario de silencio de los aviones.'); return true}
+  if(/\bhelicopter\w*\b/.test(n)&&(m=n.match(/\b(?:cada|un)\s+(?:(\d+|una|dos|tres|cuatro|seis|doce)\s+)?horas?\b/))){
+    var hv=m[1]?(/^\d/.test(m[1])?+m[1]:AV_NUM[m[1]]):1; if(!(hv>=1&&hv<=48)){reply('Dime entre 1 y 48 horas.'); return true}
+    var oh=AVN.heliH; AVN.heliH=hv; avSave(); chg('intervalo de helicópteros',function(){AVN.heliH=oh; avSave()}); reply('Listo, aviso de un helicóptero cada '+(hv===1?'hora':hv+' horas')+'. Los demás los ignoro.'); return true}
   if(has&&/\b(?:horario|programa\w*|silencio|callad\w*|apagad\w*|sin voz|no me hables?|no hables?|solo hablar|solo hablame|hablame solo|solo me hables?)\b/.test(n)&&/\b(?:de|desde|entre)\s+(?:las?\s+)?.+?\s+(?:a|hasta)\s+(?:las?\s+)?.+/.test(n)&&!/\b(?:por\s+\d|hasta manana)\b/.test(n)){
     m=n.match(/\b(?:de|desde)\s+(?:las?\s+)?(.+?)\s+(?:a|hasta)\s+(?:las?\s+)?(.+)$/);
     var a=m&&avTime(m[1]), b=m&&avTime(m[2]);
@@ -4361,15 +4377,21 @@ function ntShow(){
   if(NT.open){ntRender()} else {ntRender(); f.hidden=false; f.classList.remove('in'); void f.offsetWidth; f.classList.add('in')}
   ntArm();
 }
-function ntClose(){clearTimeout(NT.t); NT.open=false; var f=document.getElementById('ntf'); if(f) f.hidden=true; ntBadge()}
-function ntBadge(){}
+function ntClose(){clearTimeout(NT.t); NT.open=false; var f=document.getElementById('ntf'); if(f){f.hidden=true; f.classList.remove('open')} ntBadge()}
+function ntBadge(){ntBell()}
+function ntBell(){
+  var b=document.getElementById('ntb'); if(!b) return; var u=ntUnread();
+  b.hidden=!!asleep||NT.open; b.classList.toggle('lit',u>0);
+  var c=b.querySelector('.ntn'); c.hidden=u===0; c.textContent=u>99?'99+':String(u);
+  b.setAttribute('aria-label',u?u+(u===1?' notificación nueva':' notificaciones nuevas'):'Notificaciones, ninguna nueva');
+}
 function ntOpen(tab){
   var f=document.getElementById('ntf'); if(!f) return; NT.open=true; NT.tab=tab||'avisos';
   NT.list.forEach(function(n){n.read=true}); ntSave(); ntRender(); f.hidden=false; f.classList.remove('in'); void f.offsetWidth; f.classList.add('in'); ntArm();
 }
 function ntAgo(t){var m=Math.round((Date.now()-t)/60000); return m<1?'ahora':m<60?'hace '+m+' min':m<1440?'hace '+Math.round(m/60)+' h':new Date(t).toLocaleDateString('es-CO',{day:'numeric',month:'short'})}
 function ntRender(){
-  var f=document.getElementById('ntf'); if(!f) return; var bub=f.querySelector('.nbub'), pan=f.querySelector('.npan');
+  var f=document.getElementById('ntf'); if(!f) return; f.classList.toggle('open',NT.open); ntBell(); var bub=f.querySelector('.nbub'), pan=f.querySelector('.npan');
   bub.hidden=NT.open; pan.hidden=!NT.open;
   if(!NT.open){
     var n=NT.cur||NT.list[0]; if(!n){f.hidden=true; return}
@@ -4407,12 +4429,18 @@ function ntRender(){
   '.nit{display:flex;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.07)}.nii{flex:none;font-size:20px;line-height:1.2}.nix{min-width:0}.nix b{display:block;font:600 15px/1.25 var(--font-body)}.nix p{margin:3px 0 0;font-size:14px;line-height:1.35;color:rgba(234,243,251,.9);word-break:break-word}.nix small{display:block;margin-top:3px;font-size:12px;color:rgba(234,243,251,.6)}.nem{margin:0;font-size:14px;color:rgba(234,243,251,.65)}',
   '.nft{display:flex;gap:8px;margin-top:10px}.nft button{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:inherit;font:700 13px var(--font-body);cursor:pointer}',
   '#ntf button:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}',
-  '@media (orientation:portrait){#ntf{left:10px;right:10px;top:10px;width:auto}}'
+  '#ntf:not(.open){right:78px}#ntf.open{right:14px}',
+  '#ntb{position:fixed;z-index:14;right:14px;top:14px;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;padding:0;border:1.5px solid rgba(255,255,255,.22);background:rgba(19,35,58,.7);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:rgba(234,243,251,.78);cursor:pointer;transition:background .3s,border-color .3s,color .3s,box-shadow .3s}#ntb[hidden]{display:none}#ntb svg{width:26px;height:26px}',
+  '#ntb.lit{color:#ffc78f;background:rgba(255,199,143,.24);border-color:#ffc78f;box-shadow:0 0 0 4px rgba(255,199,143,.16),0 0 24px rgba(255,199,143,.65);animation:ntglow 2.2s ease-in-out infinite}@keyframes ntglow{50%{box-shadow:0 0 0 7px rgba(255,199,143,.1),0 0 34px rgba(255,199,143,.8)}}',
+  '#ntb .ntn{position:absolute;top:-5px;right:-5px;min-width:24px;height:24px;padding:0 6px;border-radius:12px;background:#ff6f52;color:#fff;font:800 13px/24px var(--font-body);text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.4)}#ntb .ntn[hidden]{display:none}#ntb:focus-visible{outline:3px solid #bfe9ff;outline-offset:3px}',
+  '@media (orientation:portrait){#ntf:not(.open){left:10px;right:76px;top:10px;width:auto}#ntf.open{left:10px;right:10px;top:10px;width:auto}#ntb{top:10px;right:10px}}'
   ].join(''); document.head.appendChild(st);
   var f=document.createElement('aside'); f.id='ntf'; f.hidden=true; f.setAttribute('aria-live','polite'); f.setAttribute('aria-label','Notificaciones');
   f.innerHTML='<button class="nbub" type="button" aria-label="Abrir la notificación"><span class="nbi"></span><span class="nbt"><b></b><small></small></span><span class="nbc" hidden></span></button>'
    +'<section class="npan" hidden><div class="nhd"><button class="ntab" type="button" data-tab="avisos">Avisos</button><button class="ntab" type="button" data-tab="pend">Pendientes</button><button class="nx" type="button" aria-label="Cerrar">✕</button></div><div class="nlist"></div><div class="nft"><button class="nclr" type="button">Borrar avisos</button></div></section>';
   document.body.appendChild(f);
+  var bl=document.createElement('button'); bl.id='ntb'; bl.type='button'; bl.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 19.5a2 2 0 0 0 4 0"/></svg><span class="ntn" hidden></span>'; document.body.appendChild(bl);
+  bl.onclick=function(){ntOpen('avisos')}; setInterval(ntBell,1000); setTimeout(ntBell,0);
   f.querySelector('.nbub').onclick=function(){ntOpen('avisos')};
   f.querySelector('.nx').onclick=ntClose;
   f.querySelector('.nclr').onclick=function(){NT.list=[]; NT.cur=null; ntSave(); ntRender()};
@@ -4444,13 +4472,15 @@ function ntCmd(q,raw){
   return false;
 }
 /* ---------- Mapa de aviones en 2D (sin librerías: mosaicos + capas propias) ---------- */
-var MM={on:false,big:false,lat:0,lon:0,z:11,p:{},sel:'',fol:false,t:0,tk:0,tiles:{},err:0,osm:false,W:0,H:0,ok:0,fail:0,n:0};
+var MM={layer:(function(){try{return JSON.parse(localStorage.getItem('chispa.cfg')||'{}').mapLayer==='sat'?'sat':'osm'}catch(e){return 'osm'}})(),on:false,big:false,lat:0,lon:0,z:11,p:{},sel:'',fol:false,t:0,tk:0,tiles:{},err:0,osm:false,W:0,H:0,ok:0,fail:0,n:0};
 var MM_COL=[[1000,'#ffd166'],[3000,'#7be0a0'],[6000,'#5fd4ff'],[9000,'#8fa2ff']];
 function mmCol(ft){var m=(ft||0)*0.3048; for(var i=0;i<MM_COL.length;i++) if(m<MM_COL[i][0]) return MM_COL[i][1]; return '#d19cff'}
 function mmPx(lat,lon,z){var s=256*Math.pow(2,z), r=lat*Math.PI/180; return [(lon+180)/360*s,(1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*s]}
 function mmLL(x,y,z){var s=256*Math.pow(2,z), n=Math.PI-2*Math.PI*y/s; return [180/Math.PI*Math.atan(.5*(Math.exp(n)-Math.exp(-n))),x/s*360-180]}
 function mmMpp(){return 156543.03392*Math.cos(MM.lat*Math.PI/180)/Math.pow(2,MM.z)}
-function mmUrl(z,x,y){return MM.osm?'https://tile.openstreetmap.org/'+z+'/'+x+'/'+y+'.png':'https://'+'abcd'.charAt((x+y)%4)+'.basemaps.cartocdn.com/dark_all/'+z+'/'+x+'/'+y+'.png'}
+function mmUrl(z,x,y){return MM.layer==='sat'?'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+y+'/'+x:'https://tile.openstreetmap.org/'+z+'/'+x+'/'+y+'.png'}
+function mmAttr(){var a=document.getElementById('mmAt'); if(a) a.textContent=MM.layer==='sat'?'Imágenes © Esri, Maxar, Earthstar Geographics':'© Colaboradores de OpenStreetMap'; var t=document.getElementById('mmTiles'); if(t) t.classList.toggle('dk',MM.layer!=='sat'); var b=document.getElementById('mmLy'); if(b) b.textContent=MM.layer==='sat'?'Mapa':'Satélite'}
+function mmLayer(l){MM.layer=l==='sat'?'sat':'osm'; try{CFG.mapLayer=MM.layer; saveCfg()}catch(e){} MM.err=0; Object.keys(MM.tiles).forEach(function(q){MM.tiles[q].remove()}); MM.tiles={}; mmAttr(); mmTiles()}
 function mmPos(p,now){
   var a=p.a, la=a.lat, lo=a.lon;
   if(a.gs&&a.trk!=null){var dt=Math.min(25,Math.max(0,(now-p.t)/1000)), d=a.gs*0.514444*dt, r=a.trk*Math.PI/180; la+=d*Math.cos(r)/111320; lo+=d*Math.sin(r)/(111320*Math.cos(la*Math.PI/180))}
@@ -4462,13 +4492,13 @@ function mmTiles(){
   var z=MM.z, n=Math.pow(2,z), o=mmPx(MM.lat,MM.lon,z), x0=o[0]-MM.W/2, y0=o[1]-MM.H/2;
   var tx0=Math.floor(x0/256), tx1=Math.floor((x0+MM.W)/256), ty0=Math.max(0,Math.floor(y0/256)), ty1=Math.min(n-1,Math.floor((y0+MM.H)/256)), need={};
   for(var ty=ty0;ty<=ty1;ty++) for(var tx=tx0;tx<=tx1;tx++){
-    var k=z+'/'+tx+'/'+ty; need[k]=1; var im=MM.tiles[k];
+    var k=MM.layer+'/'+z+'/'+tx+'/'+ty; need[k]=1; var im=MM.tiles[k];
     if(!im){im=document.createElement('img'); im.className='mt'; im.alt=''; im.draggable=false; im.decoding='async';
-      im.onerror=function(){MM.err++; if(MM.err>=8&&!MM.osm){MM.osm=true; MM.err=0; Object.keys(MM.tiles).forEach(function(q){MM.tiles[q].remove()}); MM.tiles={}; mmTiles()}};
+      im.onerror=function(){MM.err++; mmStatus()};
       im.src=mmUrl(z,((tx%n)+n)%n,ty); box.appendChild(im); MM.tiles[k]=im}
     im.style.transform='translate('+Math.round(tx*256-x0)+'px,'+Math.round(ty*256-y0)+'px)';
   }
-  Object.keys(MM.tiles).forEach(function(k){if(!need[k]&&k.split('/')[0]!==String(z)){MM.tiles[k].remove(); delete MM.tiles[k]} else if(!need[k]){MM.tiles[k].remove(); delete MM.tiles[k]}});
+  Object.keys(MM.tiles).forEach(function(k){if(!need[k]){MM.tiles[k].remove(); delete MM.tiles[k]}});
 }
 function mmOverlay(){
   if(!MM.on||!MM.W) return;
@@ -4489,7 +4519,7 @@ function mmOverlay(){
 function mmDraw(){mmTiles(); mmOverlay()}
 function mmMove(lat,lon){MM.lat=lat; MM.lon=lon; mmDraw()}
 function mmZoom(d,ax,ay){
-  var z=Math.max(7,Math.min(15,MM.z+d)); if(z===MM.z) return;
+  var z=Math.max(7,Math.min(17,MM.z+d)); if(z===MM.z) return;
   MM.z=z; mmDraw(); mmPoll(true);
 }
 function mmHomeGo(){if(AVN.lat==null) return; MM.fol=false; MM.lat=AVN.lat; MM.lon=AVN.lon; mmDraw()}
@@ -4510,6 +4540,7 @@ function mmStatus(){
   else if(MM.fail>=2) msg='Perdí conexión. Reintentando…';
   else if(!MM.ok) msg='Buscando aviones…';
   else if(!n) msg='No hay aviones a la vista en esta zona.';
+  if(!msg&&MM.err>=6) msg='No cargan los mapas. Revisa el internet de la tablet.';
   s.textContent=msg; s.hidden=!msg;
   document.getElementById('mmN').textContent=MM.ok?n+(n===1?' avión':' aviones')+(near?' · '+near+' sobre tu casa':''):'';
 }
@@ -4552,7 +4583,7 @@ function mmInfo(){
   '#avm .mh{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 14px;flex:none}#avm .mh b{font:600 15px var(--font-body)}#mmN{font-size:12px;color:rgba(234,243,251,.7);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
   '#avm .mh button{min-height:40px;min-width:40px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;font:700 13px var(--font-body);cursor:pointer}',
   '#mmMap{position:relative;flex:1;min-height:0;overflow:hidden;background:#0b1118;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}#mmTiles,#mmPl{position:absolute;inset:0}#mmSvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}',
-  '.mt{position:absolute;left:0;top:0;width:256px;height:256px;max-width:none;pointer-events:none}',
+  '#mmTiles.dk .mt{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.7)}.mt{position:absolute;left:0;top:0;width:256px;height:256px;max-width:none;pointer-events:none}',
   '.mp{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none}.mp .mi{position:absolute;left:-18px;top:-18px;width:36px;height:36px;display:grid;place-items:center;pointer-events:auto;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));transition:transform .5s linear}',
   '.mp .ml{position:absolute;left:14px;top:-8px;padding:1px 5px;border-radius:6px;background:rgba(13,23,34,.78);font:700 11px var(--font-body);white-space:nowrap;pointer-events:none}.mp.near .mi{filter:drop-shadow(0 0 6px #ffc78f) drop-shadow(0 0 2px #ffc78f)}.mp.sel .mi{filter:drop-shadow(0 0 8px #fff)}.mp.sel .ml{background:#fff;color:#0d1722}',
   '.mz{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:6px}.mz button{width:44px;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:rgba(13,23,34,.85);color:#fff;font:700 22px var(--font-body);cursor:pointer}',
@@ -4566,9 +4597,9 @@ function mmInfo(){
   '#avm button:focus-visible{outline:3px solid #bfe9ff;outline-offset:2px}'
   ].join(''); document.head.appendChild(st);
   var m=document.createElement('section'); m.id='avm'; m.className='mini'; m.hidden=true; m.setAttribute('aria-label','Mapa de aviones');
-  m.innerHTML='<div class="mh"><b>Aviones</b><span id="mmN"></span><button id="mmSz" type="button">Agrandar</button><button id="mmHm" type="button" aria-label="Centrar en mi casa">◎</button><button id="mmX" type="button" aria-label="Cerrar el mapa">✕</button></div><div id="mmMap"><div id="mmTiles"></div><svg id="mmSvg"></svg><div id="mmPl"></div><div class="mz"><button id="mmZi" type="button" aria-label="Acercar">+</button><button id="mmZo" type="button" aria-label="Alejar">−</button></div><div class="mlg"><span><i style="background:#ffd166"></i>&lt;1 km</span><span><i style="background:#7be0a0"></i>&lt;3</span><span><i style="background:#5fd4ff"></i>&lt;6</span><span><i style="background:#8fa2ff"></i>&lt;9</span><span><i style="background:#d19cff"></i>más alto</span></div><div class="mat">© OpenStreetMap · © CARTO</div><div id="mmSt" class="mst" hidden></div><div id="mmInfo" hidden></div></div>';
+  m.innerHTML='<div class="mh"><b>Aviones</b><span id="mmN"></span><button id="mmLy" type="button">Satélite</button><button id="mmSz" type="button">Agrandar</button><button id="mmHm" type="button" aria-label="Centrar en mi casa">◎</button><button id="mmX" type="button" aria-label="Cerrar el mapa">✕</button></div><div id="mmMap"><div id="mmTiles"></div><svg id="mmSvg"></svg><div id="mmPl"></div><div class="mz"><button id="mmZi" type="button" aria-label="Acercar">+</button><button id="mmZo" type="button" aria-label="Alejar">−</button></div><div class="mlg"><span><i style="background:#ffd166"></i>&lt;1 km</span><span><i style="background:#7be0a0"></i>&lt;3</span><span><i style="background:#5fd4ff"></i>&lt;6</span><span><i style="background:#8fa2ff"></i>&lt;9</span><span><i style="background:#d19cff"></i>más alto</span></div><div class="mat" id="mmAt"></div><div id="mmSt" class="mst" hidden></div><div id="mmInfo" hidden></div></div>';
   document.body.appendChild(m);
-  m.querySelector('#mmX').onclick=mmClose; m.querySelector('#mmSz').onclick=function(){mmSize(!MM.big)}; m.querySelector('#mmHm').onclick=mmHomeGo;
+  m.querySelector('#mmLy').onclick=function(){mmLayer(MM.layer==='sat'?'osm':'sat')}; mmAttr(); m.querySelector('#mmX').onclick=mmClose; m.querySelector('#mmSz').onclick=function(){mmSize(!MM.big)}; m.querySelector('#mmHm').onclick=mmHomeGo;
   m.querySelector('#mmZi').onclick=function(){mmZoom(1)}; m.querySelector('#mmZo').onclick=function(){mmZoom(-1)};
   var map=m.querySelector('#mmMap'), ptr={}, moved=0, pinch=0, wh=0;
   map.addEventListener('pointerdown',function(e){if(e.target.closest('button,#mmInfo')) return; try{map.setPointerCapture(e.pointerId)}catch(x){} ptr[e.pointerId]={x:e.clientX,y:e.clientY}; moved=0; if(Object.keys(ptr).length===2){var k=Object.keys(ptr); pinch=Math.hypot(ptr[k[0]].x-ptr[k[1]].x,ptr[k[0]].y-ptr[k[1]].y)}});
@@ -4584,8 +4615,10 @@ function mmCmd(q,raw){
   var n=q.replace(/[¿?¡!.;:]/g,' ').replace(/,/g,' ').replace(/\bchispa\b/g,' ').replace(/\s+/g,' ').trim();
   if(!/\bmapa\b/.test(n)) return false;
   var ctx=/\b(?:avion|aviones|vuelo|vuelos|casa|cielo|radar|trafico|aereo|aereos)\b/.test(n), bare=/^(?:(?:abre|abreme|muestra|muestrame|pon|ponme|ver|enciende|cierra|quita|oculta|agranda|achica)\s+)?(?:el\s+)?mapa$/.test(n);
-  if(!ctx&&!bare&&!(MM.on&&/\b(?:agranda|achica|cierra|quita|oculta|centra|acerca|aleja|zoom|reduce|maximiza|minimiza|grande|pequeno|esquina)\w*\b/.test(n))) return false;
+  if(!ctx&&!bare&&!(MM.on&&/\b(?:agranda|achica|cierra|quita|oculta|centra|acerca|aleja|zoom|reduce|maximiza|minimiza|grande|pequeno|esquina|satelite|normal|calles|callejero)\w*\b/.test(n))) return false;
   if(/\b(?:cierra|quita|oculta|esconde|apaga|cerrar)\w*\b/.test(n)){if(MM.on){mmClose(); reply('Listo, cerré el mapa.')} else reply('El mapa no está abierto.'); return true}
+  if(MM.on&&/\bsatelite\b|\bvista aerea\b/.test(n)){mmLayer('sat'); reply('Listo, mapa en satélite.'); return true}
+  if(MM.on&&/\b(?:normal|calles|mapa de calles|callejero)\b/.test(n)&&!/\bsatelite\b/.test(n)){mmLayer('osm'); reply('Listo, mapa de calles.'); return true}
   if(MM.on&&/\b(?:achica|reduce|minimiza|pequeno|esquina|mas chico)\w*\b/.test(n)){mmSize(false); reply('Listo, lo dejé en la esquina.'); return true}
   if(/\b(?:agranda|ampl\w+|maximiza|grande|completo|pantalla completa|mas grande)\w*\b/.test(n)){if(!MM.on){if(mmOpen(true)) reply('Aquí está el mapa de aviones, en grande.')} else {mmSize(true); reply('Listo, lo agrandé.')} return true}
   if(MM.on&&/\b(?:acerca|acercate|mas cerca|zoom in|mas zoom)\w*\b/.test(n)){mmZoom(1); return true}
@@ -5961,7 +5994,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-mapa', pendingUpdate=false;
+var APP_VERSION='2026-10-21-mapacalles', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
