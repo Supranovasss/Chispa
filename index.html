@@ -4447,13 +4447,22 @@ var NT_MS=12000;
 function ntSave(){try{localStorage.setItem('chispa.notifs',JSON.stringify(NT.list.slice(0,30)))}catch(e){}}
 function ntUnread(){return NT.list.filter(function(n){return !n.read}).length}
 /* notify(título, texto, {icon, key, log}) — log:true la guarda en la lista sin mostrar el globito */
+/* Sonido de las notificaciones de la campanita: dos toques cortos y secos (distinto a la campana larga de los aviones) */
+function ntChime(){
+  var c=audio(); if(!c) return; var t=c.currentTime+.02;
+  [[698,0],[1047,.13]].forEach(function(p){
+    var o=c.createOscillator(), g=c.createGain(); o.type='triangle'; o.frequency.value=p[0]; var s0=t+p[1];
+    g.gain.setValueAtTime(.0001,s0); g.gain.exponentialRampToValueAtTime(.2,s0+.01); g.gain.exponentialRampToValueAtTime(.0001,s0+.16);
+    o.connect(g); g.connect(c.destination); o.start(s0); o.stop(s0+.2);
+  });
+}
 function notify(title,body,o){
   o=o||{};
   if(o.key){var k=o.key, last=NT.seenKey[k]||0; if(Date.now()-last<(o.every||3600000)) return null; NT.seenKey[k]=Date.now()}
   var n={id:Date.now()+Math.random(),t:Date.now(),icon:o.icon||'🔔',title:String(title||''),body:String(body||''),read:false};
   NT.list.unshift(n); if(NT.list.length>30) NT.list.length=30; ntSave();
   if(o.log||asleep||CFG.ntfOff){ntBadge(); return n}
-  NT.cur=n; ntShow(); if(!mediaOn()&&!talking&&!ringing){try{beep([784,988])}catch(e){}}
+  NT.cur=n; ntShow(); if(!mediaOn()&&!talking&&!ringing){try{ntChime()}catch(e){}}
   return n;
 }
 function ntArm(){clearTimeout(NT.t); NT.t=setTimeout(ntClose,NT_MS)}
@@ -6367,7 +6376,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-sueno', pendingUpdate=false;
+var APP_VERSION='2026-10-21-sonidos', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
