@@ -201,10 +201,8 @@ public class Control {
     }
 
     private JSONObject open(String url) throws Exception {
-        if (url == null || !url.startsWith(CHISPA_URL)) url = CHISPA_URL;
-        Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        i.setPackage("com.android.chrome");
-        try { ctx.startActivity(i); } catch (Exception e) { i.setPackage(null); ctx.startActivity(i); }
+        Intent i = new Intent(ctx, ChispaActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        ctx.startActivity(i);
         return new JSONObject().put("ok", true);
     }
 }

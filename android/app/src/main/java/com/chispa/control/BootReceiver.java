@@ -10,7 +10,7 @@ public class BootReceiver extends BroadcastReceiver {
         try { c.startForegroundService(new Intent(c, ControlService.class)); } catch (Exception ignored) { }
         if (Intent.ACTION_BOOT_COMPLETED.equals(i.getAction()) && Settings.canDrawOverlays(c)) {
             try {
-                Intent v = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(Control.CHISPA_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                Intent v = new Intent(c, ChispaActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 c.startActivity(v);
             } catch (Exception ignored) { }
         }

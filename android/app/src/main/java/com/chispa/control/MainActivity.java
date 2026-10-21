@@ -126,7 +126,7 @@ public class MainActivity extends Activity {
         svcChip.setPadding(dp(14), dp(10), dp(14), dp(10));
         col.addView(svcChip, lp(-2, -2, 0, 16, 0, 0));
 
-        // Botón principal: iniciar Chispa en Chrome
+        // Botón principal: iniciar Chispa
         LinearLayout start = new LinearLayout(this);
         start.setOrientation(LinearLayout.HORIZONTAL);
         start.setGravity(Gravity.CENTER_VERTICAL);
@@ -140,7 +140,7 @@ public class MainActivity extends Activity {
         LinearLayout sTx = new LinearLayout(this);
         sTx.setOrientation(LinearLayout.VERTICAL);
         sTx.addView(text("Iniciar Chispa", 20, DARK_INK, true));
-        sTx.addView(text("Abre Google Chrome con Chispa lista para hablar", 13, Color.parseColor("#5A3A38"), false), lp(-2, -2, 0, 4, 0, 0));
+        sTx.addView(text("Abre la app Chispa, lista para hablar", 13, Color.parseColor("#5A3A38"), false), lp(-2, -2, 0, 4, 0, 0));
         start.addView(sTx, new LinearLayout.LayoutParams(0, -2, 1f));
         start.addView(text("›", 28, DARK_INK, true));
         start.setOnClickListener(v -> run(() -> control.handle("/open", q())));

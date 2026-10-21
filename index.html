@@ -1218,6 +1218,29 @@ var SILENCE_MS=2800; /* silencio que se espera antes de dar por terminada la fra
 var DLOG=[], dT0=Date.now();
 function dlog(m){try{DLOG.push(((Date.now()-dT0)/1000).toFixed(1)+'s '+m); if(DLOG.length>40) DLOG.shift(); var b=document.getElementById('dlogBox'); if(b){b.textContent='REGISTRO v'+APP_VERSION+' (toca para cerrar)\n'+DLOG.slice(-28).join('\n'); b.scrollTop=b.scrollHeight}}catch(e){}}
 function dlogToggle(){var b=document.getElementById('dlogBox'); if(b){b.remove(); return} b=document.createElement('div'); b.id='dlogBox'; b.style.cssText='position:fixed;left:3%;right:3%;top:4%;bottom:4%;z-index:99999;background:#0d1722f5;color:#cfe4ff;border:2px solid #2b7fff;border-radius:14px;padding:14px;font:15px/1.45 ui-monospace,monospace;overflow:auto;white-space:pre-wrap'; b.onclick=function(){b.remove()}; document.body.appendChild(b); dlog('registro abierto')}
+/* Voz nativa de la app Chispa (Android): imita SpeechRecognition */
+(function(){
+  if(window.SpeechRecognition||window.webkitSpeechRecognition||!window.ChispaVoice) return;
+  var cur=null;
+  window.__cvEv=function(t,d){
+    var r=cur; if(!r) return;
+    try{
+      if(t==='start'){ if(r.onstart) r.onstart({}) }
+      else if(t==='result'){
+        var res=(d.alts||[]).map(function(x){return {transcript:x,confidence:0.9}});
+        res.isFinal=!!d.final; res.item=function(i){return res[i]};
+        var ev={resultIndex:0,results:[res]}; if(r.onresult) r.onresult(ev);
+      }
+      else if(t==='error'){ if(d.error!=='aborted'&&r.onerror) r.onerror({error:d.error}) }
+      else if(t==='end'){ cur=null; if(r.onend) r.onend({}) }
+    }catch(e){}
+  };
+  function NSR(){this.lang='es-CO';this.continuous=false;this.interimResults=true;this.maxAlternatives=3;this.onstart=this.onresult=this.onerror=this.onend=null}
+  NSR.prototype.start=function(){cur=this; try{ChispaVoice.start(this.lang||'es-CO',!!this.interimResults)}catch(e){cur=null; if(this.onerror) this.onerror({error:'service-not-allowed'}); if(this.onend) this.onend({})}};
+  NSR.prototype.stop=function(){try{ChispaVoice.stop()}catch(e){}};
+  NSR.prototype.abort=function(){try{ChispaVoice.abort()}catch(e){} };
+  window.SpeechRecognition=NSR; window.IS_APP=true;
+})();
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, armedUntil=0, LANGS=['es-CO','es-US','es-MX','es-419','es-ES'], langI=0;
 var startedAt=0, wfails=0, gestureSeen=false, autoBlocked=false, recCont=false, resumeMedia=null;
 function mediaOn(){return vidPlaying||strmOn||spPlaying||(typeof RAD!=='undefined'&&RAD.playing)}
@@ -3520,7 +3543,15 @@ function updCmd(q){
 /* ---------- Chispa Control: app auxiliar de la tablet (brillo, volumen, no molestar) ---------- */
 var CTL={base:'http://127.0.0.1:8765',ok:false,v:'',newer:false,chk:0};
 var CTL_HELP='No encuentro la app Chispa Control en la tablet. Instálala y ábrela una vez; los pasos están en la lista de comandos, en Tablet.';
+var CTLQ={}, CTLN=0;
+window.__ctl=function(id,j){var q=CTLQ[id]; if(!q) return; delete CTLQ[id]; clearTimeout(q.t); try{q.ok(JSON.parse(j))}catch(e){q.no(e)}};
 function ctlCall(path,ms){
+  if(window.ChispaApp&&ChispaApp.callAsync){
+    return new Promise(function(ok,no){
+      var id='c'+(++CTLN); CTLQ[id]={ok:function(j){CTL.ok=true; ok(j)},no:function(e){CTL.ok=false; no(e)},t:setTimeout(function(){delete CTLQ[id]; CTL.ok=false; no(new Error('timeout'))},ms||2500)};
+      try{ChispaApp.callAsync(id,path)}catch(e){clearTimeout(CTLQ[id].t); delete CTLQ[id]; CTL.ok=false; no(e)}
+    });
+  }
   var c=new AbortController(), t=setTimeout(function(){c.abort()},ms||2500);
   return fetch(CTL.base+path,{cache:'no-store',signal:c.signal,targetAddressSpace:'loopback'}).then(function(r){clearTimeout(t); return r.json()}).then(function(j){CTL.ok=true; return j},function(e){clearTimeout(t); CTL.ok=false; throw e});
 }
@@ -3753,6 +3784,28 @@ function menuCmd(q){
   });
   var sh=document.getElementById('sheet'); sh.addEventListener('click',function(){setTimeout(function(){secs.forEach(function(s){if(s._upd) s._upd()})},400)});
   document.querySelector('#sheet .sheethead h2').textContent='Ajustes'; sh.setAttribute('aria-label','Ajustes');
+  (function(){
+    var hs=sh.querySelector('.sheethead'); var host=hs&&hs.parentNode; if(!host) return;
+    var d=mnEl('section'); d.className='acc';
+    var b=mnEl('button','ah'); b.type='button'; b.appendChild(mnEl('span','ai','📦')); b.appendChild(mnEl('span','at','Copia de ajustes')); b.appendChild(mnEl('span','as','')); b.appendChild(mnEl('span','av','›'));
+    var body=mnEl('div','ab');
+    var p=mnEl('p'); p.style.cssText='font-size:13px;opacity:.8;margin:0 0 8px'; p.textContent='Copia tus ajustes y llaves para pasarlos a otra app o navegador: pulsa Copiar, y en el otro lado pega el texto y pulsa Aplicar.';
+    var ta=mnEl('textarea'); ta.rows=4; ta.style.cssText='width:100%;box-sizing:border-box;border-radius:10px;background:#0b1520;color:#ffe;border:1px solid #345;padding:8px;font-size:12px'; ta.placeholder='Aquí aparece o pegas la copia';
+    var r1=mnEl('div'); r1.style.cssText='display:flex;gap:8px;margin-top:8px';
+    function bt(t,f){var x=mnEl('button','btn',t); x.type='button'; x.style.cssText='flex:1;padding:10px;border-radius:12px;border:0;background:#FFC78F;color:#2b1a14;font-weight:700'; x.addEventListener('click',f); return x}
+    r1.appendChild(bt('Copiar',function(){
+      var o={}; try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i); if(k.indexOf('chispa.')===0) o[k]=localStorage.getItem(k)}}catch(e){}
+      var t='CHISPA1:'+btoa(unescape(encodeURIComponent(JSON.stringify(o)))); ta.value=t;
+      try{navigator.clipboard.writeText(t).then(function(){note('Copiado')},function(){ta.select()})}catch(e){ta.select()}
+    }));
+    r1.appendChild(bt('Aplicar',function(){
+      var t=(ta.value||'').trim(); if(t.indexOf('CHISPA1:')!==0){note('Pega primero la copia (empieza con CHISPA1:)'); return}
+      try{var o=JSON.parse(decodeURIComponent(escape(atob(t.slice(8))))); var n=0; Object.keys(o).forEach(function(k){if(k.indexOf('chispa.')===0){localStorage.setItem(k,o[k]); n++}}); note(n+' ajustes aplicados. Recargando…'); setTimeout(function(){location.reload()},1200)}catch(e){note('La copia no es válida')}
+    }));
+    body.appendChild(p); body.appendChild(ta); body.appendChild(r1); d.appendChild(b); d.appendChild(body);
+    b.addEventListener('click',function(){d.classList.toggle('open')});
+    var last=secs[secs.length-1]; if(last&&last.parentNode) last.parentNode.insertBefore(d,last.nextSibling);
+  })();
   var tp=document.getElementById('tip'); if(tp) tp.firstChild.textContent='Di “Oye Chispa” y pide lo que quieras, o toca Menú para ver todo lo que sé hacer.';
 })();
 /* ---------- Streams en vivo: Twitch y Kick ---------- */
@@ -5997,7 +6050,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-avionpaso', pendingUpdate=false;
+var APP_VERSION='2026-10-21-app', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
