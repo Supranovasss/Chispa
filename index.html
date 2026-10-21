@@ -598,8 +598,9 @@ var camSusp=false;
 function camSuspend(){if(camMode==='follow'&&stream){clearInterval(camTimer); stream.getTracks().forEach(function(t){t.stop()}); stream=null; el.cam.srcObject=null; camMode=null; camSusp=true; syncCam()}}
 function camResume(){if(camSusp){camSusp=false; if(CFG.follow) setTimeout(function(){if(!asleep) startFollow(true)},400)}}
 var idleSleep=false, ACT_V=false, lockSent=false, idleTaps=[];
-function goSleep(idle){asleep=true; idleSleep=!!idle===true; if(!idleSleep) lockSent=false; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
-function wakeUp(){asleep=false; idleSleep=false; lockSent=false; try{camResume()}catch(e){} try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
+function appHz(v){try{if(window.ChispaApp&&ChispaApp.hz) ChispaApp.hz(v)}catch(e){}}
+function goSleep(idle){appHz(false); asleep=true; idleSleep=!!idle===true; if(!idleSleep) lockSent=false; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
+function wakeUp(){appHz(true); asleep=false; idleSleep=false; lockSent=false; try{camResume()}catch(e){} try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
 function actV(){ACT_V=true; try{act()}finally{ACT_V=false}}
 function act(){
   if(asleep&&idleSleep&&!ACT_V){ /* dormida por inactividad: solo despierta la voz; 3 toques seguidos son la salida de emergencia */
@@ -6422,7 +6423,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-twitch', pendingUpdate=false;
+var APP_VERSION='2026-10-21-120hz', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){

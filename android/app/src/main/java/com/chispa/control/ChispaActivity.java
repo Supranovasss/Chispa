@@ -107,6 +107,7 @@ public class ChispaActivity extends Activity {
             @Override public void onHideCustomView() { hideCustom(); }
         });
 
+        setHz(true);
         askPerms();
         web.loadUrl(Control.CHISPA_URL);
     }
@@ -160,6 +161,23 @@ public class ChispaActivity extends Activity {
         }
     }
 
+    /** Pide la frecuencia más alta de la pantalla (120 Hz) o 60 Hz para ahorrar batería. Android puede ignorarlo. */
+    private void setHz(boolean high) {
+        try {
+            android.view.Display d = getWindowManager().getDefaultDisplay();
+            android.view.Display.Mode cur = d.getMode(), best = cur;
+            for (android.view.Display.Mode m : d.getSupportedModes()) {
+                if (m.getPhysicalWidth() != cur.getPhysicalWidth() || m.getPhysicalHeight() != cur.getPhysicalHeight()) continue;
+                boolean better = high ? m.getRefreshRate() > best.getRefreshRate() : Math.abs(m.getRefreshRate() - 60f) < Math.abs(best.getRefreshRate() - 60f);
+                if (better) best = m;
+            }
+            WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.preferredDisplayModeId = best.getModeId();
+            lp.preferredRefreshRate = best.getRefreshRate();
+            getWindow().setAttributes(lp);
+        } catch (Exception ignored) { }
+    }
+
     private void immersive() {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN
@@ -174,6 +192,7 @@ public class ChispaActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setHz(true);
         web.onResume();
     }
 
@@ -234,6 +253,8 @@ public class ChispaActivity extends Activity {
             keepAwake(false);
             new Thread(() -> { try { control.handle("/awake", new java.util.HashMap<String, String>()); } catch (Exception ignored) { } }).start();
         }
+
+        @JavascriptInterface public void hz(final boolean high) { runOnUiThread(() -> setHz(high)); }
 
         @JavascriptInterface public void exit() { runOnUiThread(ChispaActivity.this::finish); }
     }
