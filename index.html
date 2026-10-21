@@ -4,7 +4,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Nunito:wght@400;600;700&display=swap" media="print" onload="this.media='all'">
 <style>
-/* Concepto: pantalla de mesón. En horizontal, datos a la izquierda y la cara de Chispa grande a la derecha; en vertical todo apilado. Un solo look oscuro y cálido, pensado para una habitación o cocina con poca luz. */
+/* Concepto: pantalla de mesa. En horizontal, datos a la izquierda y la cara de Chispa grande a la derecha; en vertical todo apilado. Un solo look oscuro y cálido, pensado para cualquier habitación con poca luz. */
 :root{
   --bg:#0d1722; --panel:#13233a; --line:#25405c; --ink:#f6ecdc; --muted:#9fb3c8;
   --glow:#ffc78f; --glow2:#ff9a76; --alert:#ff6b6b; --ok:#8be0b5;
@@ -2674,7 +2674,7 @@ var INTENTS=[
    function(q){reply(calc(q))}],
   [function(q){return /(gracias|dios (le|te) pague|te agradezco|muy amable|bendiciones)/.test(q)}, function(){reply(nextOf(['¡Con gusto, mijo!','¡Siempre a la orden!','¡Para eso estoy! Cuando quiera.','¡Con todo el gusto del mundo!','¡Dios le pague a usted por la buena compañía!'],'gr'))}],
   [function(q){return /(como estas|como te va|que tal|como andas|como amaneciste|como vas|como te fue|que mas|que hubo|quiubo|quihubo|todo bien|que cuentas|que hay de nuevo|como te sientes)/.test(q)}, function(){reply(nextOf(['¡Muy bien! Con ganas de ayudarte. ¿Y tú?','¡Todo chévere por acá! ¿Y tú cómo vas?','¡Ahí vamos, bien contenta! ¿Y tú qué cuentas?','¡Bacano, aquí dándole! ¿Y tú?'],'ee'))}],
-  [function(q){return /(como te llamas|quien eres|tu nombre)/.test(q)}, function(){reply('Soy Chispa, tu compañero de mesón.')}],
+  [function(q){return /(como te llamas|quien eres|tu nombre)/.test(q)}, function(){reply('Soy Chispa, tu asistente personal.')}],
   [function(q){return q.length<24&&/^(hola|buenas|buenos dias|buenas tardes|hey|ey|oye|epa|habla|que onda|que pasa|aloha|ola|saludos)/.test(q)},
    function(){reply(pickLine('hola',saludo()+(CFG.name?', '+CFG.name:'')+'. ¿En qué te ayudo?'))}]
 ];
@@ -3647,7 +3647,7 @@ nightLoad();
 var BDL=['Que tengas un día lleno de cosas buenas.','Hoy es un buen día para empezar con calma y buena energía.','Un vaso de agua para arrancar y ya vas ganando el día.','Cada día es una página nueva. Hagámosla bonita.','Respira hondo, sonríe, y a por el día.','Tú puedes con todo lo de hoy, y yo te ayudo.'];
 /* ---------- Menú visual de Chispa ---------- */
 var MNG=[
- {g:'cocina',n:'En la cocina',c:'#ffb86b'},
+ {g:'cocina',n:'Cocina y compras',c:'#ffb86b'},
  {g:'dia',n:'Mi día',c:'#6fd6c4'},
  {g:'libre',n:'Para el rato libre',c:'#b69cff'},
  {g:'tablet',n:'La tablet',c:'#7fc4ff'},
@@ -5561,7 +5561,7 @@ function pickLine(kind,fallback){
 }
 setTimeout(function(){linesAsk('tap'); setTimeout(function(){linesAsk('hola')},2500)},5000);
 function persona(kind){
-  var base='Eres Chispa, un compañero amable, cálido y juguetón que vive en una tablet sobre el mesón de la cocina'+(CFG.name?'. Hablas con '+CFG.name:'')+'. Hablas español latinoamericano cálido y natural, con alma latina: usas con naturalidad, sin exagerar, expresiones de varios países (parce, chévere, bacano y qué chimba de Colombia; órale, qué padre y qué onda de México; dale, bárbaro y re bueno de Argentina; pana y qué fino de Venezuela; ya po de Chile) y entiendes los modismos y el voseo de toda Latinoamérica. Tus chistes y comentarios tienen humor latino cotidiano: la familia, el tinto, la arepa, el trancón, la tienda de la esquina, el fútbol, las mamás; nunca ofensivos ni burlándote de nadie. Lo que escribas se lee en voz alta, así que no uses markdown, listas, viñetas, asteriscos ni emojis.';
+  var base='Eres Chispa, un asistente personal amable, cálido y juguetón que vive en una tablet y puede estar en cualquier lugar de la casa; no eres un ayudante de cocina, aunque también ayudas con recetas y temporizadores'+(CFG.name?'. Hablas con '+CFG.name:'')+'. Hablas español latinoamericano cálido y natural, con alma latina: usas con naturalidad, sin exagerar, expresiones de varios países (parce, chévere, bacano y qué chimba de Colombia; órale, qué padre y qué onda de México; dale, bárbaro y re bueno de Argentina; pana y qué fino de Venezuela; ya po de Chile) y entiendes los modismos y el voseo de toda Latinoamérica. Tus chistes y comentarios tienen humor latino cotidiano: la familia, el tinto, la arepa, el trancón, la tienda de la esquina, el fútbol, las mamás; nunca ofensivos ni burlándote de nadie. Lo que escribas se lee en voz alta, así que no uses markdown, listas, viñetas, asteriscos ni emojis.';
   if(kind==='story') return base+' Cuentas historias largas y entretenidas, bien narradas, con inicio, desarrollo y final, de unas 800 a 1000 palabras. No hagas preguntas ni comentarios al final, solo la historia.';
   if(kind==='anec') return base+' Cuentas anécdotas con gracia y detalle, de unas 200 a 300 palabras. No hagas preguntas al final.';
   if(kind==='fact') return base+' Responde solo con el dato, en una o dos frases.';
@@ -6419,7 +6419,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-despierta', pendingUpdate=false;
+var APP_VERSION='2026-10-21-asistente', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
