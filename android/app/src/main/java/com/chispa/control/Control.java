@@ -14,6 +14,10 @@ import android.provider.Settings;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Map;
 
 /** Acciones sobre la tablet. Cada una devuelve un JSON con ok true/false. */
@@ -52,6 +56,7 @@ public class Control {
                 case "/awake": return awake(on(q, "on"));
                 case "/dnd": return dnd(on(q, "on"));
                 case "/open": return open(q.get("url"));
+                case "/fetch": return fetch(q.get("url"));
                 case "/update/check": return Updater.check(ctx);
                 case "/update/install": return Updater.install(ctx);
                 default: return err("ruta desconocida");
@@ -63,9 +68,38 @@ public class Control {
         }
     }
 
+    /** Consulta un sitio de aviones por la página (las webs de aviones no dejan que el navegador las lea directo). Solo sitios permitidos. */
+    private static final String[] FETCH_OK = {"api.adsb.lol", "api.airplanes.live", "opendata.adsb.fi", "api.adsbdb.com"};
+
+    private JSONObject fetch(String u) throws Exception {
+        if (u == null || u.isEmpty()) return err("falta la direccion");
+        URL url = new URL(u);
+        if (!"https".equals(url.getProtocol())) return err("solo https");
+        boolean allowed = false;
+        for (String h : FETCH_OK) if (h.equalsIgnoreCase(url.getHost())) allowed = true;
+        if (!allowed) return err("sitio no permitido");
+        HttpURLConnection c = (HttpURLConnection) url.openConnection();
+        c.setConnectTimeout(6000);
+        c.setReadTimeout(8000);
+        c.setRequestProperty("User-Agent", "Chispa/1.0 (+https://github.com/Supranovasss/Chispa)");
+        c.setRequestProperty("Accept", "application/json");
+        int code = c.getResponseCode();
+        InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+        String body = "";
+        if (in != null) {
+            try (InputStream is = in; ByteArrayOutputStream bo = new ByteArrayOutputStream()) {
+                byte[] b = new byte[8192];
+                int n, total = 0;
+                while ((n = is.read(b)) > 0 && total < 600000) { bo.write(b, 0, n); total += n; }
+                body = bo.toString("UTF-8");
+            }
+        }
+        return new JSONObject().put("ok", true).put("status", code).put("body", body);
+    }
+
     private JSONObject ping() throws Exception {
         JSONArray caps = new JSONArray();
-        for (String c : new String[]{"brightness", "auto", "volume", "awake", "dnd", "open", "update"}) caps.put(c);
+        for (String c : new String[]{"brightness", "auto", "volume", "awake", "dnd", "open", "update", "fetch"}) caps.put(c);
         return new JSONObject().put("ok", true).put("v", BuildConfig.VERSION_NAME).put("code", BuildConfig.VERSION_CODE).put("caps", caps);
     }
 

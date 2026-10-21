@@ -3902,7 +3902,7 @@ function mediaSwap(q,raw,phase){
 var AVN={on:false,lat:null,lon:null,r:3,voice:true,mute:0,qOn:false,qFrom:'22:00',qTo:'07:00',log:[]};
 try{var _av=JSON.parse(localStorage.getItem('chispa.avn')||'null'); if(_av&&typeof _av==='object') for(var _k in _av) AVN[_k]=_av[_k]}catch(e){}
 if(!Array.isArray(AVN.log)) AVN.log=[];
-var AVL={map:{},last:null,t:0,fails:0,ok:0,cache:{},busy:false,shown:null,fol:'',folMiss:0,src:0,hideT:0,beat:0};
+var AVL={why:'',map:{},last:null,t:0,fails:0,ok:0,cache:{},busy:false,shown:null,fol:'',folMiss:0,src:0,hideT:0,beat:0};
 var AV_GONE=45000;
 var AV_URL=[
  function(la,lo,nm){return 'https://api.adsb.lol/v2/point/'+la+'/'+lo+'/'+nm},
@@ -3919,11 +3919,23 @@ function avSave(){try{localStorage.setItem('chispa.avn',JSON.stringify(AVN))}cat
 function avKm(a,b,c,d){var R=6371,p=Math.PI/180,x=(c-a)*p,y=(d-b)*p,q=Math.sin(x/2)*Math.sin(x/2)+Math.cos(a*p)*Math.cos(c*p)*Math.sin(y/2)*Math.sin(y/2); return 2*R*Math.asin(Math.sqrt(q))}
 function avBrg(a,b,c,d){var p=Math.PI/180,y=Math.sin((d-b)*p)*Math.cos(c*p),x=Math.cos(a*p)*Math.sin(c*p)-Math.sin(a*p)*Math.cos(c*p)*Math.cos((d-b)*p); return (Math.atan2(y,x)/p+360)%360}
 function avDir(d){return AV_DIR[Math.round(d/45)%8]}
-function avTO(url,ms){
+function avDirect(url,ms){
   return new Promise(function(res,rej){
     var ac=('AbortController' in window)?new AbortController():null, t=setTimeout(function(){try{ac&&ac.abort()}catch(e){} rej(new Error('timeout'))},ms||8000);
     fetch(url,ac?{signal:ac.signal}:{}).then(function(r){clearTimeout(t); res(r)},function(e){clearTimeout(t); rej(e)});
   });
+}
+/* Las redes de aviones no dejan que una página web las lea directo (sin CORS): se piden por la app Chispa Control. */
+function avViaCtl(url,ms){
+  return ctlCall('/fetch?url='+encodeURIComponent(url),(ms||8000)+4000).then(function(j){
+    if(!j||!j.ok){var m=String(j&&j.err||''); if(/desconocida/.test(m)) AVL.why='old'; throw new Error(m||'ctl')}
+    AVL.why=''; return {ok:j.status>=200&&j.status<300,status:j.status,json:function(){try{return Promise.resolve(JSON.parse(j.body))}catch(e){return Promise.reject(e)}}};
+  });
+}
+function avTO(url,ms){
+  var host=''; try{host=new URL(url).hostname}catch(e){}
+  if(/planespotters/.test(host)) return avDirect(url,ms);
+  return avViaCtl(url,ms).catch(function(e){if(!AVL.why) AVL.why='noctl'; return avDirect(url,ms).catch(function(e2){throw e})});
 }
 function avJson(url,ms){return avTO(url,ms).then(function(r){return r.json().catch(function(){return null})})}
 function avFetch(mkUrl){
@@ -4125,6 +4137,8 @@ function avPanelRender(){
   var s=$p('#avSt'), msg;
   if(AVN.lat==null) msg='Falta la ubicación de tu casa.';
   else if(!AVN.on) msg='Apagado. No consulto aviones.';
+  else if(AVL.fails>=2&&AVL.why==='old') msg='Falta actualizar la app Chispa Control: la que tienes no puede consultar aviones. Ábrela y toca «Buscar» en Actualización, o di «actualiza la app de control».';
+  else if(AVL.fails>=2&&AVL.why==='noctl') msg='No pude conectar con Chispa Control. Ábrela una vez en la tablet y que esté encendida; la necesito para consultar los aviones.';
   else if(AVL.fails>=2&&!AVL.ok) msg='No pude conectar con la fuente de aviones. Reintentando…';
   else if(AVL.fails>=2) msg='Perdí conexión con la fuente. Reintentando…';
   else if(!AVL.ok) msg='Conectando…';
@@ -4184,7 +4198,7 @@ function avRow(L,e,live){
    +'<h3>Voz de los aviones</h3><div class="avrow3"><button id="avVo" class="avsw" type="button" aria-pressed="true">Voz: encendida</button><button id="avM1" class="avbtn" type="button">Silencio 1 hora</button><button id="avM0" class="avbtn" type="button">Quitar silencio</button></div>'
    +'<div class="avrow3" style="margin-top:10px"><label><input id="avQo" type="checkbox"> Horario de silencio</label><label for="avQf">de</label><input id="avQf" type="time" value="22:00"><label for="avQt">a</label><input id="avQt" type="time" value="07:00"></div><p class="avs" id="avVs" style="margin-top:10px"></p>'
    +'<h3>Encima ahora</h3><div id="avNow"></div><h3>Han pasado</h3><div id="avHist"></div><div class="avrow3" style="margin-top:8px"><button id="avCl" class="avbtn" type="button">Borrar historial</button></div>'
-   +'<p class="avnote">Datos de aviones: redes abiertas ADS-B (adsb.lol, airplanes.live, adsb.fi). Rutas: adsbdb.com. Fotos: Planespotters.net. Tu ubicación aproximada se envía a la fuente en cada consulta. La ruta sale del indicativo del vuelo y puede faltar o estar mal.</p>';
+   +'<p class="avnote">Necesita la app Chispa Control encendida en la tablet. Datos de aviones: redes abiertas ADS-B (adsb.lol, airplanes.live, adsb.fi). Rutas: adsbdb.com. Fotos: Planespotters.net. Tu ubicación aproximada se envía a la fuente en cada consulta. La ruta sale del indicativo del vuelo y puede faltar o estar mal.</p>';
   document.body.appendChild(p);
   p.querySelector('.x').onclick=function(){hideBig('avp'); setTimeout(avCardRender,50)};
   p.querySelector('#avOn').onclick=function(){avSetOn(!AVN.on,true)};
@@ -5685,7 +5699,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-aviones', pendingUpdate=false;
+var APP_VERSION='2026-10-21-aviones2', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
