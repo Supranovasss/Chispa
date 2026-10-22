@@ -3664,7 +3664,7 @@ var MNT=[
  {g:'dia',i:'📒',n:'Agenda y notas',d:'Lo que anotas y lo que viene',l:'Guarda notas y mira tu agenda en una sola ventana.',x:['Abre la agenda','Anota que mañana hay que pagar el recibo','Muéstrame mis notas']},
  {g:'dia',i:'⛅',n:'Clima',d:'Cómo está y cómo va a estar',l:'El clima de ahora y el pronóstico de las próximas horas.',x:['¿Cómo está el clima?','¿Va a llover hoy?']},
  {g:'libre',f:1,i:'📻',n:'Radio',d:'Emisoras por internet',l:'Abre una ventana con emisoras para elegir con el dedo, o pídelas por género.',x:['Pon la radio','Pon una emisora de salsa','Otra emisora','Apaga la radio']},
- {g:'libre',i:'🎛️',n:'Deck del PC',d:'Botones para tu computador',l:'Una cuadrícula de botones para abrir programas, silenciar el micrófono, cambiar escenas de OBS o bloquear tu PC. Necesita el programa Chispa Deck en tu computador.',x:['Abre el deck','Activa silenciar micrófono'],act:function(){dkOpen()}},
+ {g:'libre',i:'🎛️',n:'Macro Deck',d:'Los botones de tu PC',l:'Abre Macro Deck con los botones de tu computador: programas, OBS, Discord y más. Necesita Macro Deck abierto en el PC, en el mismo wifi.',x:['Abre Macro Deck','Cierra Macro Deck'],act:function(){if(!dkMacroDeck()) dkOpen()}},
  {g:'libre',i:'🎬',n:'Música y videos',d:'YouTube y canciones',l:'Busca y pone videos o música. Necesita la llave de YouTube en Ajustes.',x:['Pon un mix de salsa de una hora','Pausa','Cierra el video']},
  {g:'libre',i:'🌧️',n:'Sonido ambiente',d:'Lluvia, olas, ruido blanco',l:'Sonidos para concentrarte o dormir, con temporizador si quieres.',x:['Pon ruido de lluvia por 30 minutos','Pon música lo-fi para estudiar','Apaga el ruido']},
  {g:'libre',i:'📺',n:'Streams',d:'Twitch y Kick en vivo',act:function(){strmOpen()}},
@@ -6605,7 +6605,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-22-macrodeck', pendingUpdate=false;
+var APP_VERSION='2026-10-22-macrodeck2', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
