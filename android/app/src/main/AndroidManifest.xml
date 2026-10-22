@@ -25,7 +25,8 @@
     <application
         android:label="Chispa"
         android:icon="@drawable/ic"
-        android:allowBackup="false">
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true">
 
         <activity android:name=".ChispaActivity" android:exported="true" android:label="Chispa"
             android:launchMode="singleTask"

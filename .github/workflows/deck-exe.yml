@@ -1,0 +1,28 @@
+name: Chispa Deck para Windows
+on:
+  push:
+    branches: [main]
+    paths: ['pc/**', '.github/workflows/deck-exe.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compilar
+        run: |
+          pip install pyinstaller
+          pyinstaller --onefile --name ChispaDeck pc/chispa_deck.py
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          cp pc/chispa_deck.py ChispaDeck.py
+          gh release delete deck-latest --yes --cleanup-tag || true
+          gh release create deck-latest dist/ChispaDeck.exe ChispaDeck.py --target ${{ github.sha }} --title "Chispa Deck" --notes "Programa para Windows. Descarga ChispaDeck.exe y ábrelo."

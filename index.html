@@ -1596,7 +1596,7 @@ function closeAll(){
   if(game){any=true; endGame()}
   if(!$('#vid').hidden) closeVideo();
   if(!$('#imgv').hidden) closeImg();
-  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief'); hideBig('cmds'); hideBig('menu'); hideBig('strm'); hideBig('avp'); try{mmClose()}catch(e0){} hideBig('avp');
+  ['kcard','xcard','lcard','acard','ycard'].forEach(function(i){clearTimeout(popT[i]); $('#'+i).hidden=true}); hideBig('cc'); hideBig('brief'); hideBig('cmds'); hideBig('menu'); hideBig('strm'); hideBig('avp'); hideBig('dkp'); try{mmClose()}catch(e0){} hideBig('avp');
   return any;
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.mx'); if(b){e.stopPropagation(); closeAll()}});
@@ -3200,7 +3200,7 @@ function sbRender(){
 function winBlocking(){
   if(asleep||sbOn||ringing||game||recipe) return true;
   if(radOn()||optsOn()) return true;
-  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc','cmds','menu','strm','avp','avm'].some(function(i){var c=$('#'+i); return c&&!c.hidden&&!(i==='wcard'&&c.classList.contains('ghost'))});
+  return !$('#vid').hidden||!$('#imgv').hidden||!$('#hub').hidden||['kcard','xcard','lcard','acard','ycard','wcard','brief','cc','cmds','menu','strm','avp','avm','dkp'].some(function(i){var c=$('#'+i); return c&&!c.hidden&&!(i==='wcard'&&c.classList.contains('ghost'))});
 }
 function dashRender(){
   var D=$('#dash'), now=new Date(), h=now.getHours();
@@ -3263,7 +3263,7 @@ function amb2(q,raw){
 })();
 var bigT={};
 function hideBig(id){clearTimeout(bigT[id]); var e=document.getElementById(id); if(e) e.hidden=true}
-function showBig(id,ms){var e=document.getElementById(id); ['cc','brief','cmds','menu','strm','avp'].forEach(function(o){if(o!==id) hideBig(o)}); e.hidden=false; clearTimeout(bigT[id]); bigT[id]=setTimeout(function(){e.hidden=true},ms||60000)}
+function showBig(id,ms){var e=document.getElementById(id); ['cc','brief','cmds','menu','strm','avp','dkp'].forEach(function(o){if(o!==id) hideBig(o)}); e.hidden=false; clearTimeout(bigT[id]); bigT[id]=setTimeout(function(){e.hidden=true},ms||60000)}
 function fnum(n,d){if(!isFinite(n)) return '—'; var a=Math.abs(n); d=d==null?(a>=1000?0:a>=100?1:2):d; return n.toLocaleString('es-CO',{maximumFractionDigits:d})}
 function ffrac(n){
   var w=Math.floor(n+1e-9), f=n-w, best=null, tb=[[0,''],[1/8,'1/8'],[1/4,'1/4'],[1/3,'1/3'],[3/8,'3/8'],[1/2,'1/2'],[5/8,'5/8'],[2/3,'2/3'],[3/4,'3/4'],[7/8,'7/8'],[1,'']];
@@ -3664,6 +3664,7 @@ var MNT=[
  {g:'dia',i:'📒',n:'Agenda y notas',d:'Lo que anotas y lo que viene',l:'Guarda notas y mira tu agenda en una sola ventana.',x:['Abre la agenda','Anota que mañana hay que pagar el recibo','Muéstrame mis notas']},
  {g:'dia',i:'⛅',n:'Clima',d:'Cómo está y cómo va a estar',l:'El clima de ahora y el pronóstico de las próximas horas.',x:['¿Cómo está el clima?','¿Va a llover hoy?']},
  {g:'libre',f:1,i:'📻',n:'Radio',d:'Emisoras por internet',l:'Abre una ventana con emisoras para elegir con el dedo, o pídelas por género.',x:['Pon la radio','Pon una emisora de salsa','Otra emisora','Apaga la radio']},
+ {g:'libre',i:'🎛️',n:'Deck del PC',d:'Botones para tu computador',l:'Una cuadrícula de botones para abrir programas, silenciar el micrófono, cambiar escenas de OBS o bloquear tu PC. Necesita el programa Chispa Deck en tu computador.',x:['Abre el deck','Activa silenciar micrófono'],act:function(){dkOpen()}},
  {g:'libre',i:'🎬',n:'Música y videos',d:'YouTube y canciones',l:'Busca y pone videos o música. Necesita la llave de YouTube en Ajustes.',x:['Pon un mix de salsa de una hora','Pausa','Cierra el video']},
  {g:'libre',i:'🌧️',n:'Sonido ambiente',d:'Lluvia, olas, ruido blanco',l:'Sonidos para concentrarte o dormir, con temporizador si quieres.',x:['Pon ruido de lluvia por 30 minutos','Pon música lo-fi para estudiar','Apaga el ruido']},
  {g:'libre',i:'📺',n:'Streams',d:'Twitch y Kick en vivo',act:function(){strmOpen()}},
@@ -4892,6 +4893,177 @@ function xaUi(){
   last.parentNode.insertBefore(d,last.nextSibling); upd();
 }
 setTimeout(xaUi,1500);
+/* ---------- Deck del PC: botones táctiles o de voz que ejecutan atajos en tu computador ---------- */
+var DK={host:'',port:8777,token:'',pages:[],cur:0,edit:false,sel:null,pname:''};
+var DK_KINDS=[
+ {k:'open',n:'Abrir programa o enlace',ph:'Ej: C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe, o https://youtube.com',f:'Qué abrir',mk:function(v){return {t:'open',target:v}}},
+ {k:'keys',n:'Atajo de teclado',ph:'Ej: ctrl+shift+m   (teclas separadas con +)',f:'Atajo',mk:function(v){return {t:'keys',keys:v}}},
+ {k:'obsscene',n:'OBS: cambiar de escena',ph:'Nombre exacto de la escena',f:'Escena',mk:function(v){return {t:'obs',op:'scene',name:v}}},
+ {k:'obsmute',n:'OBS: silenciar o activar una entrada',ph:'Nombre exacto de la entrada, ej: Mic/Aux',f:'Entrada de audio',mk:function(v){return {t:'obs',op:'mute',name:v}}},
+ {k:'obsrec',n:'OBS: iniciar o parar la grabación',mk:function(){return {t:'obs',op:'record'}}},
+ {k:'obsstream',n:'OBS: iniciar o parar la transmisión',mk:function(){return {t:'obs',op:'stream'}}},
+ {k:'lock',n:'PC: bloquear',mk:function(){return {t:'power',op:'lock'}}},
+ {k:'sleep',n:'PC: suspender',mk:function(){return {t:'power',op:'sleep'}}},
+ {k:'shutdown',n:'PC: apagar (en 30 s)',mk:function(){return {t:'power',op:'shutdown',delay:30}}},
+ {k:'restart',n:'PC: reiniciar (en 30 s)',mk:function(){return {t:'power',op:'restart',delay:30}}},
+ {k:'abort',n:'PC: cancelar apagado',mk:function(){return {t:'power',op:'abort'}}}
+];
+var DK_COL=['#6fd6c4','#ffb86b','#b69cff','#ff9aa8','#7bb7ff','#9be28b','#ffd166','#c0c8d0'];
+function dkKind(k){return DK_KINDS.filter(function(x){return x.k===k})[0]}
+function dkStarter(){
+  function b(l,i,c,k,v){var K=dkKind(k); return {id:'b'+Math.random().toString(36).slice(2,8),l:l,i:i,c:c,k:k,v:v||'',a:K.mk(v||'')}}
+  return [{n:'Principal',b:[
+    b('Silenciar micrófono','🎙️','#ff9aa8','keys','ctrl+shift+m'),
+    b('Play / Pausa','⏯️','#7bb7ff','keys','playpause'), b('Siguiente','⏭️','#7bb7ff','keys','next'), b('Anterior','⏮️','#7bb7ff','keys','prev'),
+    b('Subir volumen','🔊','#9be28b','keys','volup'), b('Bajar volumen','🔉','#9be28b','keys','voldown'), b('Silenciar PC','🔇','#9be28b','keys','mute'),
+    b('Captura de pantalla','📸','#ffd166','keys','win+shift+s'),
+    b('Bloquear PC','🔒','#c0c8d0','lock'), b('Apagar PC','⏻','#ff6b6b','shutdown')
+  ]}];
+}
+try{var _dk=JSON.parse(localStorage.getItem('chispa.deck')||'null'); if(_dk){DK.host=_dk.host||''; DK.port=_dk.port||8777; DK.token=_dk.token||''; DK.pages=_dk.pages||[]}}catch(e){}
+if(!DK.pages.length) DK.pages=dkStarter();
+function dkSave(){try{localStorage.setItem('chispa.deck',JSON.stringify({host:DK.host,port:DK.port,token:DK.token,pages:DK.pages}))}catch(e){}}
+var DKS={ok:null,msg:'',name:''};
+function dkErr(m){var e=new Error(m); e.dk=true; return e}
+function dkSend(path,action){
+  if(!DK.host||!DK.token) return Promise.reject(dkErr('Falta la dirección y el código del computador. Toca «Conexión».'));
+  var u='/deck?host='+encodeURIComponent(DK.host.trim())+'&port='+encodeURIComponent(DK.port||8777)+'&token='+encodeURIComponent(DK.token.trim())+'&path='+encodeURIComponent(path)+(action?'&body='+encodeURIComponent(JSON.stringify({a:action})):'');
+  return ctlCall(u,12000).then(function(j){
+    if(!j||!j.ok){var m=(j&&j.err)||''; throw dkErr(/desconoc|unknown/i.test(m)?'La app Chispa Control es vieja y no sabe hablar con el PC. Actualízala con «Buscar».':(m||'Sin respuesta'))}
+    var r; try{r=JSON.parse(j.body||'{}')}catch(e){throw dkErr('Respuesta rara del PC')}
+    if(j.status===401) throw dkErr('El código no coincide con el del PC.');
+    if(!r.ok) throw dkErr(r.err||'El PC no pudo hacerlo');
+    return r;
+  },function(e){ if(e&&e.dk) throw e; throw dkErr('No encuentro el PC. ¿Está encendido, con Chispa Deck abierto y en la misma red wifi? Si la app Chispa Control es vieja, actualízala con «Buscar».')});
+}
+function dkPing(){
+  DKS.msg='Conectando…'; dkRender();
+  return dkSend('/ping').then(function(r){DKS.ok=true; DKS.name=r.name||'PC'; DKS.msg='Conectado a '+DKS.name+(r.win?'':' (no es Windows: los atajos no funcionan)'); dkRender(); return true},function(e){DKS.ok=false; DKS.msg=e.message; dkRender(); return false});
+}
+var dkConf={};
+function dkRun(b,fromVoice){
+  var risky=b.a&&b.a.t==='power'&&(b.a.op==='shutdown'||b.a.op==='restart');
+  if(risky){
+    if(fromVoice){reply('Por seguridad, apagar o reiniciar el PC solo lo hago con el botón en pantalla.'); dkOpen(); return}
+    if(!dkConf[b.id]||Date.now()-dkConf[b.id]>4000){dkConf[b.id]=Date.now(); DKS.msg='¿Seguro? Toca «'+b.l+'» otra vez en 4 segundos.'; dkRender(); return}
+    dkConf[b.id]=0;
+  }
+  var tile=document.querySelector('#dkp [data-bid="'+b.id+'"]'); if(tile) tile.classList.add('busy');
+  return dkSend('/run',b.a).then(function(){DKS.ok=true; DKS.msg='Listo: '+b.l; if(tile){tile.classList.remove('busy'); tile.classList.add('good'); setTimeout(function(){tile.classList.remove('good')},700)} dkRender(true); return true},function(e){
+    DKS.msg=e.message; if(tile){tile.classList.remove('busy'); tile.classList.add('bad'); setTimeout(function(){tile.classList.remove('bad')},900)} dkRender(true); return false});
+}
+function dkOpen(){dkRender(); showBig('dkp',600000); if(DKS.ok===null&&DK.host&&DK.token) dkPing()}
+function dkRender(soft){
+  var p=document.getElementById('dkp'); if(!p) return; var $p=function(i){return p.querySelector(i)};
+  var st=$p('#dkSt'); st.textContent=DKS.msg||(DK.host&&DK.token?'Toca un botón. Para editar, usa «Editar».':'Primero conecta con tu computador: toca «Conexión».'); st.className='dks'+(DKS.ok===true?' ok':DKS.ok===false?' no':'');
+  var pg=DK.pages[DK.cur]||DK.pages[0]; if(!pg){DK.pages=dkStarter(); pg=DK.pages[0]; DK.cur=0}
+  var tabs=$p('#dkTabs'); tabs.textContent='';
+  DK.pages.forEach(function(x,i){var t=mk('button','dkt'+(i===DK.cur?' on':''),x.n); t.type='button'; t.onclick=function(){DK.cur=i; DK.sel=null; dkRender()}; tabs.appendChild(t)});
+  if(DK.edit){var np=mk('button','dkt','+ Página'); np.type='button'; np.onclick=function(){DK.pages.push({n:'Página '+(DK.pages.length+1),b:[]}); DK.cur=DK.pages.length-1; dkSave(); dkRender()}; tabs.appendChild(np)}
+  var g=$p('#dkGrid'); g.textContent=''; g.className='dkg'+(DK.edit?' edit':'');
+  pg.b.forEach(function(b){
+    var t=mk('button','dkb'+(DK.sel&&DK.sel.id===b.id?' sel':'')); t.type='button'; t.dataset.bid=b.id; t.style.setProperty('--c',b.c||'#6fd6c4');
+    t.appendChild(mk('span','dki',b.i||'🔘')); t.appendChild(mk('span','dkl',b.l));
+    t.onclick=function(){if(DK.edit){DK.sel=b; dkRender()} else dkRun(b)};
+    g.appendChild(t);
+  });
+  if(DK.edit){var add=mk('button','dkb add'); add.type='button'; add.appendChild(mk('span','dki','＋')); add.appendChild(mk('span','dkl','Nuevo botón')); add.onclick=function(){DK.sel={id:'b'+Math.random().toString(36).slice(2,8),l:'',i:'🔘',c:DK_COL[0],k:'open',v:'',a:null,fresh:true}; dkRender()}; g.appendChild(add)}
+  $p('#dkEd').textContent=DK.edit?'Listo':'Editar'; $p('#dkEd').className='dkbtn'+(DK.edit?' on':'');
+  var cn=$p('#dkConn'); cn.hidden=!DK.showConn;
+  if(!soft||true){ if(document.activeElement.tagName!=='INPUT'){ $p('#dkHost').value=DK.host; $p('#dkPort').value=DK.port; $p('#dkTok').value=DK.token } }
+  dkEditor();
+}
+function dkEditor(){
+  var p=document.getElementById('dkp'), box=p.querySelector('#dkForm'); box.textContent=''; box.hidden=!(DK.edit&&DK.sel); if(box.hidden) return;
+  var b=DK.sel;
+  function row(lbl,el){var r=mk('label','dkr'); r.appendChild(mk('span',null,lbl)); r.appendChild(el); box.appendChild(r); return el}
+  var nm=document.createElement('input'); nm.type='text'; nm.value=b.l; nm.placeholder='Nombre del botón (así lo dices por voz)'; row('Nombre',nm);
+  var ic=document.createElement('input'); ic.type='text'; ic.value=b.i; ic.maxLength=4; row('Ícono (un emoji)',ic);
+  var ks=document.createElement('select'); DK_KINDS.forEach(function(x){var o=document.createElement('option'); o.value=x.k; o.textContent=x.n; if(x.k===b.k) o.selected=true; ks.appendChild(o)}); row('Qué hace',ks);
+  var vv=document.createElement('input'); vv.type='text'; vv.value=b.v||''; var vr=row('',vv);
+  function vis(){var K=dkKind(ks.value); vr.parentNode.hidden=!K.f; vr.parentNode.firstChild.textContent=K.f||''; vv.placeholder=K.ph||''}
+  ks.onchange=vis; vis();
+  var cw=mk('div','dkcols'); DK_COL.forEach(function(c){var s=mk('button','dkcol'+(c===b.c?' on':'')); s.type='button'; s.style.background=c; s.onclick=function(){b.c=c; cw.querySelectorAll('.dkcol').forEach(function(x){x.classList.remove('on')}); s.classList.add('on')}; cw.appendChild(s)}); row('Color',cw);
+  var bar=mk('div','dkrow');
+  function btn(t,f,c){var x=mk('button','dkbtn'+(c?' '+c:''),t); x.type='button'; x.onclick=f; bar.appendChild(x)}
+  btn('Guardar',function(){
+    var K=dkKind(ks.value); if(!nm.value.trim()){DKS.msg='Ponle un nombre al botón.'; dkRender(true); return}
+    if(K.f&&!vv.value.trim()){DKS.msg='Falta: '+K.f.toLowerCase(); dkRender(true); return}
+    b.l=nm.value.trim().slice(0,30); b.i=ic.value.trim()||'🔘'; b.k=K.k; b.v=vv.value.trim(); b.a=K.mk(b.v); delete b.fresh;
+    var pg=DK.pages[DK.cur]; if(pg.b.indexOf(b)<0&&!pg.b.some(function(x){return x.id===b.id})) pg.b.push(b);
+    dkSave(); DK.sel=null; DKS.msg='Guardado: '+b.l; dkRender();
+  },'go');
+  btn('Probar',function(){var K=dkKind(ks.value); var a=K.mk(vv.value.trim()); dkRun({id:'t',l:nm.value||'prueba',a:a},false)});
+  if(!b.fresh) btn('Mover ◀',function(){var pg=DK.pages[DK.cur], i=pg.b.findIndex(function(x){return x.id===b.id}); if(i>0){pg.b.splice(i-1,0,pg.b.splice(i,1)[0]); dkSave(); dkRender()}});
+  if(!b.fresh) btn('Mover ▶',function(){var pg=DK.pages[DK.cur], i=pg.b.findIndex(function(x){return x.id===b.id}); if(i>=0&&i<pg.b.length-1){pg.b.splice(i+1,0,pg.b.splice(i,1)[0]); dkSave(); dkRender()}});
+  if(!b.fresh) btn('Borrar',function(){var pg=DK.pages[DK.cur], old=pg.b.slice(); pg.b=pg.b.filter(function(x){return x.id!==b.id}); dkSave(); DK.sel=null; dkRender(); chg('botón '+b.l,function(){pg.b=old; dkSave(); dkRender()})},'bad');
+  btn('Cancelar',function(){DK.sel=null; dkRender()});
+  box.appendChild(bar);
+}
+function dkScenes(){
+  DKS.msg='Pidiendo las escenas a OBS…'; dkRender(true);
+  dkSend('/obs/scenes').then(function(r){
+    var pg=DK.pages[DK.cur], n=0; (r.scenes||[]).forEach(function(s){
+      if(pg.b.some(function(b){return b.k==='obsscene'&&b.v===s})) return;
+      pg.b.push({id:'b'+Math.random().toString(36).slice(2,8),l:s,i:'🎬',c:'#b69cff',k:'obsscene',v:s,a:{t:'obs',op:'scene',name:s}}); n++});
+    dkSave(); DKS.msg=n?('Agregué '+n+' botón'+(n===1?'':'es')+' de escenas de OBS.'):'No hay escenas nuevas que agregar.'; dkRender();
+  },function(e){DKS.msg=e.message+' (OBS debe estar abierto, con el WebSocket activado en Herramientas › Ajustes del servidor WebSocket.)'; dkRender(true)});
+}
+function dkBuild(){
+  var st=document.createElement('style');
+  st.textContent=[
+  '#dkp{width:min(96vw,900px)}#dkp h2{margin:0 40px 4px 0;font:500 28px var(--font-display)}',
+  '#dkp .dks{margin:0 0 12px;font-size:15px;color:rgba(234,243,251,.78);min-height:22px}#dkp .dks.ok{color:#9be28b}#dkp .dks.no{color:#ffb4a0}',
+  '#dkp .dkt{border:0;border-radius:12px;padding:10px 16px;margin:0 8px 8px 0;background:rgba(255,255,255,.1);color:#eaf3fb;font:inherit;cursor:pointer}#dkp .dkt.on{background:#ffc78f;color:#2b1a14;font-weight:700}',
+  '#dkp .dkg{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:12px;margin:6px 0 14px}',
+  '#dkp .dkb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:104px;padding:10px;border-radius:20px;border:2px solid color-mix(in srgb,var(--c,#6fd6c4) 55%,transparent);background:color-mix(in srgb,var(--c,#6fd6c4) 16%,rgba(13,23,34,.9));color:#eaf3fb;font:inherit;cursor:pointer;transition:transform .12s,background .2s}',
+  '#dkp .dkb:active{transform:scale(.95)}#dkp .dki{font-size:34px;line-height:1}#dkp .dkl{font-size:14px;line-height:1.15;text-align:center;word-break:break-word}',
+  '#dkp .dkb.busy{opacity:.6}#dkp .dkb.good{background:color-mix(in srgb,#7ef0a5 45%,rgba(13,23,34,.9));border-color:#7ef0a5}#dkp .dkb.bad{background:color-mix(in srgb,#ff6b6b 45%,rgba(13,23,34,.9));border-color:#ff6b6b}',
+  '#dkp .dkg.edit .dkb{border-style:dashed}#dkp .dkb.sel{outline:3px solid #ffc78f}#dkp .dkb.add{opacity:.8}',
+  '#dkp .dkrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}',
+  '#dkp .dkbtn{border:0;border-radius:12px;padding:10px 16px;background:rgba(255,255,255,.12);color:#eaf3fb;font:inherit;cursor:pointer}#dkp .dkbtn.on,#dkp .dkbtn.go{background:#ffc78f;color:#2b1a14;font-weight:700}#dkp .dkbtn.bad{background:#7a2e2e}',
+  '#dkp input[type=text],#dkp input[type=password],#dkp input[type=number],#dkp select{width:100%;box-sizing:border-box;border-radius:10px;background:#0b1520;color:#ffe;border:1px solid #345;padding:10px;font:inherit;font-size:15px}',
+  '#dkp .dkr{display:block;margin:8px 0}#dkp .dkr>span{display:block;font-size:13px;opacity:.75;margin-bottom:4px}',
+  '#dkp #dkForm,#dkp #dkConn{margin:10px 0;padding:14px;border-radius:16px;background:rgba(255,255,255,.06)}',
+  '#dkp .dkcols{display:flex;gap:10px;flex-wrap:wrap}#dkp .dkcol{width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer}#dkp .dkcol.on{border-color:#fff}',
+  '#dkp .dknote{margin:14px 0 0;font-size:12px;color:rgba(234,243,251,.55);line-height:1.4}'
+  ].join(''); document.head.appendChild(st);
+  var p=document.createElement('section'); p.className='bigc'; p.id='dkp'; p.hidden=true; p.setAttribute('aria-label','Deck del PC');
+  p.innerHTML='<button class="x" type="button" aria-label="Cerrar">✕</button><h2>Deck del PC</h2><p class="dks" id="dkSt"></p>'
+   +'<div class="dkrow"><button id="dkCo" class="dkbtn" type="button">Conexión</button><button id="dkEd" class="dkbtn" type="button">Editar</button><button id="dkSc" class="dkbtn" type="button">Traer escenas de OBS</button></div>'
+   +'<div id="dkConn" hidden><label class="dkr"><span>Dirección del computador (la que muestra Chispa Deck)</span><input id="dkHost" type="text" inputmode="decimal" placeholder="192.168.1.20" autocomplete="off"></label>'
+   +'<label class="dkr"><span>Puerto</span><input id="dkPort" type="number" value="8777"></label><label class="dkr"><span>Código</span><input id="dkTok" type="password" autocomplete="off" placeholder="8 letras y números que muestra Chispa Deck"></label>'
+   +'<div class="dkrow"><button id="dkSv" class="dkbtn go" type="button">Guardar y probar</button></div></div>'
+   +'<div id="dkTabs"></div><div id="dkGrid" class="dkg"></div><div id="dkForm" hidden></div>'
+   +'<p class="dknote">Necesita el programa Chispa Deck abierto en tu PC, en la misma red wifi, y la app Chispa Control actualizada en la tablet. Para silenciar Discord, en Discord › Ajustes › Atajos de teclado, pon «Alternar silencio» en Ctrl+Mayús+M. Apagar y reiniciar piden confirmar y avisan 30 segundos antes.</p>';
+  document.body.appendChild(p);
+  p.querySelector('.x').onclick=function(){hideBig('dkp')};
+  p.querySelector('#dkCo').onclick=function(){DK.showConn=!DK.showConn; dkRender()};
+  p.querySelector('#dkEd').onclick=function(){DK.edit=!DK.edit; DK.sel=null; dkRender()};
+  p.querySelector('#dkSc').onclick=dkScenes;
+  p.querySelector('#dkSv').onclick=function(){DK.host=p.querySelector('#dkHost').value.trim(); DK.port=+p.querySelector('#dkPort').value||8777; DK.token=p.querySelector('#dkTok').value.trim(); dkSave(); DKS.ok=null; dkPing()};
+  dkRender();
+}
+dkBuild();
+function dkFind(txt){
+  var t=norm(txt).replace(/[¿?¡!.,;:]/g,' ').replace(/\s+/g,' ').trim(); if(t.length<3) return null;
+  var all=[]; DK.pages.forEach(function(p){p.b.forEach(function(b){all.push(b)})});
+  var ex=all.filter(function(b){return norm(b.l).replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()===t});
+  if(ex.length) return ex[0];
+  var part=all.filter(function(b){var l=norm(b.l).replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); return l.length>=3&&(t.indexOf(l)>=0||l.indexOf(t)>=0)});
+  return part.length===1?part[0]:null;
+}
+function dkCmd(q,raw){
+  var n=q.replace(/[¿?¡!.,;:]/g,' ').replace(/\bchispa\b/g,' ').replace(/\s+/g,' ').trim(), m;
+  if(/\b(?:abre|muestra|ensename|pon|abrir)\b.*\b(?:deck|macro ?deck|stream ?deck|botones (?:del|de mi) (?:pc|computador|computadora))\b/.test(n)){dkOpen(); reply('Aquí está el deck.'); return true}
+  if(/\b(?:cierra|oculta|quita)\b.*\bdeck\b/.test(n)){hideBig('dkp'); reply('Listo.'); return true}
+  if((m=/^(?:activa|presiona|pulsa|ejecuta|dale a|toca|aprieta)\s+(?:el |la |los |las )?(?:boton )?(.+)$/.exec(n))||(m=/^(?:en el (?:pc|computador|computadora)) (.+)$/.exec(n))){
+    var b=dkFind(m[1]); if(!b) return false;
+    if(!DK.host||!DK.token){reply('Primero conecta el computador en el deck.'); dkOpen(); return true}
+    reply('Listo, '+b.l+'.'); dkRun(b,true); return true;
+  }
+  return false;
+}
 /* ---------- Mapa de aviones en 2D (sin librerías: mosaicos + capas propias) ---------- */
 var MM={layer:(function(){try{return JSON.parse(localStorage.getItem('chispa.cfg')||'{}').mapLayer==='sat'?'sat':'osm'}catch(e){return 'osm'}})(),on:false,big:false,lat:0,lon:0,z:11,p:{},sel:'',fol:false,t:0,tk:0,tiles:{},err:0,osm:false,W:0,H:0,ok:0,fail:0,n:0};
 var MM_COL=[[1000,'#ffd166'],[3000,'#7be0a0'],[6000,'#5fd4ff'],[9000,'#8fa2ff']];
@@ -5522,6 +5694,7 @@ function handle(raw){
   try{if(mmCmd(q,raw)||avCmd(q,raw)){misses=0; return}}catch(e){dlog('avion error '+e.message)}
   try{if(ntCmd(q,raw)){misses=0; return}}catch(e){dlog('notif error '+e.message)}
   try{if(xaCmd(q,raw)){misses=0; return}}catch(e){dlog('xa error '+e.message)}
+  try{if(dkCmd(q,raw)){misses=0; return}}catch(e){dlog('deck error '+e.message)}
   try{if(stCmd(q,raw)){misses=0; return}}catch(e){dlog('st error '+e.message)}
   try{if(editCmd(q,raw)){misses=0; return}}catch(e){dlog('edit error '+e.message)}
   try{if(ambReq(q,raw)||amb2(q,raw)){misses=0; return}}catch(e){dlog('amb error '+e.message)}
@@ -6419,7 +6592,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-21-asistente', pendingUpdate=false;
+var APP_VERSION='2026-10-22-deck', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){

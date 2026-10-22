@@ -57,6 +57,7 @@ public class Control {
                 case "/dnd": return dnd(on(q, "on"));
                 case "/open": return open(q.get("url"));
                 case "/fetch": return fetch(q.get("url"));
+                case "/deck": return deck(q);
                 case "/update/check": return Updater.check(ctx);
                 case "/update/install": return Updater.install(ctx);
                 default: return err("ruta desconocida");
@@ -97,9 +98,40 @@ public class Control {
         return new JSONObject().put("ok", true).put("status", code).put("body", body);
     }
 
+    /** Envía una orden al programa Chispa Deck del computador (solo direcciones de la red de casa). */
+    private JSONObject deck(Map<String, String> q) throws Exception {
+        String host = q.get("host"), port = q.get("port"), token = q.get("token"), path = q.get("path"), body = q.get("body");
+        if (host == null || !host.matches("(10\\.\\d{1,3}|192\\.168|172\\.(1[6-9]|2\\d|3[01]))\\.\\d{1,3}(\\.\\d{1,3})?")) return err("la direccion del computador debe ser de tu red (192.168.x.x)");
+        int p = 8777;
+        try { p = Integer.parseInt(port); } catch (Exception ignored) { }
+        if (path == null || !path.startsWith("/")) return err("falta la ruta");
+        HttpURLConnection c = (HttpURLConnection) new URL("http://" + host + ":" + p + path).openConnection();
+        c.setConnectTimeout(3000);
+        c.setReadTimeout(9000);
+        c.setRequestProperty("X-Token", token == null ? "" : token);
+        if (body != null && !body.isEmpty()) {
+            c.setRequestMethod("POST");
+            c.setDoOutput(true);
+            c.setRequestProperty("Content-Type", "application/json");
+            c.getOutputStream().write(body.getBytes("UTF-8"));
+        }
+        int code = c.getResponseCode();
+        InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+        String out = "";
+        if (in != null) {
+            try (InputStream is = in; ByteArrayOutputStream bo = new ByteArrayOutputStream()) {
+                byte[] b = new byte[4096];
+                int n, total = 0;
+                while ((n = is.read(b)) > 0 && total < 100000) { bo.write(b, 0, n); total += n; }
+                out = bo.toString("UTF-8");
+            }
+        }
+        return new JSONObject().put("ok", true).put("status", code).put("body", out);
+    }
+
     private JSONObject ping() throws Exception {
         JSONArray caps = new JSONArray();
-        for (String c : new String[]{"brightness", "auto", "volume", "awake", "dnd", "open", "update", "fetch"}) caps.put(c);
+        for (String c : new String[]{"brightness", "auto", "volume", "awake", "dnd", "open", "update", "fetch", "deck"}) caps.put(c);
         return new JSONObject().put("ok", true).put("v", BuildConfig.VERSION_NAME).put("code", BuildConfig.VERSION_CODE).put("caps", caps);
     }
 
