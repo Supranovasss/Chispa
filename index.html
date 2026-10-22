@@ -598,7 +598,7 @@ var camSusp=false;
 function camSuspend(){if(camMode==='follow'&&stream){clearInterval(camTimer); stream.getTracks().forEach(function(t){t.stop()}); stream=null; el.cam.srcObject=null; camMode=null; camSusp=true; syncCam()}}
 function camResume(){if(camSusp){camSusp=false; if(CFG.follow) setTimeout(function(){if(!asleep) startFollow(true)},400)}}
 var idleSleep=false, ACT_V=false, lockSent=false, idleTaps=[];
-var dimSent=false;
+var dimSent=false, holdBright=0;
 function brightDim(level){
   if(!(CTL.ok||(window.ChispaApp&&ChispaApp.callAsync))) return;
   dimSent=true; ctlCall('/brightness?level='+level+'&save=1',4000).catch(function(){});
@@ -3233,7 +3233,7 @@ function dashRender(){
 function dimMs(){return (CFG.dimMin||60)*60000}
 function idleLvl(){return CFG.idleBright||4}
 function idleLockTick(){
-  if(asleep&&idleSleep&&!dimSent&&Date.now()-lastAct>=dimMs()) brightDim(idleLvl()); /* el brillo baja a 4 % tras 1 h sin actividad */
+  if(asleep&&idleSleep&&!dimSent&&Date.now()>holdBright&&Date.now()-lastAct>=dimMs()) brightDim(idleLvl()); /* el brillo baja a 4 % tras 1 h sin actividad */
   if(!CFG.lockMin||!asleep||!idleSleep||lockSent||CFG.idleSleep===false) return; /* bloqueo automático desactivado (se activa solo si CFG.lockMin existe) */
   if(Date.now()-lastAct<CFG.lockMin*60000) return;
   lockSent=true;
@@ -3585,7 +3585,7 @@ function ctlCall(path,ms){
   return fetch(CTL.base+path,{cache:'no-store',signal:c.signal,targetAddressSpace:'loopback'}).then(function(r){clearTimeout(t); return r.json()}).then(function(j){CTL.ok=true; return j},function(e){clearTimeout(t); CTL.ok=false; throw e});
 }
 function ctlPing(){
-  return ctlCall('/ping').then(function(j){CTL.v=j.v||''; if(asleep&&!j.dimmed&&(!idleSleep||Date.now()-lastAct>dimMs())) brightDim(idleSleep?idleLvl():(CFG.sleepBright||1)); else if(!asleep&&j.dimmed&&!(typeof sbOn!=='undefined'&&sbOn)) brightRestore(); if(Date.now()-CTL.chk>3600000){CTL.chk=Date.now(); ctlCall('/update/check',9000).then(function(u){CTL.newer=!!u.newer}).catch(function(){})} return true}).catch(function(){return false});
+  return ctlCall('/ping').then(function(j){CTL.v=j.v||''; if(asleep&&!j.dimmed&&Date.now()>holdBright&&(!idleSleep||Date.now()-lastAct>dimMs())) brightDim(idleSleep?idleLvl():(CFG.sleepBright||1)); else if(!asleep&&j.dimmed&&!(typeof sbOn!=='undefined'&&sbOn)) brightRestore(); if(Date.now()-CTL.chk>3600000){CTL.chk=Date.now(); ctlCall('/update/check',9000).then(function(u){CTL.newer=!!u.newer}).catch(function(){})} return true}).catch(function(){return false});
 }
 function ctlSoft(path){if(CTL.ok) ctlCall(path).catch(function(){})}
 function ctlErr(e){return /ajustes|Modificar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 1, Modificar ajustes del sistema.':/No molestar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 2, No molestar.':/desconocidas|Instalar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 5, Instalar actualizaciones.':'No pude hacerlo: '+(e||'error')+'.'}
@@ -3985,6 +3985,7 @@ function mediaSwap(q,raw,phase){
 var AVN={on:false,lat:null,lon:null,r:3,voice:true,mute:0,qOn:false,qFrom:'22:00',qTo:'07:00',log:[]};
 try{var _av=JSON.parse(localStorage.getItem('chispa.avn')||'null'); if(_av&&typeof _av==='object') for(var _k in _av) AVN[_k]=_av[_k]}catch(e){}
 if(!Array.isArray(AVN.log)) AVN.log=[];
+if(AVN.heliMig!==1){AVN.heliH=0; AVN.heliMig=1}   /* ahora avisan todos los helicópteros; solo no se repite el mismo cada 12 h */
 var AVL={why:'',map:{},last:null,t:0,fails:0,ok:0,cache:{},busy:false,shown:null,fol:'',folMiss:0,src:0,hideT:0,beat:0};
 var AV_GONE=45000;
 var AV_URL=[
@@ -4048,7 +4049,7 @@ function avQuiet(){
 function avVoiceOn(){return !!AVN.voice&&!(AVN.mute>Date.now())&&!avQuiet()}
 /* Campanita suave de aviso: suena aunque Chispa no hable (salvo dormida u horas de silencio) */
 function avChime(){
-  if(asleep||ringing||avQuiet()) return;
+  if((asleep&&!idleSleep)||ringing||avQuiet()) return;
   var c=audio(); if(!c) return; var t=c.currentTime+.02;
   [[880,.14,1.6],[1318.5,.07,1.2],[1760,.04,.8]].forEach(function(p,i){
     var o=c.createOscillator(), g=c.createGain(); o.type='sine'; o.frequency.value=p[0];
@@ -4062,7 +4063,7 @@ function avAutoHide(e,ms){
   AVL.hideAt=Date.now()+ms;
   AVL.hideT=setTimeout(function(){if(AVL.shown&&AVL.shown.e===e&&AVL.fol!==e.hex){AVL.shown=null; avCardRender()}},ms);
 }
-function avCanSpeak(){return avVoiceOn()&&!asleep&&!talking&&!ringing&&!storyOn&&!mediaOn()}
+function avCanSpeak(){return avVoiceOn()&&(!asleep||idleSleep)&&!talking&&!ringing&&!storyOn&&!mediaOn()}
 function avFmt(s){var m=avMin(s); if(m==null) return s; var h=Math.floor(m/60), mi=m%60; return (h%12||12)+':'+String(mi).padStart(2,'0')+' '+(h<12?'a. m.':'p. m.')}
 function avVoiceTxt(){
   if(!AVN.voice) return 'Voz apagada';
@@ -4134,7 +4135,7 @@ function avRepeat(a){
   var now=Date.now(), seen=AVN.seen||(AVN.seen={}), ks=[a.hex]; if(a.call) ks.push('c:'+a.call);
   Object.keys(seen).forEach(function(k){if(now-seen[k]>864e5) delete seen[k]});
   var rep=ks.some(function(k){return seen[k]&&now-seen[k]<(AVN.repeatH||12)*36e5});
-  if(!rep&&a.heli){if(now-(AVN.lastHeli||0)<(AVN.heliH||3)*36e5) rep=true; else AVN.lastHeli=now}
+  if(!rep&&a.heli&&AVN.heliH>0){if(now-(AVN.lastHeli||0)<AVN.heliH*36e5) rep=true; else AVN.lastHeli=now}
   ks.forEach(function(k){if(!seen[k]||!rep) seen[k]=now}); avSave();
   return rep;
 }
@@ -4143,7 +4144,7 @@ function avEnter(e){
   var a=e.a, L={t:e.first,hex:e.hex,call:a.call,reg:a.reg,type:a.type,alt:a.alt,min:+a.d.toFixed(2),dur:0};
   e.log=L; AVN.log.unshift(L); if(AVN.log.length>100) AVN.log.length=100; avSave();
   AVL.last=e;
-  if(!asleep&&!(AVL.fol&&AVL.shown&&AVL.shown.e.hex===AVL.fol)){clearTimeout(AVL.hideT); AVL.shown={e:e,gone:false}; avCardRender(); avAutoHide(e,AV_CARD_MS); try{if(MM.on&&MM.big) mmSize(false)}catch(e0){}}
+  if((!asleep||idleSleep)&&!(AVL.fol&&AVL.shown&&AVL.shown.e.hex===AVL.fol)){ if(asleep&&dimSent){holdBright=Date.now()+16000; brightRestore()}clearTimeout(AVL.hideT); AVL.shown={e:e,gone:false}; avCardRender(); avAutoHide(e,AV_CARD_MS); try{if(MM.on&&MM.big) mmSize(false)}catch(e0){}}
   avChime(); var snd=avCanSpeak();
   Promise.race([avInfo(e),new Promise(function(r){setTimeout(r,2500)})]).then(function(){
     var o=e.info||{}, f=o.route; if(f){L.from=avPlace(f.origin); L.to=avPlace(f.destination); L.air=avAirline(e); L.no=avFlightNo(e)} var t=avTypeName(e); if(t) L.model=t; avSave();
@@ -4183,7 +4184,7 @@ function avFollowPoll(){
 function avHide(){var c=document.getElementById('avc'); if(c) c.hidden=true}
 function avCardRender(){
   var c=document.getElementById('avc'); if(!c) return;
-  var sh=AVL.shown; if(!sh||asleep||!document.getElementById('avp').hidden){c.hidden=true; return}
+  var sh=AVL.shown; if(!sh||(asleep&&!idleSleep)||!document.getElementById('avp').hidden){c.hidden=true; return}
   var e=sh.e, a=e.a, o=e.info||{}, f=o.route, $c=function(i){return c.querySelector(i)};
   var st=sh.test?['Prueba','t']:sh.lost?['Perdí la señal','g']:sh.gone?['Ya pasó','g']:AVL.fol===e.hex?['Siguiéndolo','f']:['Encima ahora','n'];
   var bd=$c('#avBd'); bd.textContent=st[0]; bd.className='avbd '+st[1];
@@ -6621,7 +6622,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-22-brillo60b', pendingUpdate=false;
+var APP_VERSION='2026-10-22-aviones3', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
