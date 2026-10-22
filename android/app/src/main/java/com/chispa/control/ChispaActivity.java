@@ -37,6 +37,7 @@ public class ChispaActivity extends Activity {
     private Control control;
     private long lastBack = 0;
     private FrameLayout overlay;
+    private long lastTouchJs = 0;
     private WebView ow;
     private PermissionRequest pendingPerm;
     private String pendingGeoOrigin;
@@ -223,6 +224,11 @@ public class ChispaActivity extends Activity {
                     if (r.isForMainFrame()) v.loadData("<html><body style='background:#0D1722;color:#FFC78F;font-family:sans-serif;text-align:center;padding-top:25vh'><h2>No pude abrir la dirección</h2><p>Revisa que el PC esté encendido, con el programa abierto y en el mismo wifi.</p></body></html>", "text/html", "utf-8");
                 }
             });
+            ow.setOnTouchListener((v, e) -> { // tocar Macro Deck también cuenta como usar Chispa
+                long n = System.currentTimeMillis();
+                if (n - lastTouchJs > 3000) { lastTouchJs = n; js("window.__act&&window.__act()"); }
+                return false;
+            });
             overlay.addView(ow, new FrameLayout.LayoutParams(-1, -1));
             android.widget.Button x = new android.widget.Button(this);
             x.setText("✕ Cerrar");
@@ -234,11 +240,17 @@ public class ChispaActivity extends Activity {
         }
         ow.loadUrl(url);
         overlay.setVisibility(View.VISIBLE);
+        js("window.__mdOpen=true;window.__act&&window.__act()");
+    }
+
+    private void js(String code) {
+        try { web.evaluateJavascript(code, null); } catch (Exception ignored) { }
     }
 
     private void hideOverlay() {
         if (overlay == null) return;
         overlay.setVisibility(View.GONE);
+        js("window.__mdOpen=false;window.__act&&window.__act()");
         try { ow.loadUrl("about:blank"); } catch (Exception ignored) { }
     }
 

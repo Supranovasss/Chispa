@@ -611,6 +611,7 @@ function brightRestore(n){
 function appHz(v){try{if(window.ChispaApp&&ChispaApp.hz) ChispaApp.hz(v)}catch(e){}}
 function goSleep(idle){appHz(false); asleep=true; idleSleep=!!idle===true; if(!idleSleep) lockSent=false; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} try{brightDim(CFG.sleepBright||1)}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
 function wakeUp(){appHz(true); asleep=false; idleSleep=false; lockSent=false; try{camResume()}catch(e){} try{brightRestore()}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
+window.__act=function(){try{actV()}catch(e){}};
 function actV(){ACT_V=true; try{act()}finally{ACT_V=false}}
 function act(){
   if(dimSent&&!asleep&&!(typeof sbOn!=='undefined'&&sbOn)) brightRestore();
@@ -3241,6 +3242,7 @@ function dashTick(){
   document.body.classList.toggle('dashon',on); D.hidden=!on; if(on) dashRender();
   idleLockTick(); nightTick(); habRoll(); var hbx=$('#habs'); if(hbx) hbx.hidden=!!CFG.habOff||!HB.list.length||winBlocking();
   if(sbOn){sbRender()}
+  else if(window.__mdOpen){lastAct=Date.now()}
   else if(CFG.idleSleep!==false&&Date.now()-lastAct>(CFG.idleMin||10)*60000&&!asleep&&!talking&&!ringing&&!mediaOn()&&!winBlocking()&&Date.now()>armedUntil&&!game&&!recipe&&camMode!=='rps'&&camMode!=='gestures') goSleep(true);
   else if(CFG.idleSleep===false&&CFG.sbOff!==true&&Date.now()-lastAct>(CFG.sbMin||10)*60000&&!asleep&&!talking&&!mediaOn()&&!winBlocking()&&Date.now()>armedUntil&&!(listening&&!wakeOn)&&camMode!=='rps'&&camMode!=='gestures') sbEnter();
 }
@@ -6616,7 +6618,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-22-brillo', pendingUpdate=false;
+var APP_VERSION='2026-10-22-brillo2', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
