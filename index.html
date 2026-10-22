@@ -609,8 +609,8 @@ function brightRestore(n){
   ctlCall('/brightness/restore',4000).then(function(r){if(r&&r.ok) dimSent=false},function(){if(n<4) setTimeout(function(){if(!asleep) brightRestore(n+1)},2000)});
 }
 function appHz(v){try{if(window.ChispaApp&&ChispaApp.hz) ChispaApp.hz(v)}catch(e){}}
-function goSleep(idle){appHz(false); asleep=true; idleSleep=!!idle===true; if(!idleSleep) lockSent=false; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} if(!idleSleep){try{brightDim(CFG.sleepBright||1)}catch(e){}} document.body.classList.add('asleep'); setMood('sleepy')}
-function wakeUp(){appHz(true); asleep=false; idleSleep=false; lockSent=false; try{camResume()}catch(e){} try{brightRestore()}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
+function goSleep(idle){appHz(false); asleep=true; idleSleep=!!idle===true; if(!idleSleep) lockSent=false; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} if(!idleSleep){try{brightDim(CFG.sleepBright||1)}catch(e){}} document.body.classList.add(idleSleep?'napping':'asleep'); setMood('sleepy')}
+function wakeUp(){appHz(true); asleep=false; idleSleep=false; lockSent=false; try{camResume()}catch(e){} try{brightRestore()}catch(e){} document.body.classList.remove('asleep'); document.body.classList.remove('napping'); setMood('surprised',700)}
 window.__act=function(){try{actV()}catch(e){}};
 function actV(){ACT_V=true; try{act()}finally{ACT_V=false}}
 function act(){
@@ -6621,7 +6621,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-22-brillo60', pendingUpdate=false;
+var APP_VERSION='2026-10-22-brillo60b', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
