@@ -3230,11 +3230,12 @@ function dashRender(){
   var A=$('#dAmb'); A.textContent=''; if(AMB.kind){var c=mk('div','amb','🎧 '+cap(AMBN[AMB.kind])+(AMB.end?' · quedan '+mmss(AMB.end-Date.now()):'')), b=mk('button',null,'⏹'); b.dataset.ambstop='1'; c.appendChild(b); A.appendChild(c)}
 }
 /* A las 2 h dormida por inactividad: se suelta la pantalla para que Android la apague y la bloquee */
-function dimMs(){return (CFG.dimMin||30)*60000}
+function dimMs(){return (CFG.dimMin||60)*60000}
+function idleLvl(){return CFG.idleBright||4}
 function idleLockTick(){
-  if(asleep&&idleSleep&&!dimSent&&Date.now()-lastAct>=dimMs()) brightDim(CFG.sleepBright||1); /* el brillo baja a los 30 min */
-  if(!asleep||!idleSleep||lockSent||CFG.idleSleep===false) return;
-  if(Date.now()-lastAct<(CFG.lockMin||120)*60000) return;
+  if(asleep&&idleSleep&&!dimSent&&Date.now()-lastAct>=dimMs()) brightDim(idleLvl()); /* el brillo baja a 4 % tras 1 h sin actividad */
+  if(!CFG.lockMin||!asleep||!idleSleep||lockSent||CFG.idleSleep===false) return; /* bloqueo automático desactivado (se activa solo si CFG.lockMin existe) */
+  if(Date.now()-lastAct<CFG.lockMin*60000) return;
   lockSent=true;
   try{if(window.ChispaApp&&ChispaApp.screenOff) ChispaApp.screenOff()}catch(e){}
 }
@@ -3584,7 +3585,7 @@ function ctlCall(path,ms){
   return fetch(CTL.base+path,{cache:'no-store',signal:c.signal,targetAddressSpace:'loopback'}).then(function(r){clearTimeout(t); return r.json()}).then(function(j){CTL.ok=true; return j},function(e){clearTimeout(t); CTL.ok=false; throw e});
 }
 function ctlPing(){
-  return ctlCall('/ping').then(function(j){CTL.v=j.v||''; if(asleep&&!j.dimmed&&(!idleSleep||Date.now()-lastAct>dimMs())) brightDim(CFG.sleepBright||1); else if(!asleep&&j.dimmed&&!(typeof sbOn!=='undefined'&&sbOn)) brightRestore(); if(Date.now()-CTL.chk>3600000){CTL.chk=Date.now(); ctlCall('/update/check',9000).then(function(u){CTL.newer=!!u.newer}).catch(function(){})} return true}).catch(function(){return false});
+  return ctlCall('/ping').then(function(j){CTL.v=j.v||''; if(asleep&&!j.dimmed&&(!idleSleep||Date.now()-lastAct>dimMs())) brightDim(idleSleep?idleLvl():(CFG.sleepBright||1)); else if(!asleep&&j.dimmed&&!(typeof sbOn!=='undefined'&&sbOn)) brightRestore(); if(Date.now()-CTL.chk>3600000){CTL.chk=Date.now(); ctlCall('/update/check',9000).then(function(u){CTL.newer=!!u.newer}).catch(function(){})} return true}).catch(function(){return false});
 }
 function ctlSoft(path){if(CTL.ok) ctlCall(path).catch(function(){})}
 function ctlErr(e){return /ajustes|Modificar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 1, Modificar ajustes del sistema.':/No molestar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 2, No molestar.':/desconocidas|Instalar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 5, Instalar actualizaciones.':'No pude hacerlo: '+(e||'error')+'.'}
@@ -6620,7 +6621,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-22-brillo30', pendingUpdate=false;
+var APP_VERSION='2026-10-22-brillo60', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
