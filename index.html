@@ -4894,7 +4894,7 @@ function xaUi(){
 }
 setTimeout(xaUi,1500);
 /* ---------- Deck del PC: botones táctiles o de voz que ejecutan atajos en tu computador ---------- */
-var DK={host:'',port:8777,token:'',pages:[],cur:0,edit:false,sel:null,pname:''};
+var DK={host:'',port:8777,token:'',pages:[],cur:0,edit:false,sel:null,pname:'',mdUrl:''};
 var DK_KINDS=[
  {k:'open',n:'Abrir programa o enlace',ph:'Ej: C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe, o https://youtube.com',f:'Qué abrir',mk:function(v){return {t:'open',target:v}}},
  {k:'keys',n:'Atajo de teclado',ph:'Ej: ctrl+shift+m   (teclas separadas con +)',f:'Atajo',mk:function(v){return {t:'keys',keys:v}}},
@@ -4920,9 +4920,10 @@ function dkStarter(){
     b('Bloquear PC','🔒','#c0c8d0','lock'), b('Apagar PC','⏻','#ff6b6b','shutdown')
   ]}];
 }
-try{var _dk=JSON.parse(localStorage.getItem('chispa.deck')||'null'); if(_dk){DK.host=_dk.host||''; DK.port=_dk.port||8777; DK.token=_dk.token||''; DK.pages=_dk.pages||[]}}catch(e){}
+try{var _dk=JSON.parse(localStorage.getItem('chispa.deck')||'null'); if(_dk){DK.host=_dk.host||''; DK.port=_dk.port||8777; DK.token=_dk.token||''; DK.pages=_dk.pages||[]; DK.mdUrl=_dk.mdUrl||''}
+if(!DK.mdUrl) DK.mdUrl='http://192.168.1.1:8193';}catch(e){}
 if(!DK.pages.length) DK.pages=dkStarter();
-function dkSave(){try{localStorage.setItem('chispa.deck',JSON.stringify({host:DK.host,port:DK.port,token:DK.token,pages:DK.pages}))}catch(e){}}
+function dkSave(){try{localStorage.setItem('chispa.deck',JSON.stringify({host:DK.host,port:DK.port,token:DK.token,pages:DK.pages,mdUrl:DK.mdUrl}))}catch(e){}}
 var DKS={ok:null,msg:'',name:''};
 function dkErr(m){var e=new Error(m); e.dk=true; return e}
 function dkSend(path,action){
@@ -5034,6 +5035,7 @@ function dkBuild(){
    +'<div id="dkConn" hidden><label class="dkr"><span>Dirección del computador (la que muestra Chispa Deck)</span><input id="dkHost" type="text" inputmode="decimal" placeholder="192.168.1.20" autocomplete="off"></label>'
    +'<label class="dkr"><span>Puerto</span><input id="dkPort" type="number" value="8777"></label><label class="dkr"><span>Código</span><input id="dkTok" type="password" autocomplete="off" placeholder="8 letras y números que muestra Chispa Deck"></label>'
    +'<div class="dkrow"><button id="dkSv" class="dkbtn go" type="button">Guardar y probar</button></div></div>'
+   +'<div class="dkrow"><button id="dkMd" class="dkbtn go" type="button">Abrir Macro Deck</button><input id="dkMdU" type="text" inputmode="url" placeholder="Dirección de Macro Deck, ej: http://192.168.1.20:8193" autocomplete="off" style="flex:1;min-width:220px"></div>'
    +'<div id="dkTabs"></div><div id="dkGrid" class="dkg"></div><div id="dkForm" hidden></div>'
    +'<p class="dknote">Necesita el programa Chispa Deck abierto en tu PC, en la misma red wifi, y la app Chispa Control actualizada en la tablet. Para silenciar Discord, en Discord › Ajustes › Atajos de teclado, pon «Alternar silencio» en Ctrl+Mayús+M. Apagar y reiniciar piden confirmar y avisan 30 segundos antes.</p>';
   document.body.appendChild(p);
@@ -5041,10 +5043,19 @@ function dkBuild(){
   p.querySelector('#dkCo').onclick=function(){DK.showConn=!DK.showConn; dkRender()};
   p.querySelector('#dkEd').onclick=function(){DK.edit=!DK.edit; DK.sel=null; dkRender()};
   p.querySelector('#dkSc').onclick=dkScenes;
+  p.querySelector('#dkMdU').value=DK.mdUrl;
+  p.querySelector('#dkMdU').onchange=function(){DK.mdUrl=this.value.trim(); dkSave()};
+  p.querySelector('#dkMd').onclick=function(){DK.mdUrl=p.querySelector('#dkMdU').value.trim(); dkSave(); dkMacroDeck()};
   p.querySelector('#dkSv').onclick=function(){DK.host=p.querySelector('#dkHost').value.trim(); DK.port=+p.querySelector('#dkPort').value||8777; DK.token=p.querySelector('#dkTok').value.trim(); dkSave(); DKS.ok=null; dkPing()};
   dkRender();
 }
 dkBuild();
+function dkMacroDeck(){
+  var u=(DK.mdUrl||'').trim();
+  if(!/^https?:\/\//i.test(u)){DKS.msg='Escribe la dirección de Macro Deck (la que abres en el navegador, como http://192.168.1.20:8193).'; DKS.ok=false; dkRender(true); return false}
+  try{if(window.ChispaApp&&ChispaApp.openWeb){ChispaApp.openWeb(u); return true}}catch(e){}
+  window.open(u,'_blank','noopener'); return true;
+}
 function dkFind(txt){
   var t=norm(txt).replace(/[¿?¡!.,;:]/g,' ').replace(/\s+/g,' ').trim(); if(t.length<3) return null;
   var all=[]; DK.pages.forEach(function(p){p.b.forEach(function(b){all.push(b)})});
@@ -5055,6 +5066,8 @@ function dkFind(txt){
 }
 function dkCmd(q,raw){
   var n=q.replace(/[¿?¡!.,;:]/g,' ').replace(/\bchispa\b/g,' ').replace(/\s+/g,' ').trim(), m;
+  if(/\b(?:abre|abrir|muestra|pon)\b.*\bmacro ?deck\b/.test(n)){if(dkMacroDeck()){reply('Abriendo Macro Deck.')} else {dkOpen(); reply('Primero escribe la dirección de Macro Deck.')} return true}
+  if(/\b(?:cierra|oculta|quita)\b.*\bmacro ?deck\b/.test(n)){try{if(window.ChispaApp&&ChispaApp.closeWeb) ChispaApp.closeWeb()}catch(e){} reply('Listo.'); return true}
   if(/\b(?:abre|muestra|ensename|pon|abrir)\b.*\b(?:deck|macro ?deck|stream ?deck|botones (?:del|de mi) (?:pc|computador|computadora))\b/.test(n)){dkOpen(); reply('Aquí está el deck.'); return true}
   if(/\b(?:cierra|oculta|quita)\b.*\bdeck\b/.test(n)){hideBig('dkp'); reply('Listo.'); return true}
   if((m=/^(?:activa|presiona|pulsa|ejecuta|dale a|toca|aprieta)\s+(?:el |la |los |las )?(?:boton )?(.+)$/.exec(n))||(m=/^(?:en el (?:pc|computador|computadora)) (.+)$/.exec(n))){
@@ -6592,7 +6605,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-22-deck', pendingUpdate=false;
+var APP_VERSION='2026-10-22-macrodeck', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){

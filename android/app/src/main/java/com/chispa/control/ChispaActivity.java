@@ -36,6 +36,8 @@ public class ChispaActivity extends Activity {
     private VoiceBridge voice;
     private Control control;
     private long lastBack = 0;
+    private FrameLayout overlay;
+    private WebView ow;
     private PermissionRequest pendingPerm;
     private String pendingGeoOrigin;
     private GeolocationPermissions.Callback pendingGeo;
@@ -203,7 +205,45 @@ public class ChispaActivity extends Activity {
 
     @Override protected void onNewIntent(Intent i) { super.onNewIntent(i); }
 
+    /** Muestra una página de tu red de casa (por ejemplo Macro Deck) encima de Chispa. */
+    private void showOverlay(final String url) {
+        if (url == null || !url.matches("^https?://(10\\.\\d{1,3}|192\\.168|172\\.(1[6-9]|2\\d|3[01]))\\.\\d{1,3}(\\.\\d{1,3})?(:\\d{1,5})?(/\\S*)?$")) {
+            Toast.makeText(this, "Solo puedo abrir direcciones de tu red de casa (192.168.x.x)", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (overlay == null) {
+            overlay = new FrameLayout(this);
+            overlay.setBackgroundColor(Color.BLACK);
+            ow = new WebView(this);
+            WebSettings w = ow.getSettings();
+            w.setJavaScriptEnabled(true);
+            w.setDomStorageEnabled(true);
+            ow.setWebViewClient(new WebViewClient() {
+                @Override public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
+                    if (r.isForMainFrame()) v.loadData("<html><body style='background:#0D1722;color:#FFC78F;font-family:sans-serif;text-align:center;padding-top:25vh'><h2>No pude abrir la dirección</h2><p>Revisa que el PC esté encendido, con el programa abierto y en el mismo wifi.</p></body></html>", "text/html", "utf-8");
+                }
+            });
+            overlay.addView(ow, new FrameLayout.LayoutParams(-1, -1));
+            android.widget.Button x = new android.widget.Button(this);
+            x.setText("✕ Cerrar");
+            x.setOnClickListener(v -> hideOverlay());
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, android.view.Gravity.TOP | android.view.Gravity.END);
+            lp.setMargins(0, 24, 24, 0);
+            overlay.addView(x, lp);
+            root.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
+        }
+        ow.loadUrl(url);
+        overlay.setVisibility(View.VISIBLE);
+    }
+
+    private void hideOverlay() {
+        if (overlay == null) return;
+        overlay.setVisibility(View.GONE);
+        try { ow.loadUrl("about:blank"); } catch (Exception ignored) { }
+    }
+
     @Override public void onBackPressed() {
+        if (overlay != null && overlay.getVisibility() == View.VISIBLE) { hideOverlay(); return; }
         if (custom != null) { hideCustom(); return; }
         long n = System.currentTimeMillis();
         if (n - lastBack < 2000) { finish(); return; }
@@ -255,6 +295,10 @@ public class ChispaActivity extends Activity {
         }
 
         @JavascriptInterface public void hz(final boolean high) { runOnUiThread(() -> setHz(high)); }
+
+        @JavascriptInterface public void openWeb(final String url) { runOnUiThread(() -> showOverlay(url)); }
+
+        @JavascriptInterface public void closeWeb() { runOnUiThread(ChispaActivity.this::hideOverlay); }
 
         @JavascriptInterface public void exit() { runOnUiThread(ChispaActivity.this::finish); }
     }
