@@ -132,7 +132,7 @@ public class Control {
     private JSONObject ping() throws Exception {
         JSONArray caps = new JSONArray();
         for (String c : new String[]{"brightness", "auto", "volume", "awake", "dnd", "open", "update", "fetch", "deck"}) caps.put(c);
-        return new JSONObject().put("ok", true).put("v", BuildConfig.VERSION_NAME).put("code", BuildConfig.VERSION_CODE).put("caps", caps);
+        return new JSONObject().put("ok", true).put("v", BuildConfig.VERSION_NAME).put("code", BuildConfig.VERSION_CODE).put("caps", caps).put("dimmed", sp.getInt("saved_b", -1) >= 0);
     }
 
     public boolean canWrite() { return Settings.System.canWrite(ctx); }

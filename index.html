@@ -598,11 +598,22 @@ var camSusp=false;
 function camSuspend(){if(camMode==='follow'&&stream){clearInterval(camTimer); stream.getTracks().forEach(function(t){t.stop()}); stream=null; el.cam.srcObject=null; camMode=null; camSusp=true; syncCam()}}
 function camResume(){if(camSusp){camSusp=false; if(CFG.follow) setTimeout(function(){if(!asleep) startFollow(true)},400)}}
 var idleSleep=false, ACT_V=false, lockSent=false, idleTaps=[];
+var dimSent=false;
+function brightDim(level){
+  if(!(CTL.ok||(window.ChispaApp&&ChispaApp.callAsync))) return;
+  dimSent=true; ctlCall('/brightness?level='+level+'&save=1',4000).catch(function(){});
+}
+/* Devuelve el brillo de antes. Reintenta, porque si falla una vez la pantalla se quedaba atenuada. */
+function brightRestore(n){
+  n=n||0; if(!(CTL.ok||(window.ChispaApp&&ChispaApp.callAsync)||dimSent)) return;
+  ctlCall('/brightness/restore',4000).then(function(r){if(r&&r.ok) dimSent=false},function(){if(n<4) setTimeout(function(){if(!asleep) brightRestore(n+1)},2000)});
+}
 function appHz(v){try{if(window.ChispaApp&&ChispaApp.hz) ChispaApp.hz(v)}catch(e){}}
-function goSleep(idle){appHz(false); asleep=true; idleSleep=!!idle===true; if(!idleSleep) lockSent=false; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} try{ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1')}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
-function wakeUp(){appHz(true); asleep=false; idleSleep=false; lockSent=false; try{camResume()}catch(e){} try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
+function goSleep(idle){appHz(false); asleep=true; idleSleep=!!idle===true; if(!idleSleep) lockSent=false; try{avHide()}catch(e0){} asleepAt=Date.now(); try{camSuspend()}catch(e){} try{brightDim(CFG.sleepBright||1)}catch(e){} document.body.classList.add('asleep'); setMood('sleepy')}
+function wakeUp(){appHz(true); asleep=false; idleSleep=false; lockSent=false; try{camResume()}catch(e){} try{brightRestore()}catch(e){} document.body.classList.remove('asleep'); setMood('surprised',700)}
 function actV(){ACT_V=true; try{act()}finally{ACT_V=false}}
 function act(){
+  if(dimSent&&!asleep&&!(typeof sbOn!=='undefined'&&sbOn)) brightRestore();
   lastAct=Date.now(); if(typeof GENT!=='undefined'&&GENT.t&&Date.now()-GENT.start>3000) gentleStop(); if(asleep) wakeUp(); if(typeof sbOn!=='undefined'&&sbOn&&Date.now()-sbStart>800) sbExit()}
 addEventListener('pointerdown',act,{passive:true});
 addEventListener('keydown',act);
@@ -3176,13 +3187,13 @@ function sbBuild(){
 }
 function sbShowScene(i){var b=document.querySelectorAll('#sbBg .bg'); for(var k=0;k<b.length;k++) b[k].classList.toggle('on',k===i)}
 function sbEnter(){
-  if(sbOn) return; sbOn=true; sbStart=Date.now(); if(CFG.sbDim!==false) try{ctlSoft('/brightness?level='+(CFG.sbBright||20)+'&save=1')}catch(e){} if(!$('#sbBg').children.length) sbBuild();
+  if(sbOn) return; sbOn=true; sbStart=Date.now(); if(CFG.sbDim!==false) try{brightDim(CFG.sbBright||20)}catch(e){} if(!$('#sbBg').children.length) sbBuild();
   var h=new Date().getHours(); sbScene=(h>=18||h<6)?2:(h>=16?1:Math.floor(Math.random()*SBSC.length)); sbShowScene(sbScene);
   document.body.classList.add('sbon'); clearInterval(sbT); sbT=setInterval(function(){sbScene=(sbScene+1)%SBSC.length; sbShowScene(sbScene); var fg=$('#sbFg'); fg.style.transform='translate('+((Math.random()*2-1)*14).toFixed(0)+'px,'+((Math.random()*2-1)*14).toFixed(0)+'px)'},45000);
   sbRender();
 }
 function sbExit(){
-  if(!sbOn) return; sbOn=false; try{ctlSoft('/brightness/restore')}catch(e){} document.body.classList.remove('sbon'); clearInterval(sbT); lastAct=Date.now();
+  if(!sbOn) return; sbOn=false; try{brightRestore()}catch(e){} document.body.classList.remove('sbon'); clearInterval(sbT); lastAct=Date.now();
 }
 function sbRender(){
   var d=new Date(), h=d.getHours(), m=String(d.getMinutes()).padStart(2,'0');
@@ -3569,14 +3580,14 @@ function ctlCall(path,ms){
   return fetch(CTL.base+path,{cache:'no-store',signal:c.signal,targetAddressSpace:'loopback'}).then(function(r){clearTimeout(t); return r.json()}).then(function(j){CTL.ok=true; return j},function(e){clearTimeout(t); CTL.ok=false; throw e});
 }
 function ctlPing(){
-  return ctlCall('/ping').then(function(j){CTL.v=j.v||''; if(asleep&&!(j.dimmed)) ctlSoft('/brightness?level='+(CFG.sleepBright||1)+'&save=1'); if(Date.now()-CTL.chk>3600000){CTL.chk=Date.now(); ctlCall('/update/check',9000).then(function(u){CTL.newer=!!u.newer}).catch(function(){})} return true}).catch(function(){return false});
+  return ctlCall('/ping').then(function(j){CTL.v=j.v||''; if(asleep&&!j.dimmed) brightDim(CFG.sleepBright||1); else if(!asleep&&j.dimmed&&!(typeof sbOn!=='undefined'&&sbOn)) brightRestore(); if(Date.now()-CTL.chk>3600000){CTL.chk=Date.now(); ctlCall('/update/check',9000).then(function(u){CTL.newer=!!u.newer}).catch(function(){})} return true}).catch(function(){return false});
 }
 function ctlSoft(path){if(CTL.ok) ctlCall(path).catch(function(){})}
 function ctlErr(e){return /ajustes|Modificar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 1, Modificar ajustes del sistema.':/No molestar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 2, No molestar.':/desconocidas|Instalar/.test(e||'')?'Falta un permiso. Abre Chispa Control y toca el paso 5, Instalar actualizaciones.':'No pude hacerlo: '+(e||'error')+'.'}
 function ctlDo(path,say){
   return ctlCall(path,path.indexOf('/update')===0?12000:2500).then(function(r){reply(r.ok?(typeof say==='function'?say(r):say):ctlErr(r.err))}).catch(function(){reply(CTL_HELP)});
 }
-setTimeout(ctlPing,3000); setInterval(ctlPing,60000);
+setTimeout(ctlPing,3000); setInterval(ctlPing,30000);
 function ctlCmd(q,raw){
   var N=(q.match(/(\d{1,3})\s*(?:%|por ciento)?/)||[])[1], n=N!==undefined?Math.max(0,Math.min(100,+N)):null;
   if(/\b(app|aplicacion)\s+de\s+control\b|\bchispa control\b/.test(q)){
@@ -6605,7 +6616,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-22-macrodeck2', pendingUpdate=false;
+var APP_VERSION='2026-10-22-brillo', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
