@@ -417,6 +417,7 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
     <h3 class="lbl">Voz natural en la nube (Azure)</h3>
     <label class="check"><input id="azOn" type="checkbox">Usar la voz de Azure</label>
     <label>Voz<select id="azVoice"></select></label>
+    <label>Efecto robot<select id="azRobot"><option value="0">Ninguno</option><option value="1">Ligero</option><option value="2">Medio</option><option value="3">Fuerte</option></select></label>
     <label>Región de tu recurso<input id="azRegion" type="text" placeholder="por ejemplo: eastus" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
     <label>Llave (se guarda solo en esta tablet)<input id="azKey" type="password" placeholder="pega aquí tu llave" autocomplete="off"></label>
     <div class="row">
@@ -633,7 +634,7 @@ addEventListener('keydown',act);
 /* La pantalla solo se atenúa cuando se le ordena dormir; no hay modo dormir automático. */
 
 /* ---------- Voz de salida ---------- */
-var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMain:'',azJarvis:'',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false,ntTopic:'',dash:false,dashMig:0,ntfOff:false};
+var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMain:'',azJarvis:'',robot:0,azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false,ntTopic:'',dash:false,dashMig:0,ntfOff:false};
 try{var sv=JSON.parse(localStorage.getItem('chispa.cfg')||'{}'); for(var kk in sv) if(kk in CFG) CFG[kk]=sv[kk]; if(!CFG.dashMig){CFG.dash=false; CFG.dashMig=1; localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}}catch(e){}
 function saveCfg(){try{localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}catch(e){}}
 var speakId=0, lastSaid='', lastSaidEnd=0, storyId=0, storyOn=false;
@@ -673,6 +674,20 @@ function ssmlSpeech(t){
     last=m.index+m[0].length;
   }
   return out+xmlEsc(t.slice(last));
+}
+var rbCtx=null;
+function robotFx(a){
+  var lv=CFG.robot|0; if(!lv) return;
+  try{
+    rbCtx=rbCtx||new (window.AudioContext||window.webkitAudioContext)(); if(rbCtx.state==='suspended') rbCtx.resume();
+    var src=rbCtx.createMediaElementSource(a), out=rbCtx.destination, wet=[.2,.4,.65][lv-1];
+    var dry=rbCtx.createGain(); dry.gain.value=1-wet*.5; src.connect(dry); dry.connect(out);
+    var rm=rbCtx.createGain(); rm.gain.value=0; var osc=rbCtx.createOscillator(); osc.type='sine'; osc.frequency.value=[45,60,80][lv-1]; osc.connect(rm.gain); osc.start();
+    var wg=rbCtx.createGain(); wg.gain.value=wet; src.connect(rm); rm.connect(wg); wg.connect(out);
+    var dl=rbCtx.createDelay(.05); dl.delayTime.value=.011; var fb=rbCtx.createGain(); fb.gain.value=[.2,.3,.45][lv-1]; var cg=rbCtx.createGain(); cg.gain.value=wet*.8;
+    src.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(cg); cg.connect(out);
+    a.addEventListener('ended',function(){try{osc.stop()}catch(e){}});
+  }catch(e){}
 }
 function prosOpen(){var p=Math.round(((CFG.pitch||1)-1)*100), r=Math.round(((CFG.rate||1)-1)*100); return (p||r)?"<prosody pitch='"+(p>=0?'+':'')+p+"%' rate='"+(r>=0?'+':'')+r+"%'>":''}
 function prosClose(){var p=Math.round(((CFG.pitch||1)-1)*100), r=Math.round(((CFG.rate||1)-1)*100); return (p||r)?'</prosody>':''}
@@ -744,7 +759,7 @@ function speak(text){
         if(id!==speakId) return;
         azureFetch(text).then(function(blob){
           if(id!==speakId) return;
-          var url=URL.createObjectURL(blob), a=new Audio(url); curAudio=a;
+          var url=URL.createObjectURL(blob), a=new Audio(url); curAudio=a; robotFx(a);
           a.onended=function(){URL.revokeObjectURL(url); done()};
           a.onerror=function(){URL.revokeObjectURL(url); system()};
           var pl=a.play(); if(pl&&pl.catch) pl.catch(function(){system()});
@@ -5319,6 +5334,10 @@ function yn(x){return x?'sí':'no'}
 function voicesEs(){try{var a=speechSynthesis.getVoices()||[], es=a.filter(function(v){return /^es/i.test(v.lang)}); return (es.length?es:a).slice().sort(function(x,y){return voiceScore(y)-voiceScore(x)})}catch(e){return []}}
 function settingsCmd(q,raw){
   var m;
+  if(/\b(robot|robotic[oa]|metalic[oa])\b/.test(q)&&/\b(voz|habla|hablame|suena|suenes|efecto|mas|menos|sin|quita)\b/.test(q)){
+    if(!azReady()){reply('El efecto robot funciona con la voz de Azure. Actívala en Ajustes.'); return true}
+    var rl=CFG.robot|0, nr=/\b(sin|quita|quitar|apaga|desactiva|normal|ya no)\b/.test(q)?0:/\b(menos|mas suave|suave)\b/.test(q)?Math.max(1,rl-1):/\b(mas|fuerte)\b/.test(q)?Math.min(3,rl+1):(rl||1);
+    CFG.robot=nr; saveCfg(); var sr=$('#azRobot'); if(sr) sr.value=String(nr); reply(nr?'Efecto robot en nivel '+nr+'.':'Quité el efecto robot.'); return true}
   if(/\bjarvis\b/.test(q)&&/\b(voz|habla|hablame|modo|pon|activa|cambia)\w*\b/.test(q)){
     if(!azReady()){reply('Para cambiar la voz necesito activar Azure en Ajustes.'); return true}
     var cv=CFG.azVoice||''; if(!/^en-GB-/.test(cv)) CFG.azMain=cv||'es-VE-PaolaNeural';
@@ -6548,9 +6567,10 @@ function showAzUse(){
 function fillAz(){
   var sel=$('#azVoice'); sel.textContent='';
   AZV.forEach(function(v){var o=document.createElement('option'); o.value=v[0]; o.textContent=v[1]; sel.appendChild(o)});
-  sel.value=CFG.azVoice; $('#azOn').checked=!!CFG.azOn; $('#azRegion').value=CFG.azRegion; $('#azKey').value=CFG.azKey; showAzUse();
+  $('#azRobot').value=String(CFG.robot|0); sel.value=CFG.azVoice; $('#azOn').checked=!!CFG.azOn; $('#azRegion').value=CFG.azRegion; $('#azKey').value=CFG.azKey; showAzUse();
 }
 $('#azOn').addEventListener('change',function(){CFG.azOn=$('#azOn').checked; saveCfg()});
+$('#azRobot').addEventListener('change',function(){CFG.robot=+$('#azRobot').value||0; saveCfg(); if(azReady()) reply('Así suena mi voz ahora.')});
 $('#azVoice').addEventListener('change',function(){CFG.azVoice=$('#azVoice').value; if(/^en-GB-/.test(CFG.azVoice)) CFG.azJarvis=CFG.azVoice; else CFG.azMain=CFG.azVoice; saveCfg(); if(azReady()) reply('Hola, soy yo con mi nueva voz.')});
 $('#azSave').addEventListener('click',function(){
   CFG.azVoice=$('#azVoice').value; CFG.azRegion=$('#azRegion').value.trim(); CFG.azKey=$('#azKey').value.trim();
@@ -6692,7 +6712,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-25-jarvis4', pendingUpdate=false;
+var APP_VERSION='2026-10-25-robot', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
