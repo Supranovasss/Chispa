@@ -4563,11 +4563,15 @@ function ntChime(){
 function notify(title,body,o){
   o=o||{};
   if(o.key){var k=o.key, last=NT.seenKey[k]||0; if(Date.now()-last<(o.every||3600000)) return null; NT.seenKey[k]=Date.now()}
-  var n={id:Date.now()+Math.random(),t:Date.now(),icon:o.icon||'🔔',title:String(title||''),body:String(body||''),read:false};
+  var n={id:Date.now()+Math.random(),t:Date.now(),icon:o.icon||'🔔',title:String(title||''),body:String(body||''),read:false,act:o.act||null};
   NT.list.unshift(n); if(NT.list.length>30) NT.list.length=30; ntSave();
   if(o.log||asleep||CFG.ntfOff){ntBadge(); return n}
   NT.cur=n; ntShow(); if(!mediaOn()&&!talking&&!ringing){try{ntChime()}catch(e){}}
   return n;
+}
+function ntAct(n){
+  if(!n||!n.act) return; var a=n.act; ntClose();
+  if(a.k==='twitch'){ try{actV()}catch(e){} strmPlay('twitch',a.c) }
 }
 function ntArm(){clearTimeout(NT.t); NT.t=setTimeout(ntClose,NT_MS)}
 function ntShow(){
@@ -4595,9 +4599,10 @@ function ntOpen(tab){
 function ntAgo(t){var m=Math.round((Date.now()-t)/60000); return m<1?'ahora':m<60?'hace '+m+' min':m<1440?'hace '+Math.round(m/60)+' h':new Date(t).toLocaleDateString('es-CO',{day:'numeric',month:'short'})}
 function ntRender(){
   var f=document.getElementById('ntf'); if(!f) return; f.classList.toggle('open',NT.open); ntBell(); var bub=f.querySelector('.nbub'), pan=f.querySelector('.npan');
-  bub.hidden=NT.open; pan.hidden=!NT.open;
+  bub.hidden=NT.open; pan.hidden=!NT.open; var ab0=f.querySelector('.nact'); if(ab0&&NT.open) ab0.hidden=true;
   if(!NT.open){
     var n=NT.cur||NT.list[0]; if(!n){f.hidden=true; return}
+    var ab=f.querySelector('.nact'); if(ab){ab.hidden=!n.act}
     bub.querySelector('.nbi').textContent=n.icon; bub.querySelector('b').textContent=n.title; bub.querySelector('small').textContent=n.body;
     var u=ntUnread(); var c=bub.querySelector('.nbc'); c.textContent=u>1?'+'+(u-1):''; c.hidden=u<=1;
     return;
@@ -4607,7 +4612,7 @@ function ntRender(){
   if(NT.tab==='avisos'){
     if(!NT.list.length) L.appendChild(mk('p','nem','Nada nuevo por ahora.'));
     NT.list.slice(0,12).forEach(function(n){
-      var it=mk('div','nit'); it.appendChild(mk('span','nii',n.icon)); var tx=mk('div','nix'); var h=mk('b',null,n.title); tx.appendChild(h); if(n.body) tx.appendChild(mk('p',null,n.body)); tx.appendChild(mk('small',null,ntAgo(n.t))); it.appendChild(tx); L.appendChild(it)});
+      var it=mk('div','nit'); it.appendChild(mk('span','nii',n.icon)); var tx=mk('div','nix'); var h=mk('b',null,n.title); tx.appendChild(h); if(n.body) tx.appendChild(mk('p',null,n.body)); tx.appendChild(mk('small',null,ntAgo(n.t))); if(n.act){var pb=mk('button','nact2','▶ Ver ahora'); pb.type='button'; pb.onclick=function(ev){ev.stopPropagation(); ntAct(n)}; tx.appendChild(pb)} it.appendChild(tx); L.appendChild(it)});
   } else {
     var now=new Date(), eod=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1).getTime(), list=REMS.slice().sort(function(a,b){return a.at-b.at}).filter(function(r){return r.at>=Date.now()-60000});
     var today=list.filter(function(r){return r.at<eod}), later=list.filter(function(r){return r.at>=eod}).slice(0,5);
@@ -4621,6 +4626,7 @@ function ntRender(){
 (function(){
   var st=document.createElement('style'); st.textContent=[
   '#ntf{position:fixed;z-index:14;right:14px;top:14px;width:min(34vw,360px);max-height:calc(100dvh - var(--dockh,130px) - 28px);display:flex;flex-direction:column;align-items:stretch;color:#eaf3fb}#ntf[hidden]{display:none}',
+  '.nact,.nact2{margin-top:8px;align-self:flex-start;min-height:44px;padding:0 18px;border:0;border-radius:22px;background:#9146ff;color:#fff;font:700 15px var(--font-body);cursor:pointer;box-shadow:0 4px 14px rgba(145,70,255,.45)}.nact[hidden]{display:none}.nact2{margin-top:6px;display:block}',
   '#ntf.out{animation:ntout .3s ease-in forwards;pointer-events:none}@keyframes ntout{to{opacity:0;transform:translateX(30px) scale(.96)}}',
   '#ntf.in{animation:ntin .35s cubic-bezier(.2,.9,.3,1.1)}@keyframes ntin{from{opacity:0;transform:translateX(30px) scale(.96)}to{opacity:1;transform:none}}',
   '.nbub{position:relative;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;text-align:left;border-radius:24px;border:1px solid rgba(255,255,255,.18);background:rgba(19,35,58,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 32px rgba(0,0,0,.4);color:inherit;font-family:var(--font-body);cursor:pointer}.nbub[hidden]{display:none}',
@@ -4640,12 +4646,13 @@ function ntRender(){
   '@media (orientation:portrait){#ntf:not(.open){left:10px;right:76px;top:10px;width:auto}#ntf.open{left:10px;right:10px;top:10px;width:auto}#ntb{top:10px;right:10px}}'
   ].join(''); document.head.appendChild(st);
   var f=document.createElement('aside'); f.id='ntf'; f.hidden=true; f.setAttribute('aria-live','polite'); f.setAttribute('aria-label','Notificaciones');
-  f.innerHTML='<button class="nbub" type="button" aria-label="Abrir la notificación"><span class="nbi"></span><span class="nbt"><b></b><small></small></span><span class="nbc" hidden></span></button>'
+  f.innerHTML='<button class="nbub" type="button" aria-label="Abrir la notificación"><span class="nbi"></span><span class="nbt"><b></b><small></small></span><span class="nbc" hidden></span></button><button class="nact" type="button" hidden>▶ Ver ahora</button>'
    +'<section class="npan" hidden><div class="nhd"><button class="ntab" type="button" data-tab="avisos">Avisos</button><button class="ntab" type="button" data-tab="pend">Pendientes</button><button class="nx" type="button" aria-label="Cerrar">✕</button></div><div class="nlist"></div><div class="nft"><button class="nclr" type="button">Borrar avisos</button></div></section>';
   document.body.appendChild(f);
   var bl=document.createElement('button'); bl.id='ntb'; bl.type='button'; bl.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 19.5a2 2 0 0 0 4 0"/></svg><span class="ntn" hidden></span>'; document.body.appendChild(bl);
   bl.onclick=function(){ntOpen('avisos')}; setInterval(ntBell,1000); setTimeout(ntBell,0);
   f.querySelector('.nbub').onclick=function(){ntOpen('avisos')};
+  f.querySelector('.nact').onclick=function(){var n=NT.cur||NT.list[0]; if(n) ntAct(n)};
   f.querySelector('.nx').onclick=ntClose;
   f.querySelector('.nclr').onclick=function(){NT.list=[]; NT.cur=null; ntSave(); ntRender()};
   [].forEach.call(f.querySelectorAll('.ntab'),function(b){b.onclick=function(){NT.tab=b.dataset.tab; ntRender(); ntArm()}});
@@ -4794,7 +4801,7 @@ function xaTtvAnnounce(c,label,info){
   var was=XL.ttv[c]; XL.ttv[c]=true;
   if((was===false||was===undefined)&&Date.now()-(XA.ttvAt[c]||0)>6*3600000){
     XA.ttvAt[c]=Date.now(); xaSave();
-    notify(label+' está en vivo',info,{icon:'🟣'});
+    notify(label+' está en vivo',info,{icon:'🟣',act:{k:'twitch',c:c}});
   }
 }
 function xaTtvFollowed(){
@@ -6771,7 +6778,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-25-spotifyx', pendingUpdate=false;
+var APP_VERSION='2026-10-25-vivo', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
