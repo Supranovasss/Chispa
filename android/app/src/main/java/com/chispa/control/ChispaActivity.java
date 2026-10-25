@@ -75,7 +75,9 @@ public class ChispaActivity extends Activity {
                 Uri u = r.getUrl();
                 if (u.toString().startsWith(Control.CHISPA_URL)) return false;
                 String h = u.getHost() == null ? "" : u.getHost();
-                if (h.equals("twitch.tv") || h.endsWith(".twitch.tv")) return false; // inicio de sesión de Twitch dentro de la app
+                for (String ok : new String[]{"twitch.tv", "spotify.com", "scdn.co", "facebook.com", "google.com", "apple.com"}) {
+                    if (h.equals(ok) || h.endsWith("." + ok)) return false; // inicios de sesión (Twitch, Spotify...) dentro de la app
+                }
                 try { startActivity(new Intent(Intent.ACTION_VIEW, u)); } catch (Exception ignored) { }
                 return true;
             }
