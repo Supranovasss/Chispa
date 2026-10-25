@@ -132,6 +132,8 @@ public class ChispaActivity extends Activity {
         for (String res : r.getResources()) {
             if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(res)) {
                 if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) ok.add(res); else need.add(Manifest.permission.CAMERA);
+            } else if (PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID.equals(res)) {
+                ok.add(res); // música protegida (Spotify)
             } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(res)) {
                 if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) ok.add(res); else need.add(Manifest.permission.RECORD_AUDIO);
             }

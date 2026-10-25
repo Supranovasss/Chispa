@@ -5887,7 +5887,7 @@ function tell(kind,raw){
 
 /* ---------- Spotify ---------- */
 var SP_SCOPES='streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state';
-var spPlayer=null, spDeviceId='', spPlaying=false, spTrack='', spDucked=false, spSaved=.8, spSdkP=null, spSdkFail=false, askMusicNext=false;
+var spPlayer=null, spDeviceId='', spPlaying=false, spTrack='', spDucked=false, spSaved=.8, spSdkP=null, spSdkFail=false, askMusicNext=false, spLastErr='';
 function spOn(){return !!(CFG.spId&&CFG.spTok&&CFG.spTok.r)}
 function spRedirect(){return location.origin+location.pathname}
 function spRand(n){var a=new Uint8Array(n); crypto.getRandomValues(a); return Array.prototype.map.call(a,function(b){return ('0'+b.toString(16)).slice(-2)}).join('').slice(0,n)}
@@ -5932,7 +5932,7 @@ function spApi(path,o){
 function spErr(e){
   setMood(baseline());
   var st=e&&e.status;
-  if(e&&e.nodev||st===404) return reply('No encuentro dónde ponerla. Abre la app de Spotify en la tablet y vuelve a pedírmelo.');
+  if(e&&e.nodev||st===404) return reply('No encuentro dónde ponerla'+(spLastErr?' ('+spLastErr+')':'')+'. Abre la app de Spotify en la tablet y vuelve a pedírmelo.');
   if(st===401) return reply('Spotify me cerró la sesión. Conéctalo otra vez en Voz y permisos.');
   if(st===403) return reply('Spotify no me deja reproducir. Hace falta una cuenta Premium.');
   if(st===429) return reply('Spotify me pide esperar un momento.');
@@ -5955,16 +5955,18 @@ function spInit(){
   if(!spOn()||spPlayer||spSdkP) return;
   spSdkP=new Promise(function(res,rej){
     window.onSpotifyWebPlaybackSDKReady=res;
+    /* El reproductor de Spotify rechaza los navegadores móviles; en la app de la tablet se presenta como Chrome de escritorio */
+    if(window.ChispaApp){try{Object.defineProperty(navigator,'userAgent',{get:function(){return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'},configurable:true})}catch(e){}}
     var sc=document.createElement('script'); sc.src='https://sdk.scdn.co/spotify-player.js'; sc.onerror=function(){rej(new Error('sdk'))};
     document.head.appendChild(sc);
   }).then(function(){
     var pl=new Spotify.Player({name:'Chispa',volume:.8,getOAuthToken:function(cb){spGetToken().then(cb).catch(function(){})}});
     pl.addListener('ready',function(d){spDeviceId=d.device_id; spPlayer=pl; note('Spotify listo en esta tablet.')});
     pl.addListener('not_ready',function(){spDeviceId=''});
-    pl.addListener('initialization_error',function(){spDeviceId=''; spSdkFail=true; note('Este navegador no toca Spotify directo. Usaré la app de Spotify de la tablet.')});
-    pl.addListener('authentication_error',function(){note('Spotify rechazó la sesión. Vuelve a conectarlo.')});
-    pl.addListener('account_error',function(){spSdkFail=true; note('Spotify dice que esta cuenta no es Premium.')});
-    pl.addListener('playback_error',function(){note('Spotify no pudo reproducir eso.')});
+    pl.addListener('initialization_error',function(m){spDeviceId=''; spSdkFail=true; spLastErr='el reproductor no arrancó ('+((m&&m.message)||'sin detalle')+')'; note('Este navegador no toca Spotify directo. Usaré la app de Spotify de la tablet.')});
+    pl.addListener('authentication_error',function(m){spLastErr='Spotify rechazó la sesión'; note('Spotify rechazó la sesión. Vuelve a conectarlo.')});
+    pl.addListener('account_error',function(){spSdkFail=true; spLastErr='la cuenta no es Premium'; note('Spotify dice que esta cuenta no es Premium.')});
+    pl.addListener('playback_error',function(m){spLastErr='no pudo reproducir ('+((m&&m.message)||'sin detalle')+')'; note('Spotify no pudo reproducir eso.')});
     pl.addListener('player_state_changed',function(st){
       if(!st){spPlaying=false; return}
       spPlaying=!st.paused; var c=st.track_window&&st.track_window.current_track;
@@ -5972,7 +5974,7 @@ function spInit(){
     });
     pl.connect();
     addEventListener('pointerdown',function(){try{pl.activateElement()}catch(e){}},{once:true,passive:true});
-  }).catch(function(){spSdkFail=true});
+  }).catch(function(){spSdkFail=true; spLastErr='no se pudo cargar el reproductor de Spotify'});
 }
 function spDuck(on){
   if(!spPlayer) return;
@@ -6622,7 +6624,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-22-aviones3', pendingUpdate=false;
+var APP_VERSION='2026-10-25-spotify', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
