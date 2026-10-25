@@ -5954,7 +5954,7 @@ function spErr(e){
   if(st===401) return reply('Spotify me cerró la sesión. Conéctalo otra vez en Voz y permisos.');
   if(st===403) return reply('Spotify no me deja reproducir. Hace falta una cuenta Premium.');
   if(st===429) return reply('Spotify me pide esperar un momento.');
-  return reply('No pude hablar con Spotify.');
+  return reply('No pude hablar con Spotify'+(e&&e.message?' ('+String(e.message).slice(0,60)+')':'')+'.');
 }
 function spCallback(){
   var q=new URLSearchParams(location.search), code=q.get('code'), st=q.get('state'), er=q.get('error');
@@ -6200,6 +6200,14 @@ setInterval(function(){ if(spOn()&&!document.hidden) spMiniPoll() },8000);
 })();
 function spCtl(a){
   var p; if(a==='pause'&&resumeMedia) resumeMedia.t=true;
+  if(spPlayer&&spDeviceId&&(a==='pause'||a==='play'||a==='next'||a==='prev')){
+    var sp0=a==='pause'?spPlayer.pause():a==='play'?spPlayer.resume():a==='next'?spPlayer.nextTrack():spPlayer.previousTrack();
+    return Promise.resolve(sp0).then(function(){setMood('happy',800)}).catch(function(){return spCtl2(a)});
+  }
+  return spCtl2(a);
+}
+function spCtl2(a){
+  var p;
   if(a==='pause') p=spApi('/me/player/pause',{method:'PUT'});
   else if(a==='play') p=spApi('/me/player/play',{method:'PUT'});
   else if(a==='next') p=spApi('/me/player/next',{method:'POST'});
@@ -6680,7 +6688,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-25-jarvis', pendingUpdate=false;
+var APP_VERSION='2026-10-25-spotify2', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
