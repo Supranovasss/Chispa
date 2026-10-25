@@ -304,6 +304,17 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
 #face *{outline:none!important}
 #face{-webkit-tap-highlight-color:rgba(0,0,0,0)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+.spmini{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;max-width:min(560px,94vw);padding:10px 12px;border-radius:18px;background:rgba(20,22,30,.88);backdrop-filter:blur(10px);color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.spmini[hidden]{display:none}
+.spmini img{width:52px;height:52px;border-radius:10px;object-fit:cover;background:#333}
+.spmini .spi{display:flex;flex-direction:column;min-width:120px;flex:1;overflow:hidden}
+.spmini .spi b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spmini .spi span{font-size:12px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spmini .spbar{display:block;height:3px;border-radius:2px;background:rgba(255,255,255,.2);margin-top:6px}
+.spmini .spbar u{display:block;height:100%;width:0;background:#1ed760;border-radius:2px;text-decoration:none}
+.spmini button{width:48px;height:48px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center;font-size:16px;cursor:pointer}
+.spmini button svg{width:24px;height:24px}
+.spmini button:active{background:rgba(255,255,255,.25)}
 </style>
 
 <div class="app" id="app">
@@ -362,6 +373,7 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
     <p class="heard" id="heard"></p>
   </main>
 
+  <div class="spmini" id="spMini" hidden><img id="spArt" alt=""><div class="spi"><b id="spTit"></b><span id="spArtist"></span><i class="spbar"><u id="spProg"></u></i></div><button type="button" data-a="prev" aria-label="Anterior"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button><button type="button" data-a="tog" id="spTog" aria-label="Pausar / reanudar"><svg viewBox="0 0 24 24" fill="currentColor"><path id="spTogP" d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></button><button type="button" data-a="next" aria-label="Siguiente"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button><button type="button" data-a="x" aria-label="Ocultar">✕</button></div>
   <div class="vid" id="vid" hidden><div id="vidBox"></div><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="vid imgv" id="imgv" hidden><img id="imgEl" alt=""><p id="imgCap"></p><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
 
@@ -5971,6 +5983,7 @@ function spInit(){
       if(!st){spPlaying=false; return}
       spPlaying=!st.paused; var c=st.track_window&&st.track_window.current_track;
       spTrack=c?c.name+', de '+c.artists.map(function(a){return a.name}).join(' y '):'';
+      if(c) spMiniSet({id:c.uri,name:c.name,artist:c.artists.map(function(a){return a.name}).join(', '),img:(c.album&&c.album.images&&c.album.images[0]||{}).url||'',paused:st.paused,pos:st.position,dur:st.duration});
     });
     pl.connect();
     addEventListener('pointerdown',function(){try{pl.activateElement()}catch(e){}},{once:true,passive:true});
@@ -6142,6 +6155,43 @@ function spPlayQuery(q,pl){
     setMood(baseline()); reply('Spotify no está disponible, la busco en YouTube.'); return playVideo(q+' audio oficial');
   });
 }
+/* ---------- Mini reproductor de Spotify ---------- */
+var spM=null, spMHide='';
+function spMiniSet(m){
+  if(!m||!m.name) return;
+  if(spM&&spM.id!==m.id) spMHide='';
+  m.t=Date.now(); spM=m; spMiniDraw();
+}
+function spMiniDraw(){
+  var el=$('#spMini'); if(!el) return;
+  var on=spOn()&&spM&&spMHide!==spM.id;
+  el.hidden=!on; if(!on) return;
+  $('#spTit').textContent=spM.name; $('#spArtist').textContent=spM.artist;
+  var im=$('#spArt'); if(spM.img&&im.getAttribute('src')!==spM.img) im.src=spM.img; im.style.visibility=spM.img?'visible':'hidden';
+  $('#spTogP').setAttribute('d',spM.paused?'M7 5v14l12-7z':'M6 5h4v14H6zM14 5h4v14h-4z');
+  var pos=spM.pos+(spM.paused?0:Date.now()-spM.t); $('#spProg').style.width=(spM.dur?Math.min(100,pos/spM.dur*100):0)+'%';
+}
+function spMiniPoll(){
+  if(!spOn()) return;
+  spApi('/me/player').then(function(j){
+    if(!j||!j.item){ if(spM){spM.paused=true; spMiniDraw()} return }
+    spPlaying=!!j.is_playing;
+    spMiniSet({id:j.item.uri,name:j.item.name,artist:(j.item.artists||[]).map(function(a){return a.name}).join(', '),img:((j.item.album&&j.item.album.images)||[{}])[0].url||'',paused:!j.is_playing,pos:j.progress_ms||0,dur:j.item.duration_ms||0});
+  }).catch(function(){});
+}
+setInterval(spMiniDraw,1000);
+setInterval(function(){ if(spOn()&&!document.hidden) spMiniPoll() },8000);
+(function(){
+  var el=document.getElementById('spMini'); if(!el) return;
+  el.addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return; var a=b.getAttribute('data-a');
+    if(typeof actV==='function') try{actV()}catch(x){}
+    if(a==='x'){ if(spM) spMHide=spM.id; spMiniDraw(); return }
+    if(a==='tog'){ if(spM){if(!spM.paused) spM.pos+=Date.now()-spM.t; spM.paused=!spM.paused; spM.t=Date.now(); spMiniDraw()} spCtl(spM&&spM.paused?'pause':'play'); }
+    else spCtl(a);
+    setTimeout(spMiniPoll,900);
+  });
+})();
 function spCtl(a){
   var p; if(a==='pause'&&resumeMedia) resumeMedia.t=true;
   if(a==='pause') p=spApi('/me/player/pause',{method:'PUT'});
@@ -6624,7 +6674,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-25-spotify', pendingUpdate=false;
+var APP_VERSION='2026-10-25-reproductor', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
