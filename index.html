@@ -674,12 +674,14 @@ function ssmlSpeech(t){
   }
   return out+xmlEsc(t.slice(last));
 }
+function prosOpen(){var p=Math.round(((CFG.pitch||1)-1)*100), r=Math.round(((CFG.rate||1)-1)*100); return (p||r)?"<prosody pitch='"+(p>=0?'+':'')+p+"%' rate='"+(r>=0?'+':'')+r+"%'>":''}
+function prosClose(){var p=Math.round(((CFG.pitch||1)-1)*100), r=Math.round(((CFG.rate||1)-1)*100); return (p||r)?'</prosody>':''}
 function azureFetch(text){
-  var voice=CFG.azVoice||'es-VE-PaolaNeural', ck=voice+'|'+text;
+  var voice=CFG.azVoice||'es-VE-PaolaNeural', ck=voice+'|'+(CFG.pitch||1)+'|'+(CFG.rate||1)+'|'+text;
   if(azCache[ck]) return Promise.resolve(azCache[ck]);
   if(azPend[ck]) return azPend[ck];
   var loc=voice.split('-').slice(0,2).join('-');
-  var ssml="<speak version='1.0' xml:lang='"+loc+"'><voice xml:lang='"+loc+"' name='"+voice+"'>"+ssmlSpeech(text)+"</voice></speak>";
+  var ssml="<speak version='1.0' xml:lang='"+loc+"'><voice xml:lang='"+loc+"' name='"+voice+"'>"+prosOpen()+ssmlSpeech(text)+prosClose()+"</voice></speak>";
   var pr=fetch('https://'+CFG.azRegion.trim().toLowerCase()+'.tts.speech.microsoft.com/cognitiveservices/v1',{
     method:'POST',
     headers:{'Ocp-Apim-Subscription-Key':CFG.azKey.trim(),'Content-Type':'application/ssml+xml','X-Microsoft-OutputFormat':'audio-24khz-48kbitrate-mono-mp3'},
@@ -6538,7 +6540,7 @@ $('#cfg').addEventListener('click',openSheet);
 $('#sheetX').addEventListener('click',closeSheet);
 addEventListener('keydown',function(e){if(e.key==='Escape'&&!sheet.hidden) closeSheet()});
 
-var AZV=[['es-VE-PaolaNeural','Paola (Venezuela)'],['es-CO-SalomeNeural','Salomé (Colombia)'],['es-MX-DaliaNeural','Dalia (México)'],['es-MX-MarinaNeural','Marina (México)'],['es-US-PalomaNeural','Paloma (Estados Unidos)'],['es-AR-ElenaNeural','Elena (Argentina)'],['es-PE-CamilaNeural','Camila (Perú)'],['es-CL-CatalinaNeural','Catalina (Chile)'],['es-EC-AndreaNeural','Andrea (Ecuador)'],['es-UY-ValentinaNeural','Valentina (Uruguay)'],['es-BO-SofiaNeural','Sofía (Bolivia)'],['es-CR-MariaNeural','María (Costa Rica)'],['es-CO-GonzaloNeural','Gonzalo (Colombia, hombre)'],['es-ES-AlvaroNeural','Álvaro (España, hombre)'],['es-MX-JorgeNeural','Jorge (México, hombre)'],['en-GB-RyanNeural','Jarvis 1 · Ryan británico (inglés)'],['en-GB-ThomasNeural','Jarvis 2 · Thomas británico (inglés)'],['en-GB-AlfieNeural','Jarvis 3 · Alfie británico (inglés)'],['en-GB-RyanMultilingualNeural','Ryan multilingüe (solo algunas regiones)'],['en-GB-OllieMultilingualNeural','Ollie multilingüe (solo algunas regiones)']];
+var AZV=[['es-VE-PaolaNeural','Paola (Venezuela)'],['es-CO-SalomeNeural','Salomé (Colombia)'],['es-MX-DaliaNeural','Dalia (México)'],['es-MX-MarinaNeural','Marina (México)'],['es-US-PalomaNeural','Paloma (Estados Unidos)'],['es-AR-ElenaNeural','Elena (Argentina)'],['es-PE-CamilaNeural','Camila (Perú)'],['es-CL-CatalinaNeural','Catalina (Chile)'],['es-EC-AndreaNeural','Andrea (Ecuador)'],['es-UY-ValentinaNeural','Valentina (Uruguay)'],['es-BO-SofiaNeural','Sofía (Bolivia)'],['es-CR-MariaNeural','María (Costa Rica)'],['es-CO-GonzaloNeural','Gonzalo (Colombia, hombre)'],['es-ES-AlvaroNeural','Álvaro (España, hombre)'],['es-MX-JorgeNeural','Jorge (México, hombre)'],['es-US-AlonsoNeural','Alonso (Estados Unidos, hombre)'],['es-AR-TomasNeural','Tomás (Argentina, hombre)'],['es-CL-LorenzoNeural','Lorenzo (Chile, hombre)'],['es-PE-AlexNeural','Alex (Perú, hombre)'],['en-GB-RyanNeural','Jarvis 1 · Ryan británico (inglés)'],['en-GB-ThomasNeural','Jarvis 2 · Thomas británico (inglés)'],['en-GB-AlfieNeural','Jarvis 3 · Alfie británico (inglés)'],['en-GB-RyanMultilingualNeural','Ryan multilingüe (solo algunas regiones)'],['en-GB-OllieMultilingualNeural','Ollie multilingüe (solo algunas regiones)']];
 function showAzUse(){
   $('#azUse').textContent=CFG.azKey?'Este mes llevas unos '+azUsed().toLocaleString('es-CO')+' de 500.000 caracteres gratuitos (cuenta de esta tablet). Al llegar a 480.000 vuelvo a la voz del dispositivo.':'';
   $('#azHelp').textContent=CFG.azKey?'':'Crea un recurso de voz (Speech) en Azure con el nivel Gratis (F0), copia la llave y la región y pégalas aquí.';
@@ -6690,7 +6692,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-25-jarvis3', pendingUpdate=false;
+var APP_VERSION='2026-10-25-jarvis4', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
