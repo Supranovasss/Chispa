@@ -6209,6 +6209,7 @@ function musicQuery(raw){
 }
 var askN=0;
 function spPlayQuery(q,pl){
+  spMHide='';
   if(resumeMedia) resumeMedia.t=true; if(q&&RAD.audio) radStop(false); if(q&&AMB.kind) ambStop(false);
   if(q) askN=0;
   if(!q){if(++askN>2){askN=0; askMusicNext=false; return reply('Cuando quieras, dime pon y el nombre de la canción.')} askMusicNext=Date.now()+20000; return reply('¿Qué quieres escuchar?').then(function(){if(askMusicNext) listenNext()})}
@@ -6271,7 +6272,7 @@ setInterval(function(){ if(spOn()&&!document.hidden) spMiniPoll() },8000);
   el.addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return; var a=b.getAttribute('data-a');
     if(typeof actV==='function') try{actV()}catch(x){}
-    if(a==='x'){ if(spM) spMHide=spM.id; spMiniDraw(); return }
+    if(a==='x'){ if(spM) spMHide=spM.id; try{spPlaying=false; if(spM) spM.paused=true; if(spPlayer&&spDeviceId) spPlayer.pause(); spApi('/me/player/pause',{method:'PUT'}).catch(function(){})}catch(x){} spMiniDraw(); return }
     if(a==='tog'){ if(spM){if(!spM.paused) spM.pos+=Date.now()-spM.t; spM.paused=!spM.paused; spM.t=Date.now(); spMiniDraw()} spCtl(spM&&spM.paused?'pause':'play'); }
     else spCtl(a);
     setTimeout(spMiniPoll,900);
@@ -6770,7 +6771,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-25-jarvisface2', pendingUpdate=false;
+var APP_VERSION='2026-10-25-spotifyx', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
