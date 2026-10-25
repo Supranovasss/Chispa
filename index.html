@@ -675,9 +675,10 @@ function ssmlSpeech(t){
   return out+xmlEsc(t.slice(last));
 }
 function azureFetch(text){
-  if(azCache[text]) return Promise.resolve(azCache[text]);
-  if(azPend[text]) return azPend[text];
-  var voice=CFG.azVoice||'es-VE-PaolaNeural', loc=voice.split('-').slice(0,2).join('-');
+  var voice=CFG.azVoice||'es-VE-PaolaNeural', ck=voice+'|'+text;
+  if(azCache[ck]) return Promise.resolve(azCache[ck]);
+  if(azPend[ck]) return azPend[ck];
+  var loc=voice.split('-').slice(0,2).join('-');
   var ssml="<speak version='1.0' xml:lang='"+loc+"'><voice xml:lang='"+loc+"' name='"+voice+"'>"+ssmlSpeech(text)+"</voice></speak>";
   var pr=fetch('https://'+CFG.azRegion.trim().toLowerCase()+'.tts.speech.microsoft.com/cognitiveservices/v1',{
     method:'POST',
@@ -689,10 +690,10 @@ function azureFetch(text){
   }).then(function(blob){
     var m=azMonthKey(); if(CFG.azMonth!==m){CFG.azMonth=m; CFG.azChars=0}
     CFG.azChars+=text.length; saveCfg();
-    azCache[text]=blob; azKeys.push(text); if(azKeys.length>40) delete azCache[azKeys.shift()];
+    azCache[ck]=blob; azKeys.push(ck); if(azKeys.length>40) delete azCache[azKeys.shift()];
     return blob;
   });
-  azPend[text]=pr; pr.then(function(){delete azPend[text]},function(){delete azPend[text]});
+  azPend[ck]=pr; pr.then(function(){delete azPend[ck]},function(){delete azPend[ck]});
   return pr;
 }
 function azError(e){
@@ -6689,7 +6690,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-25-jarvis2', pendingUpdate=false;
+var APP_VERSION='2026-10-25-jarvis3', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
