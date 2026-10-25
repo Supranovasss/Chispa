@@ -633,7 +633,7 @@ addEventListener('keydown',act);
 /* La pantalla solo se atenúa cuando se le ordena dormir; no hay modo dormir automático. */
 
 /* ---------- Voz de salida ---------- */
-var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false,ntTopic:'',dash:false,dashMig:0,ntfOff:false};
+var CFG={voice:'',pitch:1,rate:1,name:'',wake:true,azOn:false,azKey:'',azRegion:'',azVoice:'es-VE-PaolaNeural',azMain:'',azJarvis:'',azMonth:'',azChars:0,aiProv:'gemini',aiKey:'',aiModel:'',ytKey:'',follow:true,spId:'',spTok:null,listenDuring:false,ntTopic:'',dash:false,dashMig:0,ntfOff:false};
 try{var sv=JSON.parse(localStorage.getItem('chispa.cfg')||'{}'); for(var kk in sv) if(kk in CFG) CFG[kk]=sv[kk]; if(!CFG.dashMig){CFG.dash=false; CFG.dashMig=1; localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}}catch(e){}
 function saveCfg(){try{localStorage.setItem('chispa.cfg',JSON.stringify(CFG))}catch(e){}}
 var speakId=0, lastSaid='', lastSaidEnd=0, storyId=0, storyOn=false;
@@ -5315,6 +5315,12 @@ function yn(x){return x?'sí':'no'}
 function voicesEs(){try{var a=speechSynthesis.getVoices()||[], es=a.filter(function(v){return /^es/i.test(v.lang)}); return (es.length?es:a).slice().sort(function(x,y){return voiceScore(y)-voiceScore(x)})}catch(e){return []}}
 function settingsCmd(q,raw){
   var m;
+  if(/\bjarvis\b/.test(q)&&/\b(voz|habla|hablame|modo|pon|activa|cambia)\w*\b/.test(q)){
+    if(!azReady()){reply('Para cambiar la voz necesito activar Azure en Ajustes.'); return true}
+    var cv=CFG.azVoice||''; if(!/^en-GB-/.test(cv)) CFG.azMain=cv||'es-VE-PaolaNeural';
+    CFG.azVoice=CFG.azJarvis||'en-GB-RyanMultilingualNeural'; saveCfg(); var sj=$('#azVoice'); if(sj) sj.value=CFG.azVoice; reply('A sus órdenes. Voz de Jarvis activada.'); return true}
+  if(/\b(voz|habla|hablame)\b/.test(q)&&/\b(de siempre|original|de chispa|tu voz normal|voz normal|vuelve|regresa)\b/.test(q)&&azReady()&&/^en-GB-/.test(CFG.azVoice||'')){
+    CFG.azVoice=CFG.azMain||'es-VE-PaolaNeural'; saveCfg(); var sj2=$('#azVoice'); if(sj2) sj2.value=CFG.azVoice; reply('Listo, esta es mi voz de siempre.'); return true}
   if(/\b(habla|hablame|hables|voz|ritmo)\b/.test(q)&&/\b(rapido|rapida|deprisa|lento|lenta|despacio|velocidad|normal)\b/.test(q)&&!/\b(radio|video|musica)\b/.test(q)){
     var r=CFG.rate||1, nv=/\b(rapido|rapida|deprisa)\b/.test(q)?r+.15:/\b(lento|lenta|despacio)\b/.test(q)?r-.15:/\bnormal\b/.test(q)?1:null;
     if(nv===null){reply('Mi velocidad de voz está en '+stepPct(r)+'.'); return true}
@@ -6522,7 +6528,7 @@ $('#cfg').addEventListener('click',openSheet);
 $('#sheetX').addEventListener('click',closeSheet);
 addEventListener('keydown',function(e){if(e.key==='Escape'&&!sheet.hidden) closeSheet()});
 
-var AZV=[['es-VE-PaolaNeural','Paola (Venezuela)'],['es-CO-SalomeNeural','Salomé (Colombia)'],['es-MX-DaliaNeural','Dalia (México)'],['es-MX-MarinaNeural','Marina (México)'],['es-US-PalomaNeural','Paloma (Estados Unidos)'],['es-AR-ElenaNeural','Elena (Argentina)'],['es-PE-CamilaNeural','Camila (Perú)'],['es-CL-CatalinaNeural','Catalina (Chile)'],['es-EC-AndreaNeural','Andrea (Ecuador)'],['es-UY-ValentinaNeural','Valentina (Uruguay)'],['es-BO-SofiaNeural','Sofía (Bolivia)'],['es-CR-MariaNeural','María (Costa Rica)']];
+var AZV=[['es-VE-PaolaNeural','Paola (Venezuela)'],['es-CO-SalomeNeural','Salomé (Colombia)'],['es-MX-DaliaNeural','Dalia (México)'],['es-MX-MarinaNeural','Marina (México)'],['es-US-PalomaNeural','Paloma (Estados Unidos)'],['es-AR-ElenaNeural','Elena (Argentina)'],['es-PE-CamilaNeural','Camila (Perú)'],['es-CL-CatalinaNeural','Catalina (Chile)'],['es-EC-AndreaNeural','Andrea (Ecuador)'],['es-UY-ValentinaNeural','Valentina (Uruguay)'],['es-BO-SofiaNeural','Sofía (Bolivia)'],['es-CR-MariaNeural','María (Costa Rica)'],['es-CO-GonzaloNeural','Gonzalo (Colombia, hombre)'],['es-ES-AlvaroNeural','Álvaro (España, hombre)'],['es-MX-JorgeNeural','Jorge (México, hombre)'],['en-GB-RyanMultilingualNeural','Jarvis 1 · Ryan británico (prueba)'],['en-GB-OllieMultilingualNeural','Jarvis 2 · Ollie británico (prueba)'],['en-GB-ThomasNeural','Jarvis 3 · Thomas británico (inglés)']];
 function showAzUse(){
   $('#azUse').textContent=CFG.azKey?'Este mes llevas unos '+azUsed().toLocaleString('es-CO')+' de 500.000 caracteres gratuitos (cuenta de esta tablet). Al llegar a 480.000 vuelvo a la voz del dispositivo.':'';
   $('#azHelp').textContent=CFG.azKey?'':'Crea un recurso de voz (Speech) en Azure con el nivel Gratis (F0), copia la llave y la región y pégalas aquí.';
@@ -6533,7 +6539,7 @@ function fillAz(){
   sel.value=CFG.azVoice; $('#azOn').checked=!!CFG.azOn; $('#azRegion').value=CFG.azRegion; $('#azKey').value=CFG.azKey; showAzUse();
 }
 $('#azOn').addEventListener('change',function(){CFG.azOn=$('#azOn').checked; saveCfg()});
-$('#azVoice').addEventListener('change',function(){CFG.azVoice=$('#azVoice').value; saveCfg(); if(azReady()) reply('Hola, soy yo con mi nueva voz.')});
+$('#azVoice').addEventListener('change',function(){CFG.azVoice=$('#azVoice').value; if(/^en-GB-/.test(CFG.azVoice)) CFG.azJarvis=CFG.azVoice; else CFG.azMain=CFG.azVoice; saveCfg(); if(azReady()) reply('Hola, soy yo con mi nueva voz.')});
 $('#azSave').addEventListener('click',function(){
   CFG.azVoice=$('#azVoice').value; CFG.azRegion=$('#azRegion').value.trim(); CFG.azKey=$('#azKey').value.trim();
   CFG.azOn=!!(CFG.azKey&&CFG.azRegion); $('#azOn').checked=CFG.azOn; saveCfg(); showAzUse();
@@ -6674,7 +6680,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-25-reproductor', pendingUpdate=false;
+var APP_VERSION='2026-10-25-jarvis', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
