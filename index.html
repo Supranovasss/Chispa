@@ -322,7 +322,7 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
 #face *{outline:none!important}
 #face{-webkit-tap-highlight-color:rgba(0,0,0,0)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
-.spmini{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;max-width:min(560px,94vw);padding:10px 12px;border-radius:18px;background:rgba(20,22,30,.88);backdrop-filter:blur(10px);color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.spmini{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;max-width:min(720px,96vw);padding:10px 12px;border-radius:18px;background:rgba(20,22,30,.88);backdrop-filter:blur(10px);color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.4)}
 .spmini[hidden]{display:none}
 .spmini img{width:52px;height:52px;border-radius:10px;object-fit:cover;background:#333}
 .spmini .spi{display:flex;flex-direction:column;min-width:120px;flex:1;overflow:hidden}
@@ -333,6 +333,8 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
 .spmini button{width:48px;height:48px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center;font-size:16px;cursor:pointer}
 .spmini button svg{width:24px;height:24px}
 .spmini button:active{background:rgba(255,255,255,.25)}
+.spmini button.on{background:#1ed760;color:#000;box-shadow:0 0 10px rgba(30,215,96,.5)}
+.spmini #spShuf,.spmini #spRep{width:42px;height:42px}
 </style>
 
 <div class="app" id="app">
@@ -391,7 +393,7 @@ body.spin #face{animation:spin360 1.3s ease-in-out 2}
     <p class="heard" id="heard"></p>
   </main>
 
-  <div class="spmini" id="spMini" hidden><img id="spArt" alt=""><div class="spi"><b id="spTit"></b><span id="spArtist"></span><i class="spbar"><u id="spProg"></u></i></div><button type="button" data-a="prev" aria-label="Anterior"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button><button type="button" data-a="tog" id="spTog" aria-label="Pausar / reanudar"><svg viewBox="0 0 24 24" fill="currentColor"><path id="spTogP" d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></button><button type="button" data-a="next" aria-label="Siguiente"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button><button type="button" data-a="x" aria-label="Ocultar">✕</button></div>
+  <div class="spmini" id="spMini" hidden><img id="spArt" alt=""><div class="spi"><b id="spTit"></b><span id="spArtist"></span><i class="spbar"><u id="spProg"></u></i></div><button type="button" data-a="shuf" id="spShuf" aria-label="Mezclar" title="Mezclar">🔀</button><button type="button" data-a="prev" aria-label="Anterior"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button><button type="button" data-a="tog" id="spTog" aria-label="Pausar / reanudar"><svg viewBox="0 0 24 24" fill="currentColor"><path id="spTogP" d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></button><button type="button" data-a="next" aria-label="Siguiente"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button><button type="button" data-a="rep" id="spRep" aria-label="Repetir" title="Repetir">🔁</button><button type="button" data-a="x" aria-label="Ocultar">✕</button></div>
   <div class="vid" id="vid" hidden><div id="vidBox"></div><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="vid imgv" id="imgv" hidden><img id="imgEl" alt=""><p id="imgCap"></p><button class="mx" type="button" aria-label="Cerrar" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
 
@@ -2625,6 +2627,8 @@ function remEdit(q){
 }
 
 var INTENTS=[
+  [function(q){return spOn()&&spIntent(q)!==null}, function(q,raw){spIntent(q,raw)()}],
+  [function(q){return !spOn()&&/\bspotify\b/.test(q)&&(isSongReq(q)||SONG_V.test(q))&&!/\b(youtube|you tube|video)\b/.test(q)}, function(){reply('Spotify no está conectado. Conéctalo en Ajustes y te pongo la música.')}],
   [function(q){return mediaEdit(q)!==null}, function(q){mediaEdit(q)()}],
   [function(q){return timerEdit(q)!==null}, function(q){timerEdit(q)()}],
   [function(q){return remEdit(q)!==null}, function(q){remEdit(q)()}],
@@ -2711,7 +2715,7 @@ var INTENTS=[
   [function(q){return spOn()&&(/(sube|subir|aumenta|mas alto|mas fuerte)\b.*\b(volumen|musica)\b/.test(q)||/\bvolumen (mas )?(alto|arriba)\b/.test(q))}, function(){spCtl('volup')}],
   [function(q){return spOn()&&(/(baja|bajar|disminuye|mas bajo|menos)\b.*\b(volumen|musica)\b/.test(q)||/\bvolumen (mas )?(bajo|abajo)\b/.test(q))}, function(){spCtl('voldown')}],
   [function(q){return spOn()&&/(que (cancion|musica|tema) (es|suena|es esta)|como se llama (esta|la) cancion|quien canta)/.test(q)}, function(){reply(spTrack?'Suena '+spTrack+'.':'No sé qué suena ahora.')}],
-  [function(q){return spOn()&&!/\b(video|videos|clip|clips|trailer|tutorial)\b/.test(q)&&isSongReq(q)}, function(q,raw){spPlayQuery(musicQuery(raw),isPlaylistReq(q))}],
+  [function(q){return spOn()&&!/\b(video|videos|clip|clips|trailer|tutorial|youtube|you tube)\b/.test(q)&&isSongReq(q)}, function(q,raw){spPlayQuery(musicQuery(raw),isPlaylistReq(q))}],
   [function(q){return /\b(cierra|quita|apaga|oculta|termina|deten|detener|para)\b.*\bvideo/.test(q)||/(saca|quita) (el )?video/.test(q)}, function(){closeVideo(); setMood('happy',1000); reply('Listo, quité el video.')}],
   [function(q){return !!vidPlayer&&/(pausa|pausar|pon pausa)/.test(q)}, function(){if(resumeMedia) resumeMedia.t=true; try{vidPlayer.pauseVideo()}catch(e){}}],
   [function(q){return !!vidPlayer&&/(reanuda|continua|dale play|sigue el video|sigue con el video)/.test(q)}, function(){try{vidPlayer.playVideo()}catch(e){}}],
@@ -4041,8 +4045,8 @@ function swapQueueMatch(name){
 function ytExplicit(q,raw){
   if(!/\byou\s?tube\b/.test(q)||/\b(cierra|cerrar|quita|apaga|oculta|sal de)\b/.test(q)) return false;
   if(!/\b(abre|abreme|abrir|ve a|ir a|entra|pon|ponme|ponga|muestra|muestrame|quiero|busca|buscame|vamos a|reproduce|ver)\b/.test(q)) return false;
-  var t=raw.replace(/chispa[,\s]*/ig,' ').replace(/\s*(?:en|por|de|desde|a|al|con)?\s*\byou\s?tube\b.*$/i,'').replace(/^[\s,]*(?:y|e|para|ahora|mejor)?\s*(?:busca(?:me)?|b[uú]sca(?:me)?|pon(?:me)?|p[oó]n(?:me)?|muestra(?:me)?|reproduce|quiero ver|quiero escuchar|abre|[aá]bre(?:me)?|ve a|ir a|entra a|ver)\s*(?:unas|unos|una|un|las|los|la|el)?\s*(?:v[ií]deos?|clips?)?\s*(?:de|del|sobre)?\s*/i,'').replace(/\bpor favor\b/ig,'').trim();
-  if(t.length<3){var a=raw.replace(/chispa[,\s]*/ig,' ').replace(/.*\byou\s?tube\b[,\s]*(?:y\s+)?/i,'').replace(/^(?:busca(?:me)?|pon(?:me)?|muestra(?:me)?|reproduce|quiero ver|ver)\s*(?:unas|unos|una|un|las|los|la|el)?\s*(?:v[ií]deos?|clips?)?\s*(?:de|del|sobre)?\s*/i,'').replace(/\bpor favor\b/ig,'').trim(); t=a}
+  var t=raw.replace(/chispa[,\s]*/ig,' ').replace(/\s*(?:en|por|de|desde|a|al|con)?\s*\byou\s?tube\b.*$/i,'').replace(/^[\s,]*(?:y|e|para|ahora|mejor)?\s*(?:busca(?:me)?|b[uú]sca(?:me)?|pon(?:me)?|p[oó]n(?:me)?|muestra(?:me)?|reproduce|quiero ver|quiero escuchar|abre|[aá]bre(?:me)?|ve a|ir a|entra a|ver)\s*(?:(?:unas|unos|una|un|las|los|la|el)\s+)?(?:(?:v[ií]deos?|clips?)\s+)?(?:(?:de|del|sobre)\s+)?/i,'').replace(/\bpor favor\b/ig,'').trim();
+  if(t.length<3){var a=raw.replace(/chispa[,\s]*/ig,' ').replace(/.*\byou\s?tube\b[,\s]*(?:y\s+)?/i,'').replace(/^(?:busca(?:me)?|pon(?:me)?|muestra(?:me)?|reproduce|quiero ver|ver)\s*(?:(?:unas|unos|una|un|las|los|la|el)\s+)?(?:(?:v[ií]deos?|clips?)\s+)?(?:(?:de|del|sobre)\s+)?/i,'').replace(/\bpor favor\b/ig,'').trim(); t=a}
   if(t.length<3) return false;
   playVideo(t); return true;
 }
@@ -5698,7 +5702,7 @@ var TOOLS=[
   {name:'play_radio',description:'Sintoniza una emisora de radio por internet.',parameters:{type:'object',properties:{query:{type:'string',description:'Nombre de la emisora o género (salsa, vallenato, lofi, noticias). Vacío para populares.'}},required:['query']}},
   {name:'play_stream',description:'Pone un stream en vivo de Twitch o Kick por nombre de canal.',parameters:{type:'object',properties:{platform:{type:'string',enum:['twitch','kick']},channel:{type:'string',description:'Nombre de usuario del canal, sin espacios'}},required:['platform','channel']}},
   {name:'play_video',description:'Busca y reproduce un video en YouTube. Pon en language el idioma pedido (en, es, pt, fr, it, de) en vez de ponerlo en la búsqueda; usa min_minutes si pidió un video largo o de cierta duración.',parameters:{type:'object',properties:{query:{type:'string',description:'Solo el tema, sin idioma ni duración'},language:{type:'string',enum:['en','es','pt','fr','it','de']},min_minutes:{type:'integer',minimum:1,maximum:600},max_minutes:{type:'integer',minimum:1,maximum:600}},required:['query']}},
-  {name:'play_music',description:'Reproduce una canción, artista o playlist. any_song_by_artist=true si pidió música o una canción de un artista sin decir el título (así varía cada vez).',parameters:{type:'object',properties:{query:{type:'string'},any_song_by_artist:{type:'boolean'},language:{type:'string',enum:['en','es','pt','fr','it','de']}},required:['query']}},
+  {name:'play_music',description:'Reproduce una canción, artista o playlist. any_song_by_artist=true si pidió música o una canción de un artista sin decir el título (así varía cada vez).',parameters:{type:'object',properties:{query:{type:'string'},source:{type:'string',enum:['spotify','youtube'],description:'spotify si dijo Spotify; youtube si dijo YouTube o pidió video; omitir si no dijo'},any_song_by_artist:{type:'boolean'},language:{type:'string',enum:['en','es','pt','fr','it','de']}},required:['query']}},
   {name:'play_ambient_sound',description:'Reproduce ruido o sonido ambiente para concentrarse o dormir.',parameters:{type:'object',properties:{kind:{type:'string',enum:['rain','storm','white','pink','brown','waves','wind']},minutes:{type:'integer',minimum:0,maximum:600,description:'Duración en minutos; 0 = hasta que se apague'}},required:['kind','minutes']}},
   {name:'stop_media',description:'Detiene la música, radio, video o ruido que esté sonando y cierra ventanas.',parameters:{type:'object',properties:{},required:[]}},
   {name:'get_weather',description:'Muestra y dice el clima actual.',parameters:{type:'object',properties:{},required:[]}},
@@ -5742,7 +5746,7 @@ function runTool(name,a){
     case 'play_radio': radPlay('',norm(a.query||'')); return true;
     case 'play_stream': strmPlay(a.platform,a.channel); return true;
     case 'play_video': playVideo(a.query,{auto:/mix|playlist|hora/i.test(a.query),lang:a.language||null,minMin:a.min_minutes||0,maxMin:a.max_minutes||0}); return true;
-    case 'play_music': if(spOn()) spPlayQuery(a.query,false); else playVideo(a.query+' audio oficial',{vague:!!a.any_song_by_artist,lang:a.language||null}); return true;
+    case 'play_music': if(spOn()&&a.source!=='youtube') spPlayQuery(a.query,false); else playVideo(a.query+' audio oficial',{vague:!!a.any_song_by_artist,lang:a.language||null}); return true;
     case 'play_ambient_sound': ambStart(a.kind,(a.minutes||0)*60); return true;
     case 'stop_media': {closeAll(); radStop(false); ambStop(false); try{if(spOn()&&spPlaying) spCtl('pause')}catch(e){} reply('Listo.'); return true}
     case 'get_weather': askWeather(); return true;
@@ -5824,6 +5828,7 @@ function handle(raw){
   if(game&&gameInput(raw,q)) return;
   if(camMenuOn&&/(piedra|papel|tijera)/.test(q)){clearChoices(); startCamRps(); return}
   try{if(strmCmd(q,raw)){misses=0; return}}catch(e){dlog('stream error '+e.message)}
+  try{if(spOn()){var spi=spIntent(q,raw); if(spi){misses=0; spi(); return}}}catch(e){dlog('spotify error '+e.message)}
   try{if(mmCmd(q,raw)||avCmd(q,raw)){misses=0; return}}catch(e){dlog('avion error '+e.message)}
   try{if(ntCmd(q,raw)){misses=0; return}}catch(e){dlog('notif error '+e.message)}
   try{if(xaCmd(q,raw)){misses=0; return}}catch(e){dlog('xa error '+e.message)}
@@ -5990,7 +5995,7 @@ function tell(kind,raw){
 }
 
 /* ---------- Spotify ---------- */
-var SP_SCOPES='streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state';
+var SP_SCOPES='streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state playlist-read-private user-library-read user-library-modify';
 var spPlayer=null, spDeviceId='', spPlaying=false, spTrack='', spDucked=false, spSaved=.8, spSdkP=null, spSdkFail=false, askMusicNext=false, spLastErr='';
 function spOn(){return !!(CFG.spId&&CFG.spTok&&CFG.spTok.r)}
 function spRedirect(){return location.origin+location.pathname}
@@ -6081,7 +6086,7 @@ function spInit(){
       if(!st){spPlaying=false; return}
       spPlaying=!st.paused; var c=st.track_window&&st.track_window.current_track;
       spTrack=c?c.name+', de '+c.artists.map(function(a){return a.name}).join(' y '):'';
-      if(c) spMiniSet({id:c.uri,name:c.name,artist:c.artists.map(function(a){return a.name}).join(', '),img:(c.album&&c.album.images&&c.album.images[0]||{}).url||'',paused:st.paused,pos:st.position,dur:st.duration});
+      if(c) spMiniSet({id:c.uri,name:c.name,artist:c.artists.map(function(a){return a.name}).join(', '),img:(c.album&&c.album.images&&c.album.images[0]||{}).url||'',paused:st.paused,pos:st.position,dur:st.duration,sh:!!st.shuffle,rp:['off','context','track'][st.repeat_mode|0]||'off'});
     });
     pl.connect();
     addEventListener('pointerdown',function(){try{pl.activateElement()}catch(e){}},{once:true,passive:true});
@@ -6267,6 +6272,7 @@ function spMiniDraw(){
   el.hidden=!on; if(!on) return;
   $('#spTit').textContent=spM.name; $('#spArtist').textContent=spM.artist;
   var im=$('#spArt'); if(spM.img&&im.getAttribute('src')!==spM.img) im.src=spM.img; im.style.visibility=spM.img?'visible':'hidden';
+  $('#spShuf').classList.toggle('on',!!spM.sh); var rb=$('#spRep'); rb.classList.toggle('on',spM.rp&&spM.rp!=='off'); rb.textContent=spM.rp==='track'?'🔂':'🔁';
   $('#spTogP').setAttribute('d',spM.paused?'M7 5v14l12-7z':'M6 5h4v14H6zM14 5h4v14h-4z');
   var pos=spM.pos+(spM.paused?0:Date.now()-spM.t); $('#spProg').style.width=(spM.dur?Math.min(100,pos/spM.dur*100):0)+'%';
 }
@@ -6275,7 +6281,7 @@ function spMiniPoll(){
   spApi('/me/player').then(function(j){
     if(!j||!j.item){ if(spM){spM.paused=true; spMiniDraw()} return }
     spPlaying=!!j.is_playing;
-    spMiniSet({id:j.item.uri,name:j.item.name,artist:(j.item.artists||[]).map(function(a){return a.name}).join(', '),img:((j.item.album&&j.item.album.images)||[{}])[0].url||'',paused:!j.is_playing,pos:j.progress_ms||0,dur:j.item.duration_ms||0});
+    spMiniSet({id:j.item.uri,name:j.item.name,artist:(j.item.artists||[]).map(function(a){return a.name}).join(', '),img:((j.item.album&&j.item.album.images)||[{}])[0].url||'',paused:!j.is_playing,pos:j.progress_ms||0,dur:j.item.duration_ms||0,sh:!!j.shuffle_state,rp:j.repeat_state||'off'});
   }).catch(function(){});
 }
 setInterval(spMiniDraw,1000);
@@ -6286,11 +6292,69 @@ setInterval(function(){ if(spOn()&&!document.hidden) spMiniPoll() },8000);
     var b=e.target.closest('button'); if(!b) return; var a=b.getAttribute('data-a');
     if(typeof actV==='function') try{actV()}catch(x){}
     if(a==='x'){ if(spM) spMHide=spM.id; try{spPlaying=false; if(spM) spM.paused=true; if(spPlayer&&spDeviceId) spPlayer.pause(); spApi('/me/player/pause',{method:'PUT'}).catch(function(){})}catch(x){} spMiniDraw(); return }
+    if(a==='shuf'){ spShuffle(!(spM&&spM.sh)); return }
+    if(a==='rep'){ spRepeat(!spM||spM.rp==='off'||!spM.rp?'context':spM.rp==='context'?'track':'off'); return }
     if(a==='tog'){ if(spM){if(!spM.paused) spM.pos+=Date.now()-spM.t; spM.paused=!spM.paused; spM.t=Date.now(); spMiniDraw()} spCtl(spM&&spM.paused?'pause':'play'); }
     else spCtl(a);
     setTimeout(spMiniPoll,900);
   });
 })();
+function spSet(path,msg,patch,quiet){
+  return spDevice().then(function(dev){return spApi(path+(path.indexOf('?')<0?'?':'&')+'device_id='+encodeURIComponent(dev),{method:'PUT'})}).then(function(){
+    if(spM&&patch){for(var k in patch) spM[k]=patch[k]; spMiniDraw()}
+    if(msg&&!quiet) reply(msg); setTimeout(spMiniPoll,900);
+  }).catch(spErr);
+}
+function spShuffle(on,quiet){return spSet('/me/player/shuffle?state='+(on?'true':'false'),on?'Lista mezclada.':'Mezcla desactivada.',{sh:on},quiet)}
+function spRepeat(st,quiet){return spSet('/me/player/repeat?state='+st,st==='track'?'Repito esta canción.':st==='context'?'Repito la lista.':'Repetición desactivada.',{rp:st},quiet)}
+function spNeedScope(e){ if(e&&e.status===403) return reply('Para eso necesito más permisos de Spotify. Vuelve a conectarlo en Ajustes.'); return spErr(e) }
+function spPlayCtx(uri,msg){
+  return spDevice().then(function(dev){return reply(msg).then(function(){return spApi('/me/player/play?device_id='+encodeURIComponent(dev),{method:'PUT',body:JSON.stringify({context_uri:uri})})})}).then(function(){spMHide=''; setMood('happy',1500); setTimeout(spMiniPoll,1200)}).catch(spErr);
+}
+function spTarget(q,drop){
+  var t=q.replace(/\b(por favor|en spotify|de spotify|spotify)\b/g,' ').replace(/\b(pon|ponme|pone|poner|ponla|reproduce|reproduceme|toca|tocame|coloca|colocame|escuchar|oir|busca|buscame|dame|quiero escuchar|quiero oir|quiero|puedes poner|puedes reproducir|agrega|anade|mete)\b/g,' ');
+  if(drop) t=t.replace(drop,' ');
+  return t.replace(/^(?:me|nos|te|un|una|el|la|los|las|algo|unos|unas)\s+/,'').replace(/\s+/g,' ').trim();
+}
+var SPN={un:1,uno:1,cinco:5,diez:10,quince:15,veinte:20,treinta:30,cuarenta:40,sesenta:60};
+function spIntent(q,raw){
+  if(/\b(youtube|you tube|video|videos|videoclip|clip|clips|trailer|tutorial)\b/.test(q)) return null;
+  var m, live=!!(spM||spPlaying), verb=SONG_V.test(q)||/\b(quiero|agrega|anade|mete)\b/.test(q);
+  if(/\b(mezcla|mezclar|mezclala|aleatori[oa]|shuffle|revuelve)\b/.test(q)&&!/\b(receta|ingredientes?|masa|huevos?|harina)\b/.test(q)){
+    var off=/\b(quita|quitar|desactiva|apaga|sin|deja de|no mezcles|en orden|ordenad[ao])\b/.test(q);
+    return function(){spShuffle(!off)}}
+  if(live&&/\b(repite|repetir|repetirla|repetirlo|repeticion|bucle|loop)\b/.test(q)&&/\b(cancion|tema|lista|playlist|album|bucle|loop|esta|esa|musica|modo|todo|todas|misma)\b/.test(q)){
+    var rs=/\b(quita|quitar|desactiva|apaga|sin|deja de|no repitas)\b/.test(q)?'off':/\b(lista|playlist|album|todo|todas)\b/.test(q)?'context':'track';
+    return function(){spRepeat(rs)}}
+  if(live&&(m=q.match(/\b(adelanta|avanza|salta|atrasa|atras|retrocede|devuelve|regresa)\w*\s+(?:la\s+(?:cancion|musica)\s+)?(\d+|un|uno|cinco|diez|quince|veinte|treinta|cuarenta|sesenta)\s*(segundos?|seg|minutos?|min)?/))){
+    var n=/^\d+$/.test(m[2])?+m[2]:SPN[m[2]]||10, mult=/^min/.test(m[3]||'')?60000:1000, back=/^(atrasa|atras|retrocede|devuelve|regresa)/.test(m[1]);
+    return function(){
+      var cur=spM?spM.pos+(spM.paused?0:Date.now()-spM.t):0, np=Math.max(0,cur+(back?-1:1)*n*mult);
+      spApi('/me/player/seek?position_ms='+Math.round(np),{method:'PUT'}).then(function(){if(spM){spM.pos=np; spM.t=Date.now(); spMiniDraw()} reply(back?'Retrocedo.':'Adelanto.')}).catch(spErr)}}
+  if(live&&/\b(desde (el )?(inicio|principio|comienzo)|empieza(la)? de nuevo|reinicia la cancion|otra vez desde)\b/.test(q))
+    return function(){spApi('/me/player/seek?position_ms=0',{method:'PUT'}).then(function(){if(spM){spM.pos=0; spM.t=Date.now(); spMiniDraw()} reply('Desde el principio.')}).catch(spErr)};
+  if(/\b(que|cual)\s+(cancion|tema|musica)\s+(es|esta|suena|estoy)|\bquien\s+(canta|es el artista)|\bde quien es (esta|la)\b|\bcomo se llama (esta|la) (cancion|musica)\b/.test(q))
+    return function(){spApi('/me/player').then(function(j){ if(j&&j.item) reply('Suena '+j.item.name+', de '+(j.item.artists||[]).map(function(a){return a.name}).join(' y ')+'.'); else reply('No hay nada sonando en Spotify ahora.')}).catch(spErr)};
+  if(live&&/\b(me gusta|guarda|guardala|dale like|favoritas)\b/.test(q)&&/\b(esta|esa|cancion|tema)\b/.test(q)&&!/\bmis\b/.test(q))
+    return function(){var id=spM&&spM.id&&spM.id.split(':')[2]; if(!id) return reply('No sé qué canción guardar.'); spApi('/me/tracks?ids='+id,{method:'PUT'}).then(function(){reply('Guardada en tus canciones que te gustan.')}).catch(spNeedScope)};
+  if(/\b(mis (canciones|temas) (favoritas|que me gustan|guardadas)|mis me gusta|canciones que me gustan|mis favoritas)\b/.test(q)&&(verb||true))
+    return function(){spApi('/me/tracks?limit=50').then(function(j){var u=(j.items||[]).map(function(x){return x.track&&x.track.uri}).filter(Boolean); if(!u.length) return reply('No encuentro canciones guardadas.'); return spDevice().then(function(dev){return reply('Van tus canciones favoritas.').then(function(){return spApi('/me/player/play?device_id='+encodeURIComponent(dev),{method:'PUT',body:JSON.stringify({uris:u})})})}).then(function(){spMHide=''; setTimeout(spMiniPoll,1200)})}).catch(spNeedScope)};
+  if(verb&&(m=q.match(/\b(?:mi|mis)\s+(?:playlist|playlists|lista|listas)(?:\s+(?:de|del|que se llama|llamada))?\s+(.+)$/))){
+    var nm=m[1].replace(/\b(en spotify|por favor)\b/g,'').trim();
+    return function(){spApi('/me/playlists?limit=50').then(function(j){
+      var its=(j.items||[]).filter(Boolean), nn=function(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}, hit=its.filter(function(p){return nn(p.name).indexOf(nn(nm))>=0})[0];
+      if(!hit) return reply('No encuentro una playlist tuya que se llame '+nm+'.'); return spPlayCtx(hit.uri,'Va tu playlist '+hit.name+'.')}).catch(spNeedScope)}}
+  if(verb&&(m=q.match(/^(.*?)\b(?:a la cola|en la cola|a continuacion|de siguiente|despues|luego)\b/))&&/\b(agrega|anade|mete|pon|ponme)\w*\b/.test(q)){
+    var tq=spTarget(m[1]);
+    if(tq) return function(){spApi('/search?type=track&limit=1&market=from_token&q='+encodeURIComponent(tq)).then(function(j){var t=((j.tracks||{}).items||[])[0]; if(!t) return reply('No encontré esa canción.'); return spApi('/me/player/queue?uri='+encodeURIComponent(t.uri),{method:'POST'}).then(function(){reply('Agregada a la cola: '+t.name+'.')})}).catch(spErr)}}
+  if(verb&&/\b(album|disco)\b/.test(q)&&!/\b(foto|fotos|imagen)\b/.test(q)){
+    var aq=spTarget(q,/\b(el|un)?\s*(album|disco)\s*(de|del|llamado)?\b/g);
+    if(aq) return function(){spApi('/search?type=album&limit=1&market=from_token&q='+encodeURIComponent(aq)).then(function(j){var a=((j.albums||{}).items||[])[0]; if(!a) return reply('No encontré ese álbum.'); return spPlayCtx(a.uri,'Va el álbum '+a.name+'.')}).catch(spErr)}}
+  if(verb&&(m=q.match(/\b(?:lo mejor de|exitos de|mejores canciones de|todo de|discografia de|musica de|canciones de|temas de|algo de)\s+(.+)$/))&&!/\b(cancion|tema)\s+(llamada|que se llama)\b/.test(q)){
+    var ar=m[1].replace(/\b(en spotify|por favor|mezclad[ao])\b/g,'').trim();
+    if(ar&&ar.length>1) return function(){spApi('/search?type=artist&limit=1&market=from_token&q='+encodeURIComponent(ar)).then(function(j){var a=((j.artists||{}).items||[])[0]; if(!a) return spPlayQuery(musicQuery(raw||q),false); return spPlayCtx(a.uri,'Va música de '+a.name+'.')}).catch(spErr)}}
+  return null;
+}
 function spCtl(a){
   var p; if(a==='pause'&&resumeMedia) resumeMedia.t=true;
   if(spPlayer&&spDeviceId&&(a==='pause'||a==='play'||a==='next'||a==='prev')){
@@ -6784,7 +6848,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-26-spotifysesion', pendingUpdate=false;
+var APP_VERSION='2026-10-26-spotifyplus', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
