@@ -6319,7 +6319,15 @@ function spTarget(q,drop){
 var SPN={un:1,uno:1,cinco:5,diez:10,quince:15,veinte:20,treinta:30,cuarenta:40,sesenta:60};
 function spIntent(q,raw){
   if(/\b(youtube|you tube|video|videos|videoclip|clip|clips|trailer|tutorial)\b/.test(q)) return null;
-  var m, live=!!(spM||spPlaying), verb=SONG_V.test(q)||/\b(quiero|agrega|anade|mete)\b/.test(q);
+  var live=!!(spM||spPlaying);
+  if(live){
+    var rem=q.replace(/\b(por favor|gracias|jarvis|chispa|oye|la|el|lo|esta|esa|este|ese|una|un|cancion|canciones|musica|tema|temas|rola|spotify|reproduccion|lista|de nuevo|otra vez|ahora|ya|mejor|porfa|que|se|me|puedes|podrias|quiero|que suene|suene|sonando)\b/g,' ').replace(/\s+/g,' ').trim();
+    if(/^(reanuda|reanudar|reanudala|continua|continuar|continuala|sigue|seguir|segui|dale play|play|despausa|quita la pausa|quitale la pausa|retoma|retomar|dale|resume|pon play|pon la pausa en play)$/.test(rem)||/^(reanuda|reanudar|continua|continuar|sigue|retoma)\s+(con\s+)?(la\s+)?(cancion|musica|reproduccion|tema|spotify)/.test(q)&&!/\b(de|del)\s+\w/.test(rem)) return function(){spCtl('play')};
+    if(/^(pausa|pausar|pausala|pon pausa|pon en pausa|deten|detener|detenla|detente|para|parar|paralo|alto|stop|calla|silencio)$/.test(rem)) return function(){spCtl('pause')};
+    if(/^(siguiente|proxima|proximo|next|salta|saltar|pasa|pasar|otra|otro|cambia|cambiar|cambiala|adelante|salta la|pasa la|siguiente cancion)$/.test(rem)) return function(){spCtl('next')};
+    if(/^(anterior|previa|previo|atras|regresa|regresar|vuelve|volver|devuelve|devolver|la de antes|retrocede|la anterior)$/.test(rem)) return function(){spCtl('prev')};
+  }
+  var m, verb=SONG_V.test(q)||/\b(quiero|agrega|anade|mete)\b/.test(q);
   if(/\b(mezcla|mezclar|mezclala|aleatori[oa]|shuffle|revuelve)\b/.test(q)&&!/\b(receta|ingredientes?|masa|huevos?|harina)\b/.test(q)){
     var off=/\b(quita|quitar|desactiva|apaga|sin|deja de|no mezcles|en orden|ordenad[ao])\b/.test(q);
     return function(){spShuffle(!off)}}
@@ -6848,7 +6856,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-26-spotifyplus', pendingUpdate=false;
+var APP_VERSION='2026-10-26-spotifyplus2', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
