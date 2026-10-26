@@ -6014,14 +6014,20 @@ function spToken(body){
     return CFG.spTok.a;
   });
 }
+var spRefP=null, spBad=0;
 function spGetToken(){
   var t=CFG.spTok;
   if(!t){var e0=new Error('sp'); e0.status=401; return Promise.reject(e0)}
   if(t.e-60000>Date.now()) return Promise.resolve(t.a);
-  return spToken('grant_type=refresh_token&refresh_token='+encodeURIComponent(t.r)+'&client_id='+encodeURIComponent(CFG.spId)).catch(function(e){
-    if(e&&(e.status===400||e.status===401)){CFG.spTok=null; saveCfg()}
-    e.status=401; throw e;
-  });
+  if(spRefP) return spRefP;
+  var used=t.r;
+  spRefP=spToken('grant_type=refresh_token&refresh_token='+encodeURIComponent(used)+'&client_id='+encodeURIComponent(CFG.spId)).catch(function(e){
+    /* Si otra petición ya renovó la sesión mientras tanto, usamos esa en vez de borrarla */
+    if(CFG.spTok&&CFG.spTok.r&&CFG.spTok.r!==used&&CFG.spTok.e-60000>Date.now()) return CFG.spTok.a;
+    if(e&&e.status===400&&CFG.spTok&&CFG.spTok.r===used){CFG.spTok.e=0; saveCfg(); spBad=(spBad||0)+1; if(spBad>=3){CFG.spTok=null; saveCfg()}}
+    e.status=(e&&e.status===400)?401:(e&&e.status)||0; throw e;
+  }).then(function(a){spBad=0; spRefP=null; return a},function(e){spRefP=null; throw e});
+  return spRefP;
 }
 function spApi(path,o){
   return spGetToken().then(function(tk){
@@ -6778,7 +6784,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-25-vivo', pendingUpdate=false;
+var APP_VERSION='2026-10-26-spotifysesion', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
