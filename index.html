@@ -2909,7 +2909,7 @@ function radStop(say){
   if(say){setMood('happy',900); reply('Listo, apagué la radio.')}
 }
 function radPlay(raw,q){
-  if(RAD.busy) return; var t=radQuery(q);
+  if(RAD.busy) return; spStop(); var t=radQuery(q);
   RAD.busy=true; setMood('thinking'); el.bubble.textContent='Sintonizando'+(t?' '+t:' la radio')+'…';
   radSearch(t).then(function(l){
     RAD.busy=false; setMood(baseline());
@@ -3201,6 +3201,7 @@ function ambStop(say){
   if(say&&was){setMood('happy',900); reply('Listo, apagué el ruido.')}
 }
 function ambStart(kind,sec){
+  spStop();
   var c=audio(); if(!c){reply('No pude activar el audio de este navegador.'); return}
   if(AMB.kind) ambStop(false); if(RAD.audio) radStop(false); if(vidPlaying) closeVideo();
   AMB.ctx=c; var m=c.createGain(); m.gain.value=0; m.connect(c.destination); AMB.master=m; AMB.kind=kind;
@@ -3946,7 +3947,7 @@ function strmUrl(p,c,chat){
 }
 function strmFrame(src){var f=document.createElement('iframe'); f.src=src; f.allow='autoplay; fullscreen; picture-in-picture; encrypted-media'; f.setAttribute('allowfullscreen',''); f.setAttribute('referrerpolicy','origin'); f.title='Stream en vivo'; return f}
 function strmPlay(p,c,opt){
-  opt=opt||{}; c=strmClean(c);
+  opt=opt||{}; spStop(); c=strmClean(c);
   if(!strmOk(p,c)){reply('No entendí bien el nombre del canal. Escríbelo en el panel de streams.'); strmOpen(p,c); return true}
   if(p==='twitch'&&location.protocol!=='https:'){reply('Twitch solo reproduce desde la página de Chispa por internet, no desde un archivo ni desde la vista previa.'); return true}
   if(RAD&&RAD.audio) radStop(false); if(AMB&&AMB.kind) ambStop(false); try{if(vidPlayer) vidPlayer.destroy()}catch(e){} vidPlayer=null;
@@ -6305,6 +6306,15 @@ function spSet(path,msg,patch,quiet){
     if(msg&&!quiet) reply(msg); setTimeout(spMiniPoll,900);
   }).catch(spErr);
 }
+function spStop(){
+  try{
+    if(!spOn()) return;
+    var was=spPlaying||(spM&&!spM.paused); if(spM) spMHide=spM.id;
+    spPlaying=false; if(spM) spM.paused=true;
+    if(was){ try{if(spPlayer&&spDeviceId) spPlayer.pause()}catch(e){} spApi('/me/player/pause',{method:'PUT'}).catch(function(){}) }
+    spMiniDraw();
+  }catch(e){}
+}
 function spShuffle(on,quiet){return spSet('/me/player/shuffle?state='+(on?'true':'false'),on?'Lista mezclada.':'Mezcla desactivada.',{sh:on},quiet)}
 function spRepeat(st,quiet){return spSet('/me/player/repeat?state='+st,st==='track'?'Repito esta canción.':st==='context'?'Repito la lista.':'Repetición desactivada.',{rp:st},quiet)}
 function spNeedScope(e){ if(e&&e.status===403) return reply('Para eso necesito más permisos de Spotify. Vuelve a conectarlo en Ajustes.'); return spErr(e) }
@@ -6542,6 +6552,7 @@ function ytLinkFallback(q){
 }
 var vidAuto=false;
 function playVideo(q,o){
+  if(q) spStop();
   vidAuto=!!(o&&o.auto); if(q&&RAD.audio) radStop(false); if(q&&AMB.kind) ambStop(false);
   if(q) askN=0;
   if(!q){if(++askN>2){askN=0; askVideoNext=false; return reply('Cuando quieras, dime pon y el nombre del video.')} askVideoNext=Date.now()+20000; return reply('¿Qué video quieres ver?').then(function(){if(askVideoNext) listenNext()})}
@@ -6856,7 +6867,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-26-spotifyplus3', pendingUpdate=false;
+var APP_VERSION='2026-10-26-spotifyplus4', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
