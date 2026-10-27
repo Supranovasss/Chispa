@@ -3727,12 +3727,12 @@ function nightEnd(){NIGHT={until:0}; nightSave(); gentleStop()}
 function inNightWindow(){var d=new Date(), w=wakeAt(), m=d.getHours()*60+d.getMinutes(); return m>=19*60||m<w[0]*60+w[1]}
 function gentleStop(){clearInterval(GENT.t); GENT.t=0}
 function gentlePlay(){
-  if(GENT.n++>=26){gentleStop(); return}
+  if(GENT.n++>=2){gentleStop(); return}
   var c=audio(); if(!c) return; try{c.resume()}catch(e){}
   var g=Math.min(.16,.03+GENT.n*.005), t0=c.currentTime+.05;
   [523.25,659.25,783.99,1046.5].forEach(function(f,i){var o=c.createOscillator(), e=c.createGain(), s=t0+i*.55; o.type='sine'; o.frequency.value=f; e.gain.setValueAtTime(0,s); e.gain.linearRampToValueAtTime(g,s+.08); e.gain.exponentialRampToValueAtTime(.0008,s+1.4); o.connect(e); e.connect(c.destination); o.start(s); o.stop(s+1.5)});
 }
-function gentleStart(){gentleStop(); GENT.n=0; GENT.start=Date.now(); GENT.t=setInterval(gentlePlay,7000); gentlePlay()}
+function gentleStart(){gentleStop(); GENT.n=0; GENT.start=Date.now(); GENT.t=setInterval(gentlePlay,90000); gentlePlay()}
 function morningWake(){
   NIGHT={until:0}; nightSave(); if(sbOn) sbExit(); wakeUp(); lastAct=Date.now(); GENT.start=Date.now();
   setMood('happy',9000); document.dispatchEvent(new Event('chispa-burst')); el.bubble.textContent='¡Buenos días! Di: Oye Chispa, buenos días';
@@ -6226,17 +6226,28 @@ function musicQuery(raw){
      .replace(/\b(de|del)\b/ig,' ').replace(/\s+/g,' ').trim();
   return /^(m[uú]sica|canci[oó]n|canciones|algo)$/i.test(r)?'':r;
 }
+var SPLANG={ingles:['english','US'],english:['english','US'],espanol:['spanish','from_token'],portugues:['portuguese','BR'],frances:['french','FR'],italiano:['italian','IT'],aleman:['german','DE'],coreano:['korean','KR'],japones:['japanese','JP']};
+function spLang(q){
+  var n=String(q).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''), m=n.match(/\b(?:en|de|y|con letra en)\s+(ingles|english|espanol|portugues|frances|italiano|aleman|coreano|japones)\b|\b(ingles|english)\b/);
+  if(!m) return null; var k=m[1]||m[2], L=SPLANG[k]; if(!L) return null;
+  var base=n.replace(m[0],' ').replace(/\b(musica|canciones|cancion|algo|de|del|en|la|el|las|los|unas|unos)\b/g,' ').replace(/\s+/g,' ').trim();
+  if(!base) base='hits';
+  return {w:L[0],mk:L[1],q:base+' '+L[0]};
+}
 var askN=0;
 function spPlayQuery(q,pl){
   spMHide='';
   if(resumeMedia) resumeMedia.t=true; if(q&&RAD.audio) radStop(false); if(q&&AMB.kind) ambStop(false);
   if(q) askN=0;
   if(!q){if(++askN>2){askN=0; askMusicNext=false; return reply('Cuando quieras, dime pon y el nombre de la canción.')} askMusicNext=Date.now()+20000; return reply('¿Qué quieres escuchar?').then(function(){if(askMusicNext) listenNext()})}
+  var LG=spLang(q), mk0='from_token';
+  if(LG){q=LG.q; pl=true; if(LG.w==='english'||LG.w==='portuguese'||LG.w==='french'||LG.w==='italian'||LG.w==='german') mk0=LG.mk}
   setMood('thinking'); el.bubble.textContent='Buscando “'+q+'”…';
-  if(pl) return spApi('/search?type=playlist&limit=5&market=from_token&q='+encodeURIComponent(q)).then(function(j){
+  if(pl) return spApi('/search?type=playlist&limit=10&market='+mk0+'&q='+encodeURIComponent(q)).then(function(j){
     var its=((j.playlists&&j.playlists.items)||[]).filter(Boolean);
     if(!its.length) throw new Error('nopl');
     var l0=its[0];
+    if(LG){var nn=function(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}; l0=its.filter(function(p){return nn(p.name+' '+(p.description||'')).indexOf(LG.w)>=0})[0]||its[0]}
     return spDevice().then(function(dev){
       return reply('Va una playlist de '+q+'.').then(function(){
         return spApi('/me/player/play?device_id='+encodeURIComponent(dev),{method:'PUT',body:JSON.stringify({context_uri:l0.uri})}).then(function(){setMood('happy',1500)});
@@ -6867,7 +6878,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-26-spotifyplus4', pendingUpdate=false;
+var APP_VERSION='2026-10-27-idioma', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
