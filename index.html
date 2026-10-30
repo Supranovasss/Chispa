@@ -2641,7 +2641,7 @@ var INTENTS=[
      var o=openThings(), N={recipe:'una receta',video:'un video',img:'una imagen',timers:'temporizadores',lista:'la lista de compras',alarm:'las alarmas',clock:'el reloj',wx:'el clima',game:'un juego',hub:'tu '+(HUBTAB==='recetas'?'recetario':HUBTAB==='notas'?'cuaderno de notas':HUBTAB==='lista'?'lista':'agenda')}, l=[];
      for(var k in o) if(o[k]&&N[k]) l.push(N[k]);
      reply(l.length?'Tengo abierto: '+l.join(', ')+'.':'No tengo nada abierto.')}],
-  [function(q){return spOn()&&!spPlaying&&!vidPlayer&&/^(continua|reanuda|sigue|dale play|play|dale)$/.test(q)}, function(){spCtl('play')}],
+  [function(q){return spOn()&&!!spOwnDev&&!spPlaying&&!vidPlayer&&/^(continua|reanuda|sigue|dale play|play|dale)$/.test(q)}, function(){spCtl('play')}],
   [function(q){return hubQuery(q)!==null}, function(q){var t=hubQuery(q); openHub(t);
      var msg=t==='recetas'?(RECS.length?'Tienes '+RECS.length+(RECS.length===1?' receta guardada.':' recetas guardadas.'):'Todavía no tienes recetas guardadas.'):t==='notas'?(NOTES.length?'Tienes '+NOTES.length+(NOTES.length===1?' nota.':' notas.'):'No tienes notas.'):t==='lista'?(SHOP.length?'Tienes '+SHOP.length+' cosas en la lista.':'Tu lista está vacía.'):(REMS.length?'Tienes '+REMS.length+(REMS.length===1?' pendiente.':' pendientes.'):'No tienes alarmas ni recordatorios.');
      reply(msg)}],
@@ -6074,11 +6074,11 @@ function spCallback(){
 function spInit(){
   if(!spOn()||spPlayer||spSdkP) return;
   spSdkP=new Promise(function(res,rej){
-    window.onSpotifyWebPlaybackSDKReady=res;
+    window.onSpotifyWebPlaybackSDKReady=res; if(window.Spotify&&window.Spotify.Player){res(); return}
     /* El reproductor de Spotify rechaza los navegadores móviles; en la app de la tablet se presenta como Chrome de escritorio */
     if(window.ChispaApp){try{Object.defineProperty(navigator,'userAgent',{get:function(){return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'},configurable:true})}catch(e){}}
     var sc=document.createElement('script'); sc.src='https://sdk.scdn.co/spotify-player.js'; sc.onerror=function(){rej(new Error('sdk'))};
-    document.head.appendChild(sc);
+    if(!(window.Spotify&&window.Spotify.Player)) document.head.appendChild(sc);
   }).then(function(){
     var pl=new Spotify.Player({name:'Chispa',volume:.8,getOAuthToken:function(cb){spGetToken().then(cb).catch(function(){})}});
     pl.addListener('ready',function(d){spDeviceId=d.device_id; spPlayer=pl; note('Spotify listo en esta tablet.')});
@@ -6089,13 +6089,20 @@ function spInit(){
     pl.addListener('playback_error',function(m){spLastErr='no pudo reproducir ('+((m&&m.message)||'sin detalle')+')'; note('Spotify no pudo reproducir eso.')});
     pl.addListener('player_state_changed',function(st){
       if(!st){spPlaying=false; return}
-      spPlaying=!st.paused; var c=st.track_window&&st.track_window.current_track;
+      spPlaying=!st.paused; spIdleArm(!st.paused); var c=st.track_window&&st.track_window.current_track;
       spTrack=c?c.name+', de '+c.artists.map(function(a){return a.name}).join(' y '):'';
       if(c) spMiniSet({id:c.uri,name:c.name,artist:c.artists.map(function(a){return a.name}).join(', '),img:(c.album&&c.album.images&&c.album.images[0]||{}).url||'',paused:st.paused,pos:st.position,dur:st.duration,sh:!!st.shuffle,rp:['off','context','track'][st.repeat_mode|0]||'off'});
     });
     pl.connect();
     addEventListener('pointerdown',function(){try{pl.activateElement()}catch(e){}},{once:true,passive:true});
   }).catch(function(){spSdkFail=true; spLastErr='no se pudo cargar el reproductor de Spotify'});
+}
+/* El reproductor de la tablet solo existe mientras se usa: así no aparece en Spotify ni le roba la música al computador o al celular */
+var spIdleT=0, spOwnDev='';
+function spIdleArm(playing){clearTimeout(spIdleT); if(!playing&&spPlayer) spIdleT=setTimeout(spRelease,10*60000)}
+function spRelease(){
+  clearTimeout(spIdleT); try{if(spPlayer) spPlayer.disconnect()}catch(e){}
+  spPlayer=null; spDeviceId=''; spSdkP=null; spSdkFail=false; spPlaying=false; spOwnDev=''; spM=null; try{spMiniDraw()}catch(e){}
 }
 function spDuck(on){
   if(!spPlayer) return;
@@ -6107,10 +6114,12 @@ function spDuck(on){
     spDucked=false; try{spPlayer.setVolume(spSaved)}catch(e){}
   }
 }
-function spDevice(){
+function spDevice(){return spDevice0().then(function(d){spOwnDev=d; return d})}
+function spDevice0(){
+  if(spOn()&&!spPlayer&&!spSdkP&&!spSdkFail) spInit();
   return new Promise(function(res){
     var t0=Date.now();
-    (function w(){if(spDeviceId||!spSdkP||spSdkFail||Date.now()-t0>5000) res(); else setTimeout(w,300)})();
+    (function w(){if(spDeviceId||!spSdkP||spSdkFail||Date.now()-t0>9000) res(); else setTimeout(w,300)})();
   }).then(function(){
     if(spDeviceId) return spDeviceId;
     return spApi('/me/player/devices').then(function(j){
@@ -6293,8 +6302,9 @@ function spMiniDraw(){
   var pos=spM.pos+(spM.paused?0:Date.now()-spM.t); $('#spProg').style.width=(spM.dur?Math.min(100,pos/spM.dur*100):0)+'%';
 }
 function spMiniPoll(){
-  if(!spOn()) return;
+  if(!spOn()||!spOwnDev) return;
   spApi('/me/player').then(function(j){
+    if(j&&j.device&&j.device.id&&j.device.id!==spOwnDev){ if(spM){spM=null; spPlaying=false; spMiniDraw()} return }
     if(!j||!j.item){ if(spM){spM.paused=true; spMiniDraw()} return }
     spPlaying=!!j.is_playing;
     spMiniSet({id:j.item.uri,name:j.item.name,artist:(j.item.artists||[]).map(function(a){return a.name}).join(', '),img:((j.item.album&&j.item.album.images)||[{}])[0].url||'',paused:!j.is_playing,pos:j.progress_ms||0,dur:j.item.duration_ms||0,sh:!!j.shuffle_state,rp:j.repeat_state||'off'});
@@ -6307,7 +6317,7 @@ setInterval(function(){ if(spOn()&&!document.hidden) spMiniPoll() },8000);
   el.addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b) return; var a=b.getAttribute('data-a');
     if(typeof actV==='function') try{actV()}catch(x){}
-    if(a==='x'){ if(spM) spMHide=spM.id; try{spPlaying=false; if(spM) spM.paused=true; if(spPlayer&&spDeviceId) spPlayer.pause(); spApi('/me/player/pause',{method:'PUT'}).catch(function(){})}catch(x){} spMiniDraw(); return }
+    if(a==='x'){ if(spM) spMHide=spM.id; try{spPlaying=false; if(spM) spM.paused=true; if(spPlayer&&spDeviceId) spPlayer.pause(); spApi('/me/player/pause',{method:'PUT'}).catch(function(){}); setTimeout(spRelease,1500)}catch(x){} spMiniDraw(); return }
     if(a==='shuf'){ spShuffle(!(spM&&spM.sh)); return }
     if(a==='rep'){ spRepeat(!spM||spM.rp==='off'||!spM.rp?'context':spM.rp==='context'?'track':'off'); return }
     if(a==='tog'){ if(spM){if(!spM.paused) spM.pos+=Date.now()-spM.t; spM.paused=!spM.paused; spM.t=Date.now(); spMiniDraw()} spCtl(spM&&spM.paused?'pause':'play'); }
@@ -6326,7 +6336,7 @@ function spStop(){
     if(!spOn()) return;
     var was=spPlaying||(spM&&!spM.paused); if(spM) spMHide=spM.id;
     spPlaying=false; if(spM) spM.paused=true;
-    if(was){ try{if(spPlayer&&spDeviceId) spPlayer.pause()}catch(e){} spApi('/me/player/pause',{method:'PUT'}).catch(function(){}) }
+    if(was){ try{if(spPlayer&&spDeviceId) spPlayer.pause()}catch(e){} spApi('/me/player/pause',{method:'PUT'}).catch(function(){}); setTimeout(spRelease,1500) }
     spMiniDraw();
   }catch(e){}
 }
@@ -6883,7 +6893,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 lock();
 
 /* ---------- Actualización automática ---------- */
-var APP_VERSION='2026-10-27-sinalarma', pendingUpdate=false;
+var APP_VERSION='2026-10-30-spotifysolo', pendingUpdate=false;
 function updTries(){try{return +(sessionStorage.getItem('chispa.updTry')||0)}catch(e){return 0}}
 function checkUpdate(){
   return fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
@@ -6912,7 +6922,7 @@ $('#verTag').textContent=' · v'+APP_VERSION; $('#verTag').style.cssText='cursor
 tick(); setInterval(tick,1000);
 autoWake();
 CFG.follow=true; setTimeout(function(){startFollow(true)},1500); addEventListener('pointerdown',function(){if(CFG.follow&&!stream&&!camMode&&Date.now()-followTry>5000) startFollow(true)},{passive:true});
-spCallback(); if(spOn()) setTimeout(spInit,2500);
+spCallback();
 loadWeather(); setInterval(loadWeather,20*60*1000);
 if(window.claude&&!/github\.io$/.test(location.hostname)){setTimeout(function(){var m='Estás en la vista de Claude: aquí no puedo traer clima, imágenes ni YouTube y no guardo tus llaves. Abre en Chrome: supranovasss.github.io/Chispa';note(m); el.bubble.textContent=m},2500)}
 requestAnimationFrame(frame);
